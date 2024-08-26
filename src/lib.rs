@@ -27,6 +27,7 @@ mod privacy;
 mod stderror_logger;
 pub mod global_logger;
 mod macros;
+mod log_record;
 
 pub use level::Level;
 
@@ -34,6 +35,6 @@ pub use level::Level;
 pub mod hidden {
     pub use crate::macros::{PrivateFormatter};
     pub use crate::global_logger::GLOBAL_LOGGER;
-    pub use crate::logger::{Logger,LogRecord};
-
+    pub use crate::logger::{Logger};
+    pub use crate::log_record::LogRecord;
 }
