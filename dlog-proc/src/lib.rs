@@ -207,28 +207,3 @@ pub fn lformat(input: TokenStream) -> TokenStream {
 
     source.parse().unwrap()
 }
-
-#[proc_macro_attribute]
-pub fn perfwarn(attr: TokenStream, item: TokenStream) -> TokenStream {
-    // Parse the attribute arguments
-    let literal = match attr.into_iter().next() {
-        Some(TokenTree::Literal(lit)) => lit,
-        _ => {
-            return r#"compile_error!("Expected a string literal argument")"#.parse().unwrap();
-        }
-    };
-
-
-
-    //generate the output
-
-    let o = format!(
-        "
-        let interval = ::dlog::perfwarn_begin!({LITERAL});
-        {ITEM}
-        drop(interval);
-    ", LITERAL = literal, ITEM = item);
-
-    // Return the generated code
-    o.parse().unwrap()
-}

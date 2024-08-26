@@ -38,5 +38,4 @@ pub mod hidden {
     pub use crate::log_record::LogRecord;
     pub use dlog_proc::lformat;
 }
-pub use macros::perfwarn;
 extern crate self as dlog;

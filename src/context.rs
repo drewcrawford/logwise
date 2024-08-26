@@ -167,7 +167,7 @@ impl Context {
     Internal implementation detail of the logging system.
     */
     #[inline]
-    pub unsafe fn _log_current_context() -> &'static Context {
+    pub unsafe fn _log_current_context(file: &'static str,line: u32, column: u32) -> &'static Context {
         use crate::logger::Logger;
         match (&*Context::current()).as_ref() {
             None => {
@@ -178,8 +178,8 @@ impl Context {
                 record.log("WARN: ");
 
                 //file, line
-                record.log(file!());
-                record.log_owned(format!(":{}:{} ",line!(),column!()));
+                record.log(file);
+                record.log_owned(format!(":{}:{} ",line,column));
 
                 //for warn, we can afford timestamp
                 record.log_timestamp();

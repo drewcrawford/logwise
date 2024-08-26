@@ -1,7 +1,6 @@
 use crate::log_record::LogRecord;
 use crate::privacy::Loggable;
 
-pub use dlog_proc::perfwarn;
 
 pub struct PrivateFormatter<'a> {
     record: &'a mut LogRecord,
@@ -38,7 +37,7 @@ macro_rules! warn_sync {
     ($($arg:tt)*) => {
         unsafe {
             use $crate::hidden::Logger;
-            let read_ctx = $crate::context::Context::_log_current_context();
+            let read_ctx = $crate::context::Context::_log_current_context(file!(),line!(),column!());
 
             let mut record = $crate::hidden::LogRecord::new();
             read_ctx._log_prelude(&mut record);
@@ -82,7 +81,7 @@ macro_rules! perfwarn_begin {
             let start = std::time::Instant::now();
 
             use $crate::hidden::Logger;
-            let read_ctx = $crate::context::Context::_log_current_context();
+            let read_ctx = $crate::context::Context::_log_current_context(file!(),line!(),column!());
 
             let mut record = $crate::hidden::LogRecord::new();
             read_ctx._log_prelude(&mut record);
@@ -102,8 +101,32 @@ macro_rules! perfwarn_begin {
     };
 }
 
+/**
+Logs a performance warning interval.
+
+```
+use dlog::perfwarn;
+let _: i32 = perfwarn!("Interval name", {
+ //code to profile
+    23
+});
+```
+*/
+#[macro_export]
+macro_rules! perfwarn {
+    ($name:literal, $code:block) => {
+        {
+            let interval = perfwarn_begin!($name);
+            let result = $code;
+            drop(interval);
+            result
+        }
+    };
+}
 
 #[cfg(test)] mod tests {
+    use dlog::context::Context;
+
     #[test]
     fn test_warn_sync() {
         crate::context::Context::reset();
@@ -120,10 +143,12 @@ macro_rules! perfwarn_begin {
 
 
     #[test] fn perfwarn() {
-        crate::context::Context::reset();
-        use crate::macros::perfwarn;
-        #[perfwarn("perfwarn test")] fn ex() {
-            warn_sync!("Hello {world}!",world=23);
-        }
+        use dlog::perfwarn;
+        Context::reset();
+        let _: i32 = perfwarn!("Interval name", {
+         //code to profile
+            23
+        });
+
     }
 }
