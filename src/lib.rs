@@ -24,5 +24,7 @@ reset, push, pop, etc
 mod level;
 mod logger;
 mod privacy;
+mod stderror_logger;
+pub mod global_logger;
 
 pub use level::Level;

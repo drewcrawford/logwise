@@ -8,7 +8,7 @@ pub trait Loggable {
     /**
     Logs the object to the provided builder.
 
-    Use the representation that makes sense for public logging
+    Use the representation that makes sense for public logging to a remote server.
 
     When implementing this, use of `#[inline]` is recommended.
     */

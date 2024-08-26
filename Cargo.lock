@@ -5,3 +5,10 @@ version = 3
 [[package]]
 name = "dlog"
 version = "0.1.0"
+dependencies = [
+ "dlog-proc",
+]
+
+[[package]]
+name = "dlog-proc"
+version = "0.1.0"

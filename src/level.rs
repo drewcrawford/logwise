@@ -16,3 +16,4 @@ pub enum Level {
     /// Shipped to users in their release builds, programmer error
     Panic,
 }
+
