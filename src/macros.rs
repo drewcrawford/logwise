@@ -41,6 +41,22 @@ macro_rules! warn_sync {
             use $crate::hidden::Logger;
             let read_ctx = match (&*$crate::context::Context::current()).as_ref() {
                 None => {
+                    /*
+                    Create an additional warning about the missing context.
+                     */
+                     let mut record = $crate::hidden::LogRecord::new();
+                    record.log("WARN: ");
+
+                    //file, line
+                    record.log(file!());
+                    record.log_owned(format!(":{}:{} ",line!(),column!()));
+
+                    //for warn, we can afford timestamp
+                    record.log_timestamp();
+                    record.log("No context found. Creating orphan context.");
+
+                    let global_logger = &$crate::hidden::GLOBAL_LOGGER;
+                    global_logger.finish_log_record(record);
                     let new_ctx = $crate::context::Context::new_orphan();
                     new_ctx.set_current();
                     (&*$crate::context::Context::current()).as_ref().unwrap()
@@ -77,6 +93,11 @@ macro_rules! warn_sync {
 #[cfg(test)] mod tests {
     #[test]
     fn test_warn_sync() {
+        crate::context::Context::reset();
         warn_sync!("Hello {world}!",world=23);
+    }
+
+    #[test] fn test_runtime_context() {
+
     }
 }
