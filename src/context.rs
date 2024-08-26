@@ -28,6 +28,42 @@ impl Display for ContextID {
     }
 }
 
+struct BaseContext {
+    interval_statistics: HashMap<&'static str, std::time::Duration>,
+    task_id: TaskID
+}
+
+impl BaseContext {
+    #[inline]
+    fn add_task_interval(&mut self, key: &'static str, duration: std::time::Duration) {
+        self.interval_statistics.get_mut(key).map(|v| *v += duration).unwrap_or_else(|| {
+            self.interval_statistics.insert(key, duration);
+        });
+    }
+}
+
+impl Drop for BaseContext {
+    fn drop(&mut self) {
+        use crate::logger::Logger;
+        if !self.interval_statistics.is_empty() {
+            let mut record = crate::log_record::LogRecord::new();
+            //log task ID
+            record.log_owned(format!("{} ",self.task_id.0));
+            record.log("PERFWARN: statistics[");
+            for (key, duration) in &self.interval_statistics {
+                record.log(key);
+                record.log_owned(format!(": {:?},", duration));
+            }
+            record.log("]");
+            crate::global_logger::GLOBAL_LOGGER.finish_log_record(record);
+        }
+
+        let mut record = crate::log_record::LogRecord::new();
+        record.log_owned(format!("{} ",self.task_id.0));
+        record.log("Finished task");
+        crate::global_logger::GLOBAL_LOGGER.finish_log_record(record);
+    }
+}
 
 
 /**
@@ -36,8 +72,11 @@ Provides a set of info that can be used by multiple logs.
 pub struct Context {
     parent: Option<Box<Context>>,
     values: HashMap<&'static str, Box<dyn Loggable>>,
-    task_id: u64,
-    context_id: u64
+    context_id: u64,
+    /**
+    The base context of the current context.
+    */
+    base_context: Option<BaseContext>,
 }
 
 thread_local! {
@@ -69,6 +108,20 @@ impl Context {
             c.as_ptr()
         })
     }
+
+    /**
+    Returns a raw pointer to the thread-local context.
+
+    When using this pointer, you must ensure that the context is only accessed from the local thread,
+    and is not mutated by the local thread while the pointer is in use.
+    */
+    #[inline]
+    pub fn current_mut() -> *mut Option<Context> {
+        CONTEXT.with(|c| {
+            c.as_ptr()
+        })
+    }
+
     /**
     Creates a new orphaned context
     */
@@ -77,8 +130,11 @@ impl Context {
         Context {
             parent: None,
             values: HashMap::new(),
-            task_id: TASK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-            context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            base_context: Some(BaseContext {
+                interval_statistics: HashMap::new(),
+                task_id: TaskID(TASK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
+            }),
         }
     }
 
@@ -92,7 +148,7 @@ impl Context {
 
     #[inline]
     pub fn task_id(&self) -> TaskID {
-        TaskID(self.task_id)
+        self.base_context().unwrap().task_id
     }
 
     /**
@@ -128,17 +184,18 @@ impl Context {
     */
     pub(crate) fn new_push() -> ContextID {
         let current = CONTEXT.with(|c| c.take()).unwrap();
-        let task_id = current.task_id().0;
         let new_context = Context {
             parent: Some(Box::new(current)),
             values: HashMap::new(),
-            task_id,
-            context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            base_context: None,
         };
         let id = new_context.context_id();
-        new_context.set_current();
+        CONTEXT.with(|c| c.set(Some(new_context)));
         id
     }
+
+
 
     /**
     Pops the context with specified ID.
@@ -150,7 +207,7 @@ impl Context {
         loop {
             if current.context_id() == id {
                 let parent = current.parent.take().unwrap();
-                parent.set_current();
+                CONTEXT.set(Some(*parent));
                 return;
             }
             let parent = current.parent.take().unwrap();
@@ -161,6 +218,24 @@ impl Context {
 
     pub fn set<L: Loggable + 'static>(&mut self, key: &'static str, value: L) {
         self.values.insert(key, Box::new(value));
+    }
+
+    fn base_context_mut(&mut self) -> Option<&mut BaseContext> {
+        match self.base_context.as_mut() {
+            Some(base) => Some(base),
+            None => {
+                self.parent.as_mut()?.base_context_mut()
+            }
+        }
+    }
+
+    fn base_context(&self) -> Option<&BaseContext> {
+        match self.base_context.as_ref() {
+            Some(base) => Some(base),
+            None => {
+                self.parent.as_ref()?.base_context()
+            }
+        }
     }
 
     /**
@@ -207,5 +282,9 @@ impl Context {
             record.log(" ");
         }
         record.log_owned(format!("{} ",self.task_id()));
+    }
+
+    #[inline] pub fn _add_task_interval(&mut self, key: &'static str, duration: std::time::Duration) {
+        self.base_context_mut().unwrap().add_task_interval(key,duration);
     }
 }

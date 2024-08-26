@@ -39,6 +39,11 @@ impl PerfwarnInterval {
 impl Drop for PerfwarnInterval {
     fn drop(&mut self) {
         let end_time = std::time::Instant::now();
+        let duration = end_time.duration_since(self.start);
+        unsafe {
+            let ctx = &mut *Context::current_mut();
+            ctx.as_mut().unwrap()._add_task_interval(self.label, duration);
+        }
 
         Context::pop(self.context_id);
         let mut record = LogRecord::new();
@@ -52,7 +57,6 @@ impl Drop for PerfwarnInterval {
 
         record.log(self.label);
         record.log(" ");
-        let duration = end_time.duration_since(self.start);
         record.log_owned(format!("[interval took {:?}] ", duration));
         GLOBAL_LOGGER.finish_log_record(record);
 

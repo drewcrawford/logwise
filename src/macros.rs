@@ -116,7 +116,7 @@ let _: i32 = perfwarn!("Interval name", {
 macro_rules! perfwarn {
     ($name:literal, $code:block) => {
         {
-            
+
             let interval = dlog::perfwarn_begin!($name);
             let result = $code;
             drop(interval);
@@ -131,14 +131,14 @@ macro_rules! perfwarn {
     #[test]
     fn test_warn_sync() {
         crate::context::Context::reset();
-        warn_sync!("Hello {world}!",world=23);
+        warn_sync!("test_warn_sync Hello {world}!",world=23);
     }
 
     #[test]
     fn test_perfwarn_begin() {
         crate::context::Context::reset();
         let t = perfwarn_begin!("Hello world!");
-        warn_sync!("During the interval");
+        warn_sync!("During the test_perfwarn_begin interval");
         drop(t);
     }
 
@@ -146,7 +146,7 @@ macro_rules! perfwarn {
     #[test] fn perfwarn() {
         use dlog::perfwarn;
         Context::reset();
-        let _: i32 = perfwarn!("Interval name", {
+        let _: i32 = perfwarn!("test_perfwarn interval name", {
          //code to profile
             23
         });
