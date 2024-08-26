@@ -116,7 +116,8 @@ let _: i32 = perfwarn!("Interval name", {
 macro_rules! perfwarn {
     ($name:literal, $code:block) => {
         {
-            let interval = perfwarn_begin!($name);
+            
+            let interval = dlog::perfwarn_begin!($name);
             let result = $code;
             drop(interval);
             result
