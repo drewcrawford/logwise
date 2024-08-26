@@ -1,4 +1,3 @@
-use std::fmt::{Display, Formatter};
 use std::io::Write;
 use crate::log_record::LogRecord;
 use crate::logger::Logger;

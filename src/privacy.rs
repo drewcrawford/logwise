@@ -22,6 +22,8 @@ pub trait Loggable {
     fn log_all(&self, record: &mut LogRecord);
 }
 
+
+
 /**
 u8 is probably not private.
 */

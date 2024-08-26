@@ -9,6 +9,10 @@ pub enum Level {
     Info,
     /// In debug builds, logs.  In release builds, may be interesting to phone home
     Analytics,
+    /**
+    Available in release builds, provides performance-critical warnings.
+    */
+    PerfWarn,
     /// Shipped to users in their release builds
     Warning,
     /// Shipped to users in their release builds, runtime error

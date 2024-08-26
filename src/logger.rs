@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug};
 use crate::hidden::LogRecord;
 
 pub trait Logger: Debug  {
@@ -24,6 +24,7 @@ pub trait Logger: Debug  {
     */
     fn prepare_to_die(&self);
 }
+
 
 
 

@@ -1,4 +1,3 @@
-use std::cell::OnceCell;
 use std::fmt::{Debug, Display};
 use std::sync::OnceLock;
 
@@ -56,10 +55,11 @@ impl LogRecord {
     /**
     Log the current time to the record, followed by a space.
     */
-    pub fn log_timestamp(&mut self) {
+    pub fn log_timestamp(&mut self) -> std::time::Instant {
         let time = std::time::Instant::now();
         let duration = time.duration_since(initial_timestamp());
         self.log_owned(format!("[{:?}] ", duration));
+        time
     }
 }
 

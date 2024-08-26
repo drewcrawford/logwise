@@ -28,6 +28,8 @@ mod stderror_logger;
 pub mod global_logger;
 mod macros;
 mod log_record;
+mod interval;
+pub mod context;
 
 pub use level::Level;
 
