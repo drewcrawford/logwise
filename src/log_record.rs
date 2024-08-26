@@ -1,4 +1,12 @@
+use std::cell::OnceCell;
 use std::fmt::{Debug, Display};
+use std::sync::OnceLock;
+
+static INITIAL_TIMESTAMP: OnceLock<std::time::Instant> = OnceLock::new();
+
+fn initial_timestamp() -> std::time::Instant {
+    *INITIAL_TIMESTAMP.get_or_init(|| std::time::Instant::now())
+}
 
 /**
 A log record.
@@ -43,6 +51,15 @@ impl LogRecord {
         Self {
             parts: Vec::new(),
         }
+    }
+
+    /**
+    Log the current time to the record, followed by a space.
+    */
+    pub fn log_timestamp(&mut self) {
+        let time = std::time::Instant::now();
+        let duration = time.duration_since(initial_timestamp());
+        self.log_owned(format!("[{:?}] ", duration));
     }
 }
 

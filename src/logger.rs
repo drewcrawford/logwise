@@ -23,8 +23,6 @@ pub trait Logger: Debug  {
     The application may imminently exit.  Ensure all buffers are flushed and up to date.
     */
     fn prepare_to_die(&self);
-
-
 }
 
 

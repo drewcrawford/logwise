@@ -25,6 +25,7 @@ Logs a message at warning level.
 ```
 use dlog::warn_sync;
 warn_sync!("Hello {world}!",world=23);
+todo!();
 ```
 */
 
@@ -35,10 +36,13 @@ macro_rules! warn_sync {
         use $crate::hidden::{Logger,LogRecord};
         let mut record = LogRecord::new();
         record.log("WARN: ");
+        //for warn, we can afford timestamp
+        record.log_timestamp();
         let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
-        let global_logger = &dlog::hidden::GLOBAL_LOGGER;
 
         dlog_proc::lformat!(formatter,$($arg)*);
+        //warn sent to global logger
+        let global_logger = &dlog::hidden::GLOBAL_LOGGER;
         global_logger.finish_log_record(record);
     };
 }
