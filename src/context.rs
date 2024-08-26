@@ -61,6 +61,19 @@ impl Context {
     }
 
     /**
+    Finds the number of nesting contexts.
+    */
+    pub fn nesting_level(&self) -> usize {
+        let mut level = 0;
+        let mut current = self;
+        while let Some(parent) = &current.parent {
+            level += 1;
+            current = parent;
+        }
+        level
+    }
+
+    /**
     Pushes the current context onto the stack and sets this context as the current one.
     */
     pub fn push(mut self) {

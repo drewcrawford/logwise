@@ -67,22 +67,27 @@ macro_rules! warn_sync {
 
             };
 
-        let mut record = $crate::hidden::LogRecord::new();
-        record.log("WARN: ");
+            let mut record = $crate::hidden::LogRecord::new();
+            //nest to appropriate level
+            for _ in 0..read_ctx.nesting_level() {
+                record.log(" ");
+            }
 
-        //file, line
-        record.log(file!());
-        record.log_owned(format!(":{}:{} ",line!(),column!()));
+            record.log("WARN: ");
 
-        //for warn, we can afford timestamp
-        record.log_timestamp();
+            //file, line
+            record.log(file!());
+            record.log_owned(format!(":{}:{} ",line!(),column!()));
 
-        let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
+            //for warn, we can afford timestamp
+            record.log_timestamp();
 
-        $crate::hidden::lformat!(formatter,$($arg)*);
-        //warn sent to global logger
-        let global_logger = &$crate::hidden::GLOBAL_LOGGER;
-        global_logger.finish_log_record(record);
+            let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
+
+            $crate::hidden::lformat!(formatter,$($arg)*);
+            //warn sent to global logger
+            let global_logger = &$crate::hidden::GLOBAL_LOGGER;
+            global_logger.finish_log_record(record);
 
         }
 
@@ -97,7 +102,4 @@ macro_rules! warn_sync {
         warn_sync!("Hello {world}!",world=23);
     }
 
-    #[test] fn test_runtime_context() {
-
-    }
 }
