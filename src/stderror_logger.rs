@@ -28,6 +28,7 @@ impl Logger for StdErrorLogger {
         for part in record.parts {
             lock.write_all(part.as_bytes()).expect("Can't log to stderr");
         }
+        lock.write_all(b"\n").expect("Can't log to stderr");
     }
 
     async fn new_log_record_async(&self) -> Self::LogRecord {
@@ -94,12 +95,5 @@ impl crate::logger::LogRecord for LogRecord {
         self.parts.push(message);
     }
 
-    async fn log_async(&mut self, message: &str) {
-        self.parts.push(message.to_string());
-    }
-
-    async fn log_owned_async(&mut self, message: String) {
-        self.parts.push(message);
-    }
 }
 

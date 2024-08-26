@@ -1,9 +1,6 @@
 use std::fmt::Debug;
+use crate::logger::LogRecord;
 
-/// an in-progress log.
-pub trait LogBuilder {
-    fn write(&mut self, message: &str);
-}
 pub trait Loggable {
     /**
     Logs the object to the provided builder.
@@ -12,7 +9,7 @@ pub trait Loggable {
 
     When implementing this, use of `#[inline]` is recommended.
     */
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder);
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record);
 
     /**
     Logs the object to the provided builder.
@@ -22,7 +19,7 @@ pub trait Loggable {
     When implementing this, use of `#[inline]` is recommended.
 
     */
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder);
+    fn log_all<Record: LogRecord>(&self, record: &mut Record);
 }
 
 /**
@@ -30,12 +27,12 @@ u8 is probably not private.
 */
 impl Loggable for u8 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        self.log_redacting_private_info(builder);
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        self.log_redacting_private_info(record);
     }
 }
 
@@ -45,12 +42,12 @@ u16 might be private.
 
 impl Loggable for u16 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<u16>>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<u16>")
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -60,12 +57,12 @@ u32 might be private.
 
 impl Loggable for u32 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<u32>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<u32>")
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -75,12 +72,12 @@ u64 might be private.
 
 impl Loggable for u64 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<u64>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<u64>")
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -90,12 +87,12 @@ u128 might be private.
 
 impl Loggable for u128 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<u128>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<u128>")
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -105,12 +102,12 @@ i8 is probably not private.
 
 impl Loggable for i8 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        self.log_redacting_private_info(builder);
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        self.log_redacting_private_info(record);
     }
 }
 
@@ -120,12 +117,12 @@ i16 might be private.
 
 impl Loggable for i16 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<i16>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<i16>")
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -135,12 +132,12 @@ i32 might be private.
 
 impl Loggable for i32 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<i32>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<i32>")
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -150,12 +147,12 @@ i64 might be private.
 
 impl Loggable for i64 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<i64>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<i64>")
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -165,12 +162,12 @@ i128 might be private.
 
 impl Loggable for i128 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<i128>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<i128>")
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -180,12 +177,12 @@ f32 might be private.
 
 impl Loggable for f32 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<f32>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<f32>");
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -195,12 +192,12 @@ f64 might be private.
 
 impl Loggable for f64 {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<f64>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<f64>");
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -210,12 +207,12 @@ bool is probably not private.
 
 impl Loggable for bool {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        self.log_redacting_private_info(builder);
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -225,12 +222,12 @@ char is probably not private.
 
 impl Loggable for char {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{}", self));
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        self.log_redacting_private_info(builder);
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{}", self));
     }
 }
 
@@ -240,12 +237,12 @@ String might be private.
 
 impl Loggable for String {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<String>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<String>");
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{:?}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(self.clone());
     }
 }
 
@@ -255,12 +252,12 @@ impl Loggable for String {
 
 impl Loggable for &str {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<&str>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<&str>");
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{:?}", self));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(self.to_string());
     }
 }
 
@@ -270,22 +267,22 @@ slices depend on the underlying type.
 
 impl<T: Loggable> Loggable for &[T] {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<[");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<[");
         for item in self.iter() {
-            item.log_redacting_private_info(builder);
-            builder.write(", ");
+            item.log_redacting_private_info(record);
+            record.log(", ");
         }
-        builder.write("]>");
+        record.log("]>");
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<[");
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<[");
         for item in self.iter() {
-            item.log_all(builder);
-            builder.write(", ");
+            item.log_all(record);
+            record.log(", ");
         }
-        builder.write("]>");
+        record.log("]>");
     }
 }
 
@@ -295,25 +292,25 @@ Option depends on the underlying type.
 
 impl<T: Loggable> Loggable for Option<T> {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
         match self {
             Some(t) => {
-                builder.write("Some(");
-                t.log_redacting_private_info(builder);
-                builder.write(")");
+                record.log("Some(");
+                t.log_redacting_private_info(record);
+                record.log(")");
             },
-            None => builder.write("None"),
+            None => record.log("None"),
         }
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
         match self {
             Some(t) => {
-                builder.write("Some(");
-                t.log_all(builder);
-                builder.write(")");
+                record.log("Some(");
+                t.log_all(record);
+                record.log(")");
             },
-            None => builder.write("None"),
+            None => record.log("None"),
         }
     }
 }
@@ -326,12 +323,12 @@ pub struct LogIt<T>(pub T);
 
 impl<T: Debug> Loggable for LogIt<T> {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write("<LogIt>");
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        record.log("<LogIt>");
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        builder.write(&format!("{:?}", self.0));
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        record.log_owned(format!("{:?}", self.0));
     }
 }
 
@@ -343,11 +340,11 @@ pub struct IPromiseItsNotPrivate<T>(pub T);
 
 impl<T: Loggable> Loggable for IPromiseItsNotPrivate<T> {
     #[inline]
-    fn log_redacting_private_info<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        self.0.log_all(builder);
+    fn log_redacting_private_info<Record: LogRecord>(&self, record: &mut Record) {
+        self.0.log_all(record);
     }
     #[inline]
-    fn log_all<Builder: LogBuilder>(&self, builder: &mut Builder) {
-        self.0.log_all(builder);
+    fn log_all<Record: LogRecord>(&self, record: &mut Record) {
+        self.0.log_all(record);
     }
 }

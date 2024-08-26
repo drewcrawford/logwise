@@ -70,26 +70,6 @@ pub trait LogRecord: Debug + Clone + Display + From<Self::Logger> + Into<String>
     */
     fn log_owned(&mut self, message: String);
 
-    /**
-    Append the message to the record asynchronously.
-
-    This is called in the case that a message is not already owned.  Allows the log record to reuse an async context
-    that already exists, if needed.
-
-    Implementations may choose to implement this as a simple wrapper around [log] if they wish.
-    */
-    async fn log_async(&mut self, message: &str);
-
-    /**
-    Append the message to the record, taking ownership of the message, asynchronously.
-
-    This is useful for messages that are already owned, such as those that are constructed in the process of logging.
-    Logging implementations may choose to copy and drop the value if desired.
-
-    Implementations may choose to implement this as a simple wrapper around [log_owned] if they wish.
-    */
-
-    async fn log_owned_async(&mut self, message: String);
 
 }
 
@@ -173,13 +153,8 @@ impl<R: LogRecord> LogRecord for AnyLogRecord<R> {
         self.0.log_owned(message)
     }
 
-    async fn log_async(&mut self, message: &str) {
-        self.0.log_async(message).await
-    }
 
-    async fn log_owned_async(&mut self, message: String) {
-        self.0.log_owned_async(message).await
-    }
+
 }
 
 impl<R: LogRecord> Clone for AnyLogRecord<R> {

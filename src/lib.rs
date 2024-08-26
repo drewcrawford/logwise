@@ -32,5 +32,8 @@ pub use level::Level;
 
 #[doc(hidden)]
 pub mod hidden {
-    pub use crate::macros::_WARN_LOGGER;
+    pub use crate::macros::{PrivateFormatter};
+    pub use crate::global_logger::GLOBAL_LOGGER;
+    pub use crate::logger::{Logger,LogRecord};
+
 }
