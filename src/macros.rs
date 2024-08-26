@@ -126,10 +126,11 @@ macro_rules! perfwarn_begin {
             record.log("PERFWARN: BEGIN ");
 
 
-            record.log_time_since(start);
             //file, line
             record.log(file!());
             record.log_owned(format!(":{}:{} ",line!(),column!()));
+
+            record.log_time_since(start);
 
             record.log($name);
 
