@@ -37,7 +37,7 @@ macro_rules! warn_sync {
         record.log("WARN: ");
         //for warn, we can afford timestamp
         record.log_timestamp();
-        let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
+        let formatter = $crate::hidden::PrivateFormatter::new(&mut record);
 
         $crate::hidden::lformat!(formatter,$($arg)*);
         //warn sent to global logger
