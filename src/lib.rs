@@ -37,4 +37,5 @@ pub mod hidden {
     pub use crate::global_logger::GLOBAL_LOGGER;
     pub use crate::logger::{Logger};
     pub use crate::log_record::LogRecord;
+    pub use dlog_proc::lformat;
 }
