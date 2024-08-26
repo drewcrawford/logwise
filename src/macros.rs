@@ -87,14 +87,21 @@ macro_rules! perfwarn_begin {
             read_ctx._log_prelude(&mut record);
 
             record.log("PERFWARN: BEGIN ");
-            let interval = $crate::interval::PerfwarnInterval::new($name,start);
 
 
-            interval.log_timestamp(&mut record);
+            record.log_time_since(start);
+            //file, line
+            record.log(file!());
+            record.log_owned(format!(":{}:{} ",line!(),column!()));
+
             record.log($name);
+
+
 
             let global_logger = &$crate::hidden::GLOBAL_LOGGER;
             global_logger.finish_log_record(record);
+            let interval = $crate::interval::PerfwarnInterval::new($name,start);
+
 
             interval
         }
