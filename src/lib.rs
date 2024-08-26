@@ -26,5 +26,11 @@ mod logger;
 mod privacy;
 mod stderror_logger;
 pub mod global_logger;
+mod macros;
 
 pub use level::Level;
+
+#[doc(hidden)]
+pub mod hidden {
+    pub use crate::macros::_WARN_LOGGER;
+}
