@@ -27,6 +27,7 @@ mod macros;
 mod log_record;
 pub mod interval;
 pub mod context;
+mod local_logger;
 
 pub use level::Level;
 

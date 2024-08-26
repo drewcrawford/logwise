@@ -23,6 +23,43 @@ impl<'a> PrivateFormatter<'a> {
 }
 
 /**
+Logs a message at info level.
+*/
+
+#[macro_export]
+macro_rules! info_sync {
+    //pass to lformat!
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        unsafe {
+            use $crate::hidden::Logger;
+            let read_ctx = $crate::context::Context::_log_current_context(file!(),line!(),column!());
+
+            let mut record = $crate::hidden::LogRecord::new();
+            read_ctx._log_prelude(&mut record);
+
+            record.log("INFO: ");
+
+            //file, line
+            record.log(file!());
+            record.log_owned(format!(":{}:{} ",line!(),column!()));
+
+            //for info, we can afford timestamp
+            record.log_timestamp();
+
+            let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
+
+            $crate::hidden::lformat!(formatter,$($arg)*);
+            //info sent to global logger
+            let global_logger = &$crate::hidden::GLOBAL_LOGGER;
+            global_logger.finish_log_record(record);
+
+        }
+
+    };
+}
+
+/**
 Logs a message at warning level.
 
 ```
@@ -138,12 +175,14 @@ macro_rules! perfwarn {
     #[test]
     fn test_warn_sync() {
         crate::context::Context::reset();
+        info_sync!("test_warn_sync");
         warn_sync!("test_warn_sync Hello {world}!",world=23);
     }
 
     #[test]
     fn test_perfwarn_begin() {
         crate::context::Context::reset();
+        info_sync!("test_perfwarn_begin");
         let t = perfwarn_begin!("Hello world!");
         warn_sync!("During the test_perfwarn_begin interval");
         drop(t);
@@ -153,6 +192,7 @@ macro_rules! perfwarn {
     #[test] fn perfwarn() {
         use dlog::perfwarn;
         Context::reset();
+        info_sync!("test_perfwarn");
         let _: i32 = perfwarn!("test_perfwarn interval name", {
          //code to profile
             23
