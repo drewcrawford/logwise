@@ -61,6 +61,11 @@ impl LogRecord {
         self.log_owned(format!("[{:?}] ", duration));
         time
     }
+
+    pub fn log_time_since(&mut self, start: std::time::Instant) {
+        let duration = start.duration_since(initial_timestamp());
+        self.log_owned(format!("[{:?}] ", duration));
+    }
 }
 
 impl Default for LogRecord {

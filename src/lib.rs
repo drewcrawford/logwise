@@ -9,14 +9,11 @@ structured logging is "flat" and limited support for compiling them out
 So, what do we want?
 
 # dlog
-* main package: 5-ish simple macros
-* global, local, custom loggers
+* simple macros
+* global, local loggers
 
-## kv:
-provides an additional context object
-reset, push, pop, etc
+* perfwarn: log a performance warning interval
 
-## perfwarn: convenience
 
 
 */
@@ -28,7 +25,7 @@ mod stderror_logger;
 pub mod global_logger;
 mod macros;
 mod log_record;
-mod interval;
+pub mod interval;
 pub mod context;
 
 pub use level::Level;
@@ -41,3 +38,4 @@ pub mod hidden {
     pub use crate::log_record::LogRecord;
     pub use dlog_proc::lformat;
 }
+extern crate self as dlog;

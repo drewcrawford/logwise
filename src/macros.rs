@@ -1,8 +1,7 @@
-use crate::context::Context;
 use crate::log_record::LogRecord;
 use crate::privacy::Loggable;
 
-
+pub use dlog_proc::perfwarn;
 
 pub struct PrivateFormatter<'a> {
     record: &'a mut LogRecord,
@@ -39,39 +38,10 @@ macro_rules! warn_sync {
     ($($arg:tt)*) => {
         unsafe {
             use $crate::hidden::Logger;
-            let read_ctx = match (&*$crate::context::Context::current()).as_ref() {
-                None => {
-                    /*
-                    Create an additional warning about the missing context.
-                     */
-                     let mut record = $crate::hidden::LogRecord::new();
-                    record.log("WARN: ");
-
-                    //file, line
-                    record.log(file!());
-                    record.log_owned(format!(":{}:{} ",line!(),column!()));
-
-                    //for warn, we can afford timestamp
-                    record.log_timestamp();
-                    record.log("No context found. Creating orphan context.");
-
-                    let global_logger = &$crate::hidden::GLOBAL_LOGGER;
-                    global_logger.finish_log_record(record);
-                    let new_ctx = $crate::context::Context::new_orphan();
-                    new_ctx.set_current();
-                    (&*$crate::context::Context::current()).as_ref().unwrap()
-                }
-                Some(ctx) => {
-                    ctx
-                }
-
-            };
+            let read_ctx = $crate::context::Context::_log_current_context();
 
             let mut record = $crate::hidden::LogRecord::new();
-            //nest to appropriate level
-            for _ in 0..read_ctx.nesting_level() {
-                record.log(" ");
-            }
+            read_ctx._log_prelude(&mut record);
 
             record.log("WARN: ");
 
@@ -94,6 +64,44 @@ macro_rules! warn_sync {
     };
 }
 
+/**
+Logs a performance warning interval.
+
+Takes a single argument, the interval name.
+
+```
+use dlog::perfwarn_begin;
+let interval = perfwarn_begin!("Interval name");
+drop(interval);
+```
+*/
+#[macro_export]
+macro_rules! perfwarn_begin {
+    ($name:literal) => {
+        unsafe {
+            let start = std::time::Instant::now();
+
+            use $crate::hidden::Logger;
+            let read_ctx = $crate::context::Context::_log_current_context();
+
+            let mut record = $crate::hidden::LogRecord::new();
+            read_ctx._log_prelude(&mut record);
+
+            record.log("PERFWARN: BEGIN ");
+            let interval = $crate::interval::PerfwarnInterval::new($name,start);
+
+
+            interval.log_timestamp(&mut record);
+            record.log($name);
+
+            let global_logger = &$crate::hidden::GLOBAL_LOGGER;
+            global_logger.finish_log_record(record);
+
+            interval
+        }
+    };
+}
+
 
 #[cfg(test)] mod tests {
     #[test]
@@ -102,4 +110,20 @@ macro_rules! warn_sync {
         warn_sync!("Hello {world}!",world=23);
     }
 
+    #[test]
+    fn test_perfwarn_begin() {
+        crate::context::Context::reset();
+        let t = perfwarn_begin!("Hello world!");
+        warn_sync!("During the interval");
+        drop(t);
+    }
+
+
+    #[test] fn perfwarn() {
+        crate::context::Context::reset();
+        use crate::macros::perfwarn;
+        #[perfwarn("perfwarn test")] fn ex() {
+            warn_sync!("Hello {world}!",world=23);
+        }
+    }
 }
