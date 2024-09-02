@@ -9,6 +9,7 @@ use crate::global_logger::GLOBAL_LOGGER;
 use crate::log_record::LogRecord;
 use crate::logger::Logger;
 
+#[derive(Debug)]
 pub struct PerfwarnInterval {
     label: &'static str,
     start: std::time::Instant,
@@ -60,5 +61,25 @@ impl Drop for PerfwarnInterval {
         record.log_owned(format!("[interval took {:?}] ", duration));
         GLOBAL_LOGGER.finish_log_record(record);
 
+    }
+}
+
+/*
+boilerplate notes.
+
+1.  Copy, clone, no.  We don't want to copy the context?
+2.  PartialEq, Ord, etc.  No, we don't want to compare these.
+3.  Default, no, we don't want to create these without a start time.
+4.  display, not really.
+5.  From/Into, I think we want to avoid creating this without a line number.
+6.  AsRef/AsMut, there's really nothing to desugar to
+7.  Deref, similar
+8.  Send/Sync, Probably?
+ */
+
+#[cfg(test)] mod tests {
+    #[test] fn assert_send_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<super::PerfwarnInterval>();
     }
 }
