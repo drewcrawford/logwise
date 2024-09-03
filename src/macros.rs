@@ -22,6 +22,47 @@ impl<'a> PrivateFormatter<'a> {
 
 }
 
+
+/**
+Logs a message at debuginternal level.
+*/
+
+#[macro_export]
+macro_rules! debuginternal_sync {
+    //pass to lformat!
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        unsafe {
+            if !module_path!().starts_with(env!("CARGO_PKG_NAME")) {
+                return; //don't log
+            }
+            use $crate::hidden::Logger;
+            let read_ctx = $crate::context::Context::_log_current_context(file!(),line!(),column!());
+
+            let mut record = $crate::hidden::LogRecord::new();
+            read_ctx._log_prelude(&mut record);
+
+            record.log("INFO: ");
+
+            //file, line
+            record.log(file!());
+            record.log_owned(format!(":{}:{} ",line!(),column!()));
+
+            //for info, we can afford timestamp
+            record.log_timestamp();
+
+            let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
+
+            $crate::hidden::lformat!(formatter,$($arg)*);
+            //info sent to global logger
+            let global_logger = &$crate::hidden::GLOBAL_LOGGER;
+            global_logger.finish_log_record(record);
+
+        }
+
+    };
+}
+
 /**
 Logs a message at info level.
 */
@@ -32,6 +73,7 @@ macro_rules! info_sync {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         unsafe {
+
             use $crate::hidden::Logger;
             let read_ctx = $crate::context::Context::_log_current_context(file!(),line!(),column!());
 
@@ -199,5 +241,9 @@ macro_rules! perfwarn {
             23
         });
 
+    }
+    #[test] fn test_debuginternal_sync() {
+        crate::context::Context::reset();
+        debuginternal_sync!("test_debuginternal_sync");
     }
 }
