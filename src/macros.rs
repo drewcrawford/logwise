@@ -69,8 +69,8 @@ macro_rules! debuginternal_sync {
         if !module_path!().starts_with(env!("CARGO_PKG_NAME")) {
             return; //don't log
         }
-        let mut record = crate::hidden::debuginternal_pre(file!(),line!(),column!());
-        let mut formatter = crate::hidden::PrivateFormatter::new(&mut record);
+        let mut record = $crate::hidden::debuginternal_pre(file!(),line!(),column!());
+        let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
 
         crate::hidden::lformat!(formatter,$($arg)*);
         crate::hidden::debuginternal_sync_post(record);
@@ -89,8 +89,8 @@ macro_rules! debuginternal_async {
         if !module_path!().starts_with(env!("CARGO_PKG_NAME")) {
             return; //don't log
         }
-        let mut record = crate::hidden::debuginternal_pre(file!(),line!(),column!());
-        let mut formatter = crate::hidden::PrivateFormatter::new(&mut record);
+        let mut record = $crate::hidden::debuginternal_pre(file!(),line!(),column!());
+        let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
 
         crate::hidden::lformat!(formatter,$($arg)*);
         crate::hidden::debuginternal_async_post(record).await;
