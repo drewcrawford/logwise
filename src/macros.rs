@@ -96,6 +96,33 @@ macro_rules! debuginternal_async {
         crate::hidden::debuginternal_async_post(record).await;
     };
 }
+
+pub fn info_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
+    //safety: guarantee context won't change
+    let mut record = crate::hidden::LogRecord::new();
+
+    unsafe {
+        let read_ctx = crate::context::Context::_log_current_context(file, line, column);
+        read_ctx._log_prelude(&mut record);
+    }
+
+    record.log("INFO: ");
+
+    //file, line
+    record.log(file!());
+    record.log_owned(format!(":{}:{} ", line!(), column!()));
+
+    //for info, we can afford timestamp
+    record.log_timestamp();
+    record
+}
+
+pub fn info_sync_post(record: LogRecord) {
+    use crate::logger::Logger;
+    let global_logger = &crate::hidden::GLOBAL_LOGGER;
+    global_logger.finish_log_record(record);
+}
+
 /**
 Logs a message at info level.
 */
@@ -105,33 +132,42 @@ macro_rules! info_sync {
     //pass to lformat!
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
-        unsafe {
-
-            use $crate::hidden::Logger;
-            let read_ctx = $crate::context::Context::_log_current_context(file!(),line!(),column!());
-
-            let mut record = $crate::hidden::LogRecord::new();
-            read_ctx._log_prelude(&mut record);
-
-            record.log("INFO: ");
-
-            //file, line
-            record.log(file!());
-            record.log_owned(format!(":{}:{} ",line!(),column!()));
-
-            //for info, we can afford timestamp
-            record.log_timestamp();
+        {
+            let mut record = $crate::hidden::info_sync_pre(file!(),line!(),column!());
 
             let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
 
             $crate::hidden::lformat!(formatter,$($arg)*);
-            //info sent to global logger
-            let global_logger = &$crate::hidden::GLOBAL_LOGGER;
-            global_logger.finish_log_record(record);
-
+            $crate::hidden::info_sync_post(record);
         }
 
     };
+}
+
+pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
+    //safety: guarantee context won't change
+    let mut record = crate::hidden::LogRecord::new();
+
+    unsafe {
+        let read_ctx = crate::context::Context::_log_current_context(file, line, column);
+        read_ctx._log_prelude(&mut record);
+    }
+
+    record.log("WARN: ");
+
+    //file, line
+    record.log(file!());
+    record.log_owned(format!(":{}:{} ", line!(), column!()));
+
+    //for warn, we can afford timestamp
+    record.log_timestamp();
+    record
+}
+
+pub fn warn_sync_post(record: LogRecord) {
+    use crate::logger::Logger;
+    let global_logger = &crate::hidden::GLOBAL_LOGGER;
+    global_logger.finish_log_record(record);
 }
 
 /**
@@ -147,32 +183,45 @@ warn_sync!("Hello {world}!",world=23);
 macro_rules! warn_sync {
     //pass to lformat!
     ($($arg:tt)*) => {
-        unsafe {
-            use $crate::hidden::Logger;
-            let read_ctx = $crate::context::Context::_log_current_context(file!(),line!(),column!());
+        let mut record = $crate::hidden::warn_sync_pre(file!(),line!(),column!());
 
-            let mut record = $crate::hidden::LogRecord::new();
-            read_ctx._log_prelude(&mut record);
+        let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
 
-            record.log("WARN: ");
-
-            //file, line
-            record.log(file!());
-            record.log_owned(format!(":{}:{} ",line!(),column!()));
-
-            //for warn, we can afford timestamp
-            record.log_timestamp();
-
-            let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
-
-            $crate::hidden::lformat!(formatter,$($arg)*);
-            //warn sent to global logger
-            let global_logger = &$crate::hidden::GLOBAL_LOGGER;
-            global_logger.finish_log_record(record);
-
-        }
-
+        $crate::hidden::lformat!(formatter,$($arg)*);
+        $crate::hidden::warn_sync_post(record);
     };
+}
+
+pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32, name: &'static str) -> LogRecord {
+    let start = std::time::Instant::now();
+
+    //safety: guarantee context won't change
+    let mut record = crate::hidden::LogRecord::new();
+
+    unsafe {
+        let read_ctx = crate::context::Context::_log_current_context(file, line, column);
+        read_ctx._log_prelude(&mut record);
+    }
+
+    record.log("PERFWARN: BEGIN ");
+
+    //file, line
+    record.log(file);
+    record.log_owned(format!(":{}:{} ", line, column));
+
+    record.log(name);
+    record.log(" ");
+    record.log_time_since(start);
+    record.log(name);
+    record
+}
+
+pub fn perfwarn_begin_post(record: LogRecord) -> crate::interval::PerfwarnInterval {
+    use crate::logger::Logger;
+    let global_logger = &crate::hidden::GLOBAL_LOGGER;
+    global_logger.finish_log_record(record);
+    let interval = crate::interval::PerfwarnInterval::new("Interval name", std::time::Instant::now());
+    interval
 }
 
 /**
@@ -189,35 +238,12 @@ drop(interval);
 #[macro_export]
 macro_rules! perfwarn_begin {
     ($name:literal) => {
-        unsafe {
-            let start = std::time::Instant::now();
+        {
+            let record = $crate::hidden::perfwarn_begin_pre(file!(),line!(),column!(),$name);
 
-            use $crate::hidden::Logger;
-            let read_ctx = $crate::context::Context::_log_current_context(file!(),line!(),column!());
-
-            let mut record = $crate::hidden::LogRecord::new();
-            read_ctx._log_prelude(&mut record);
-
-            record.log("PERFWARN: BEGIN ");
-
-
-            //file, line
-            record.log(file!());
-            record.log_owned(format!(":{}:{} ",line!(),column!()));
-
-            record.log_time_since(start);
-
-            record.log($name);
-
-
-
-            let global_logger = &$crate::hidden::GLOBAL_LOGGER;
-            global_logger.finish_log_record(record);
-            let interval = $crate::interval::PerfwarnInterval::new($name,start);
-
-
-            interval
+            $crate::hidden::perfwarn_begin_post(record)
         }
+
     };
 }
 
