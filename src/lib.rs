@@ -38,6 +38,6 @@ pub mod hidden {
     pub use crate::logger::{Logger};
     pub use crate::log_record::LogRecord;
     pub use dlog_proc::lformat;
-    pub use crate::macros::{debuginternal_pre,debuginternal_sync_post};
+    pub use crate::macros::{debuginternal_pre,debuginternal_sync_post,debuginternal_async_post};
 }
 extern crate self as dlog;

@@ -51,6 +51,12 @@ pub fn debuginternal_sync_post(record: LogRecord) {
     global_logger.finish_log_record(record);
 }
 
+pub async fn debuginternal_async_post(record: LogRecord) {
+    use crate::logger::Logger;
+    let global_logger = &crate::hidden::GLOBAL_LOGGER;
+    global_logger.finish_log_record_async(record).await;
+}
+
 /**
 Logs a message at debuginternal level.
 */
@@ -71,6 +77,25 @@ macro_rules! debuginternal_sync {
     };
 }
 
+/**
+Logs a message at debuginternal level.
+*/
+
+#[macro_export]
+macro_rules! debuginternal_async {
+    //pass to lformat!
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        if !module_path!().starts_with(env!("CARGO_PKG_NAME")) {
+            return; //don't log
+        }
+        let mut record = crate::hidden::debuginternal_pre(file!(),line!(),column!());
+        let mut formatter = crate::hidden::PrivateFormatter::new(&mut record);
+
+        crate::hidden::lformat!(formatter,$($arg)*);
+        crate::hidden::debuginternal_async_post(record).await;
+    };
+}
 /**
 Logs a message at info level.
 */
