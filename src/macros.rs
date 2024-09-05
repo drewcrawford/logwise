@@ -65,15 +65,17 @@ Logs a message at debuginternal level.
 macro_rules! debuginternal_sync {
     //pass to lformat!
     ($($arg:tt)*) => {
-        #[cfg(debug_assertions)]
-        if !module_path!().starts_with(env!("CARGO_PKG_NAME")) {
-            return; //don't log
-        }
-        let mut record = $crate::hidden::debuginternal_pre(file!(),line!(),column!());
-        let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
+        #[cfg(debug_assertions)] {
+            if !module_path!().starts_with(env!("CARGO_PKG_NAME")) {
+                return; //don't log
+            }
+            let mut record = $crate::hidden::debuginternal_pre(file!(),line!(),column!());
+            let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
 
-        $crate::hidden::lformat!(formatter,$($arg)*);
-        $crate::hidden::debuginternal_sync_post(record);
+            $crate::hidden::lformat!(formatter,$($arg)*);
+            $crate::hidden::debuginternal_sync_post(record);
+        }
+
     };
 }
 
@@ -85,15 +87,16 @@ Logs a message at debuginternal level.
 macro_rules! debuginternal_async {
     //pass to lformat!
     ($($arg:tt)*) => {
-        #[cfg(debug_assertions)]
-        if !module_path!().starts_with(env!("CARGO_PKG_NAME")) {
-            return; //don't log
-        }
-        let mut record = $crate::hidden::debuginternal_pre(file!(),line!(),column!());
-        let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
+        #[cfg(debug_assertions)] {
+            if !module_path!().starts_with(env!("CARGO_PKG_NAME")) {
+                return; //don't log
+            }
+            let mut record = $crate::hidden::debuginternal_pre(file!(),line!(),column!());
+            let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
 
-        $crate::hidden::lformat!(formatter,$($arg)*);
-        $crate::hidden::debuginternal_async_post(record).await;
+            $crate::hidden::lformat!(formatter,$($arg)*);
+            $crate::hidden::debuginternal_async_post(record).await;
+        }
     };
 }
 
@@ -183,12 +186,15 @@ warn_sync!("Hello {world}!",world=23);
 macro_rules! warn_sync {
     //pass to lformat!
     ($($arg:tt)*) => {
-        let mut record = $crate::hidden::warn_sync_pre(file!(),line!(),column!());
+        {
+            let mut record = $crate::hidden::warn_sync_pre(file!(),line!(),column!());
 
-        let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
+            let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
 
-        $crate::hidden::lformat!(formatter,$($arg)*);
-        $crate::hidden::warn_sync_post(record);
+            $crate::hidden::lformat!(formatter,$($arg)*);
+            $crate::hidden::warn_sync_post(record);
+        }
+
     };
 }
 
