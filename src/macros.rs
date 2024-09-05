@@ -72,8 +72,8 @@ macro_rules! debuginternal_sync {
         let mut record = $crate::hidden::debuginternal_pre(file!(),line!(),column!());
         let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
 
-        crate::hidden::lformat!(formatter,$($arg)*);
-        crate::hidden::debuginternal_sync_post(record);
+        $crate::hidden::lformat!(formatter,$($arg)*);
+        $crate::hidden::debuginternal_sync_post(record);
     };
 }
 
@@ -92,8 +92,8 @@ macro_rules! debuginternal_async {
         let mut record = $crate::hidden::debuginternal_pre(file!(),line!(),column!());
         let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
 
-        crate::hidden::lformat!(formatter,$($arg)*);
-        crate::hidden::debuginternal_async_post(record).await;
+        $crate::hidden::lformat!(formatter,$($arg)*);
+        $crate::hidden::debuginternal_async_post(record).await;
     };
 }
 
