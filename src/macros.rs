@@ -279,6 +279,7 @@ macro_rules! perfwarn {
 
 #[cfg(test)] mod tests {
     use dlog::context::Context;
+    use dlog::hidden::PrivateFormatter;
 
     #[test]
     fn test_warn_sync() {
@@ -310,5 +311,13 @@ macro_rules! perfwarn {
     #[test] fn test_debuginternal_sync() {
         crate::context::Context::reset();
         debuginternal_sync!("test_debuginternal_sync");
+    }
+    #[test] fn test_log_rich() {
+        let val = false;
+        crate::context::Context::reset();
+        let mut record = crate::log_record::LogRecord::new();
+        let mut formatter = PrivateFormatter::new(&mut record);
+        crate::hidden::lformat!(formatter,"Hello {world}!",world=val);
+
     }
 }

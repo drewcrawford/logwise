@@ -1,8 +1,8 @@
-use proc_macro::{TokenStream, TokenTree, Literal};
+use proc_macro::{TokenStream, TokenTree};
 use std::collections::{HashMap, VecDeque};
 
 
-fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<HashMap<String,Literal>,TokenStream> {
+fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<HashMap<String,String>,TokenStream> {
     let mut kvs = HashMap::new();
     loop {
         //first extract the comma.
@@ -20,13 +20,20 @@ fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<HashMap<String,Literal>,
                     Some(TokenTree::Punct(p)) => {
                         if p.as_char() == '=' {
                             //expect literal
-                            match input.pop_front() {
+                            let next = input.pop_front();
+                            match next {
                                 Some(TokenTree::Literal(l)) => {
-                                    kvs.insert(key,l);
+                                    kvs.insert(key,l.to_string());
+                                    continue;
+                                }
+                                Some(TokenTree::Ident(i)) => {
+                                    kvs.insert(key, i.to_string());
                                     continue;
                                 }
                                 _ => {
-                                    return Err(r#"compile_error!("Expected literal")"#.parse().unwrap());
+                                    let next_desc = format!("{:?}",next).replace("\"","\\\"");
+                                    let r = format!(r#"compile_error!("Expected literal near {}")"#, next_desc);
+                                    return Err(r.parse().unwrap());
                                 }
                             }
                         }
