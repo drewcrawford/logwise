@@ -22,6 +22,34 @@ impl<'a> PrivateFormatter<'a> {
 
 }
 
+pub fn debuginternal_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
+    //safety: guarantee context won't change
+    let mut record = crate::hidden::LogRecord::new();
+
+    unsafe {
+        let read_ctx = crate::context::Context::_log_current_context(file,line,column);
+        read_ctx._log_prelude(&mut record);
+
+    }
+
+
+    record.log("INFO: ");
+
+    //file, line
+    record.log(file!());
+    record.log_owned(format!(":{}:{} ",line,column));
+
+    //for info, we can afford timestamp
+    record.log_timestamp();
+
+    record
+}
+
+pub fn debuginternal_sync_post(record: LogRecord) {
+    use crate::logger::Logger;
+    let global_logger = &crate::hidden::GLOBAL_LOGGER;
+    global_logger.finish_log_record(record);
+}
 
 /**
 Logs a message at debuginternal level.
@@ -32,34 +60,14 @@ macro_rules! debuginternal_sync {
     //pass to lformat!
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
-        unsafe {
-            if !module_path!().starts_with(env!("CARGO_PKG_NAME")) {
-                return; //don't log
-            }
-            use $crate::hidden::Logger;
-            let read_ctx = $crate::context::Context::_log_current_context(file!(),line!(),column!());
-
-            let mut record = $crate::hidden::LogRecord::new();
-            read_ctx._log_prelude(&mut record);
-
-            record.log("INFO: ");
-
-            //file, line
-            record.log(file!());
-            record.log_owned(format!(":{}:{} ",line!(),column!()));
-
-            //for info, we can afford timestamp
-            record.log_timestamp();
-
-            let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
-
-            $crate::hidden::lformat!(formatter,$($arg)*);
-            //info sent to global logger
-            let global_logger = &$crate::hidden::GLOBAL_LOGGER;
-            global_logger.finish_log_record(record);
-
+        if !module_path!().starts_with(env!("CARGO_PKG_NAME")) {
+            return; //don't log
         }
+        let mut record = crate::hidden::debuginternal_pre(file!(),line!(),column!());
+        let mut formatter = crate::hidden::PrivateFormatter::new(&mut record);
 
+        crate::hidden::lformat!(formatter,$($arg)*);
+        crate::hidden::debuginternal_sync_post(record);
     };
 }
 

@@ -240,6 +240,9 @@ impl Context {
 
     /**
     Internal implementation detail of the logging system.
+
+    # Safety
+    You must guarantee that the context is not destroyed or mutated while the reference is in use.
     */
     #[inline]
     pub unsafe fn _log_current_context(file: &'static str,line: u32, column: u32) -> &'static Context {
