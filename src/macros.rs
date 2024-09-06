@@ -87,26 +87,6 @@ pub fn info_sync_post(record: LogRecord) {
     global_logger.finish_log_record(record);
 }
 
-/**
-Logs a message at info level.
-*/
-
-#[macro_export]
-macro_rules! info_sync {
-    //pass to lformat!
-    ($($arg:tt)*) => {
-        #[cfg(debug_assertions)]
-        {
-            let mut record = $crate::hidden::info_sync_pre(file!(),line!(),column!());
-
-            let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
-
-            $crate::hidden::lformat!(formatter,$($arg)*);
-            $crate::hidden::info_sync_post(record);
-        }
-
-    };
-}
 
 pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
@@ -241,6 +221,8 @@ macro_rules! perfwarn {
 #[cfg(test)] mod tests {
     use dlog::context::Context;
     use dlog::hidden::PrivateFormatter;
+    use dlog::warn_sync;
+    use dlog::hidden::info_sync;
     use dlog_proc::debuginternal_sync;
 
     #[test]

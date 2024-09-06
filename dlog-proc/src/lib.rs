@@ -245,12 +245,34 @@ Logs a message at debug_internal level
     let src = format!(r#"
         #[cfg(debug_assertions)] {{
             if module_path!().starts_with(env!("CARGO_PKG_NAME")) {{
-               let mut record = $crate::hidden::debuginternal_pre(file!(),line!(),column!());
-                let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
+               let mut record = dlog::hidden::debuginternal_pre(file!(),line!(),column!());
+                let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
 
                 {LFORMAT_EXPAND}
-                $crate::hidden::debuginternal_async_post(record).await;
+                dlog::hidden::debuginternal_async_post(record).await;
             }}
+        }}
+    "#, LFORMAT_EXPAND=lformat_impl(&mut input, "formatter".to_string()).to_string());
+
+    src.parse().unwrap()
+
+}
+
+/**
+Logs a message at info level.
+ */
+
+#[proc_macro] pub fn info_sync(input: TokenStream) -> TokenStream {
+    let mut input: VecDeque<_> = input.into_iter().collect();
+    let src = format!(r#"
+        #[cfg(debug_assertions)]
+        {{
+            let mut record = dlog::hidden::info_sync_pre(file!(),line!(),column!());
+
+            let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
+
+            {LFORMAT_EXPAND}
+            dlog::hidden::info_sync_post(record);
         }}
     "#, LFORMAT_EXPAND=lformat_impl(&mut input, "formatter".to_string()).to_string());
 
