@@ -322,7 +322,7 @@ Logs a performance warning interval.
             let mut record = dlog::hidden::perfwarn_begin_pre(file!(),line!(),column!());
             let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
             {LFORMAT_EXPAND}
-            dlog::hidden::perfwarn_begin_post(record,"{NAME}");
+            dlog::hidden::perfwarn_begin_post(record,"{NAME}")
         }}
     "#, LFORMAT_EXPAND=lformat_result.output,NAME=lformat_result.name);
     src.parse().unwrap()
