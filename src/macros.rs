@@ -116,7 +116,7 @@ pub fn warn_sync_post(record: LogRecord) {
 
 
 
-pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32, name: &'static str) -> LogRecord {
+pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     let start = std::time::Instant::now();
 
     //safety: guarantee context won't change
@@ -133,10 +133,7 @@ pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32, name: &'st
     record.log(file);
     record.log_owned(format!(":{}:{} ", line, column));
 
-    record.log(name);
-    record.log(" ");
     record.log_time_since(start);
-    record.log(name);
     record
 }
 
@@ -163,7 +160,8 @@ drop(interval);
 macro_rules! perfwarn_begin {
     ($name:literal) => {
         {
-            let record = $crate::hidden::perfwarn_begin_pre(file!(),line!(),column!(),$name);
+            let mut record = $crate::hidden::perfwarn_begin_pre(file!(),line!(),column!());
+            record.log($name);
 
             $crate::hidden::perfwarn_begin_post(record)
         }
