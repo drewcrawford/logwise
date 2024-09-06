@@ -37,7 +37,7 @@ pub fn debuginternal_pre(file: &'static str, line: u32, column: u32) -> LogRecor
     record.log("INFO: ");
 
     //file, line
-    record.log(file!());
+    record.log(file);
     record.log_owned(format!(":{}:{} ",line,column));
 
     //for info, we can afford timestamp
@@ -72,7 +72,7 @@ pub fn info_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     record.log("INFO: ");
 
     //file, line
-    record.log(file!());
+    record.log(file);
     record.log_owned(format!(":{}:{} ", line!(), column!()));
 
     //for info, we can afford timestamp
@@ -99,7 +99,7 @@ pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     record.log("WARN: ");
 
     //file, line
-    record.log(file!());
+    record.log(file);
     record.log_owned(format!(":{}:{} ", line!(), column!()));
 
     //for warn, we can afford timestamp
