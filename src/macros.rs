@@ -136,11 +136,11 @@ pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32) -> LogReco
     record
 }
 
-pub fn perfwarn_begin_post(record: LogRecord) -> crate::interval::PerfwarnInterval {
+pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::interval::PerfwarnInterval {
     use crate::logger::Logger;
     let global_logger = &crate::hidden::GLOBAL_LOGGER;
     global_logger.finish_log_record(record);
-    let interval = crate::interval::PerfwarnInterval::new("Interval name", std::time::Instant::now());
+    let interval = crate::interval::PerfwarnInterval::new(name, std::time::Instant::now());
     interval
 }
 

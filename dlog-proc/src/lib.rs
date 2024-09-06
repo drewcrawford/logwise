@@ -58,24 +58,29 @@ fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<HashMap<String,String>,T
 
 }
 
-fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> TokenStream {
+struct LFormatResult {
+    output: TokenStream,
+    name: String,
+}
+
+fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> LFormatResult {
     let some_input = match collect.remove(0) {
         Some(i) => i,
         None => {
-            return r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap();
+            return LFormatResult{output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string()}
         }
     };
     let format_string = match some_input {
         TokenTree::Literal(l) => {
             let out = l.to_string();
             if !out.starts_with('"') || !out.ends_with('"') {
-                return r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap();
+                return LFormatResult{output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string()};
             }
             out[1..out.len()-1].to_string()
 
         }
         _ => {
-            return r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap();
+            return LFormatResult{output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string()};
         }
     };
 
@@ -83,7 +88,7 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> TokenStream
     let k = match build_kvs(collect) {
         Ok(kvs) => kvs,
         Err(e) => {
-            return e;
+            return LFormatResult{output: e, name: "".to_string()};
         }
     };
     //parse format string
@@ -130,7 +135,7 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> TokenStream
                     let value = match k.get(&key) {
                         Some(l) => l.to_string(),
                         None => {
-                            return format!(r#"compile_error!("Key {} not found")"#, key).parse().unwrap();
+                            return LFormatResult{output: format!(r#"compile_error!("Key {} not found")"#, key).parse().unwrap(), name: "".to_string()};
                         }
                     };
                     source.push_str(&value);
@@ -155,11 +160,11 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> TokenStream
             }
         }
         Mode::Key(_) => {
-            return r#"compile_error!("Expected '}'")"#.parse().unwrap();
+            return LFormatResult{output: r#"compile_error!("Expected '}'")"#.parse().unwrap(), name: "".to_string()};
         }
     }
-    source.parse().unwrap()
-}
+    return LFormatResult{output: source.parse().unwrap(), name: format_string};
+    }
 
 /**
 Replaces a format string with a sequence of log calls.
@@ -213,8 +218,8 @@ pub fn lformat(input: TokenStream) -> TokenStream {
         }
     }
 
-    lformat_impl(&mut collect,logger_ident.to_string())
-
+    let o = lformat_impl(&mut collect,logger_ident.to_string());
+    o.output
 
 }
 
@@ -225,6 +230,7 @@ Logs a message at debug_internal level
 */
 #[proc_macro] pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
+    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
         #[cfg(debug_assertions)]
         if module_path!().starts_with(env!("CARGO_PKG_NAME")) {{
@@ -234,7 +240,7 @@ Logs a message at debug_internal level
                 {LFORMAT_EXPAND}
                 dlog::hidden::debuginternal_sync_post(record);
        }}
-    "#, LFORMAT_EXPAND=lformat_impl(&mut input, "formatter".to_string()).to_string());
+    "#, LFORMAT_EXPAND=lformat_result.output);
 
     src.parse().unwrap()
 
@@ -242,6 +248,7 @@ Logs a message at debug_internal level
 
 #[proc_macro] pub fn debuginternal_async(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
+    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
         #[cfg(debug_assertions)] {{
             if module_path!().starts_with(env!("CARGO_PKG_NAME")) {{
@@ -252,7 +259,7 @@ Logs a message at debug_internal level
                 dlog::hidden::debuginternal_async_post(record).await;
             }}
         }}
-    "#, LFORMAT_EXPAND=lformat_impl(&mut input, "formatter".to_string()).to_string());
+    "#, LFORMAT_EXPAND=lformat_result.output);
 
     src.parse().unwrap()
 
@@ -264,6 +271,7 @@ Logs a message at info level.
 
 #[proc_macro] pub fn info_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
+    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
         #[cfg(debug_assertions)]
         {{
@@ -274,7 +282,7 @@ Logs a message at info level.
             {LFORMAT_EXPAND}
             dlog::hidden::info_sync_post(record);
         }}
-    "#, LFORMAT_EXPAND=lformat_impl(&mut input, "formatter".to_string()).to_string());
+    "#, LFORMAT_EXPAND=lformat_result.output);
 
     src.parse().unwrap()
 
@@ -285,6 +293,7 @@ Logs a message at warning leve.
 */
 #[proc_macro] pub fn warn_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
+    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
         {{
             let mut record = dlog::hidden::warn_sync_pre(file!(),line!(),column!());
@@ -294,7 +303,7 @@ Logs a message at warning leve.
             {LFORMAT_EXPAND}
             dlog::hidden::warn_sync_post(record);
         }}
-    "#, LFORMAT_EXPAND=lformat_impl(&mut input, "formatter".to_string()).to_string());
+    "#, LFORMAT_EXPAND=lformat_result.output);
 
     src.parse().unwrap()
 
@@ -307,14 +316,15 @@ Logs a performance warning interval.
 */
 #[proc_macro] pub fn perfwarn_begin(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
+    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
         {{
             let mut record = dlog::hidden::perfwarn_begin_pre(file!(),line!(),column!());
             let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
             {LFORMAT_EXPAND}
-            dlog::hidden::perfwarn_begin_post(record)
+            dlog::hidden::perfwarn_begin_post(record,"{NAME}");
         }}
-    "#, LFORMAT_EXPAND=lformat_impl(&mut input, "formatter".to_string()).to_string());
+    "#, LFORMAT_EXPAND=lformat_result.output,NAME=lformat_result.name);
     src.parse().unwrap()
 
 }
@@ -346,11 +356,11 @@ Logs a performance warning interval.
             let mut record = dlog::hidden::perfwarn_begin_pre(file!(),line!(),column!());
             let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
             {LFORMAT_EXPAND}
-            let interval = dlog::hidden::perfwarn_begin_post(record);
+            let interval = dlog::hidden::perfwarn_begin_post(record,"{NAME}");
             let result = {BLOCK};
             drop(interval);
             result
         }}
-    "#, LFORMAT_EXPAND=lformat_expand,BLOCK=group.to_string());
+    "#, LFORMAT_EXPAND=lformat_expand.output,BLOCK=group.to_string(),NAME=lformat_expand.name);
     src.parse().unwrap()
 }
