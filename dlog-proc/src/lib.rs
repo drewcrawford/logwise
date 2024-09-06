@@ -220,6 +220,9 @@ pub fn lformat(input: TokenStream) -> TokenStream {
 
 
 
+/**
+Logs a message at debug_internal level
+*/
 #[proc_macro] pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let src = format!(r#"
@@ -231,6 +234,24 @@ pub fn lformat(input: TokenStream) -> TokenStream {
                 {LFORMAT_EXPAND}
                 dlog::hidden::debuginternal_sync_post(record);
        }}
+    "#, LFORMAT_EXPAND=lformat_impl(&mut input, "formatter".to_string()).to_string());
+
+    src.parse().unwrap()
+
+}
+
+#[proc_macro] pub fn debuginternal_async(input: TokenStream) -> TokenStream {
+    let mut input: VecDeque<_> = input.into_iter().collect();
+    let src = format!(r#"
+        #[cfg(debug_assertions)] {{
+            if module_path!().starts_with(env!("CARGO_PKG_NAME")) {{
+               let mut record = $crate::hidden::debuginternal_pre(file!(),line!(),column!());
+                let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
+
+                {LFORMAT_EXPAND}
+                $crate::hidden::debuginternal_async_post(record).await;
+            }}
+        }}
     "#, LFORMAT_EXPAND=lformat_impl(&mut input, "formatter".to_string()).to_string());
 
     src.parse().unwrap()
