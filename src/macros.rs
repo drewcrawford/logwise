@@ -1,6 +1,8 @@
 use crate::log_record::LogRecord;
 use crate::privacy::Loggable;
 
+//macros that got ported to proc
+pub use dlog_proc::debuginternal_sync;
 
 pub struct PrivateFormatter<'a> {
     record: &'a mut LogRecord,
@@ -55,28 +57,6 @@ pub async fn debuginternal_async_post(record: LogRecord) {
     use crate::logger::Logger;
     let global_logger = &crate::hidden::GLOBAL_LOGGER;
     global_logger.finish_log_record_async(record).await;
-}
-
-/**
-Logs a message at debuginternal level.
-*/
-
-#[macro_export]
-macro_rules! debuginternal_sync {
-    //pass to lformat!
-    ($($arg:tt)*) => {
-        #[cfg(debug_assertions)] {
-            if module_path!().starts_with(env!("CARGO_PKG_NAME")) {
-                let mut record = $crate::hidden::debuginternal_pre(file!(),line!(),column!());
-                let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
-
-                $crate::hidden::lformat!(formatter,$($arg)*);
-                $crate::hidden::debuginternal_sync_post(record);
-            }
-
-        }
-
-    };
 }
 
 /**
@@ -280,6 +260,7 @@ macro_rules! perfwarn {
 #[cfg(test)] mod tests {
     use dlog::context::Context;
     use dlog::hidden::PrivateFormatter;
+    use dlog_proc::debuginternal_sync;
 
     #[test]
     fn test_warn_sync() {
@@ -318,6 +299,8 @@ macro_rules! perfwarn {
         let mut record = crate::log_record::LogRecord::new();
         let mut formatter = PrivateFormatter::new(&mut record);
         crate::hidden::lformat!(formatter,"Hello {world}!",world=val);
+
+        // debuginternal_sync!("Hello {world}!",world=val);
 
     }
 }

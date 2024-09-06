@@ -57,6 +57,110 @@ fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<HashMap<String,String>,T
 
 
 }
+
+fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> TokenStream {
+    let some_input = match collect.remove(0) {
+        Some(i) => i,
+        None => {
+            return r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap();
+        }
+    };
+    let format_string = match some_input {
+        TokenTree::Literal(l) => {
+            let out = l.to_string();
+            if !out.starts_with('"') || !out.ends_with('"') {
+                return r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap();
+            }
+            out[1..out.len()-1].to_string()
+
+        }
+        _ => {
+            return r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap();
+        }
+    };
+
+    //parse kv section
+    let k = match build_kvs(collect) {
+        Ok(kvs) => kvs,
+        Err(e) => {
+            return e;
+        }
+    };
+    //parse format string
+    //holds the part of the string literal until the next {
+    let mut source = String::new();
+    enum Mode {
+        Literal(String),
+        Key(String),
+    }
+    let mut mode = Mode::Literal(String::new());
+
+    for(c,char) in format_string.chars().enumerate() {
+        match mode {
+            Mode::Literal(mut literal) => {
+                if char == '{' {
+                    //peek to see if we're escaping
+                    if format_string.chars().nth(c+1) == Some('{') {
+                        literal.push(char);
+                        mode = Mode::Literal(literal);
+                    }
+                    else if !literal.is_empty() {
+                        //reference logger ident
+                        source.push_str(&logger);
+                        source.push_str(".write_literal(\"");
+                        source.push_str(&literal);
+                        source.push_str("\");\n");
+                        mode = Mode::Key(String::new());
+                    }
+                    else {
+                        mode = Mode::Key(String::new());
+                    }
+                }
+                else {
+                    literal.push(char);
+                    mode = Mode::Literal(literal);
+                }
+
+            }
+            Mode::Key(mut key) => {
+                if char == '}' {
+                    //write out the key
+                    source.push_str(&logger);
+                    source.push_str(".write_val(");
+                    let value = match k.get(&key) {
+                        Some(l) => l.to_string(),
+                        None => {
+                            return format!(r#"compile_error!("Key {} not found")"#, key).parse().unwrap();
+                        }
+                    };
+                    source.push_str(&value);
+                    source.push_str(");\n");
+                    mode = Mode::Literal(String::new());
+                } else {
+                    key.push(char);
+                    mode = Mode::Key(key);
+                }
+            }
+
+        }
+    }
+    //check end situation
+    match mode {
+        Mode::Literal(l) => {
+            if !l.is_empty() {
+                source.push_str(&logger.to_string());
+                source.push_str(".write_literal(\"");
+                source.push_str(&l);
+                source.push_str("\");\n");
+            }
+        }
+        Mode::Key(_) => {
+            return r#"compile_error!("Expected '}'")"#.parse().unwrap();
+        }
+    }
+    source.parse().unwrap()
+}
+
 /**
 Replaces a format string with a sequence of log calls.
 
@@ -109,108 +213,26 @@ pub fn lformat(input: TokenStream) -> TokenStream {
         }
     }
 
-    let some_input = match collect.remove(0) {
-        Some(i) => i,
-        None => {
-            return r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap();
-        }
-    };
-    let format_string = match some_input {
-        TokenTree::Literal(l) => {
-            let out = l.to_string();
-            if !out.starts_with('"') || !out.ends_with('"') {
-                return r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap();
-            }
-            out[1..out.len()-1].to_string()
+    lformat_impl(&mut collect,logger_ident.to_string())
 
-        }
-        _ => {
-            return r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap();
-        }
-    };
 
-    //parse kv section
-    let k = match build_kvs(&mut collect) {
-        Ok(kvs) => kvs,
-        Err(e) => {
-            return e;
-        }
-    };
-    //parse format string
-    //holds the part of the string literal until the next {
-    let mut source = String::new();
-    enum Mode {
-        Literal(String),
-        Key(String),
-    }
-    let mut mode = Mode::Literal(String::new());
-
-    for(c,char) in format_string.chars().enumerate() {
-        match mode {
-            Mode::Literal(mut literal) => {
-                if char == '{' {
-                    //peek to see if we're escaping
-                    if format_string.chars().nth(c+1) == Some('{') {
-                        literal.push(char);
-                        mode = Mode::Literal(literal);
-                    }
-                    else if !literal.is_empty() {
-                        //reference logger ident
-                        source.push_str(&logger_ident.to_string());
-                        source.push_str(".write_literal(\"");
-                        source.push_str(&literal);
-                        source.push_str("\");\n");
-                        mode = Mode::Key(String::new());
-                    }
-                    else {
-                        mode = Mode::Key(String::new());
-                    }
-                }
-                else {
-                    literal.push(char);
-                    mode = Mode::Literal(literal);
-                }
-
-            }
-            Mode::Key(mut key) => {
-                if char == '}' {
-                    //write out the key
-                    source.push_str(&logger_ident.to_string());
-                    source.push_str(".write_val(");
-                    let value = match k.get(&key) {
-                        Some(l) => l.to_string(),
-                        None => {
-                            return format!(r#"compile_error!("Key {} not found")"#, key).parse().unwrap();
-                        }
-                    };
-                    source.push_str(&value);
-                    source.push_str(");\n");
-                    mode = Mode::Literal(String::new());
-                } else {
-                    key.push(char);
-                    mode = Mode::Key(key);
-                }
-            }
-
-        }
-    }
-    //check end situation
-    match mode {
-        Mode::Literal(l) => {
-            if !l.is_empty() {
-                source.push_str(&logger_ident.to_string());
-                source.push_str(".write_literal(\"");
-                source.push_str(&l);
-                source.push_str("\");\n");
-            }
-        }
-        Mode::Key(_) => {
-            return r#"compile_error!("Expected '}'")"#.parse().unwrap();
-        }
-    }
+}
 
 
 
+#[proc_macro] pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
+    let mut input: VecDeque<_> = input.into_iter().collect();
+    let src = format!(r#"
+        #[cfg(debug_assertions)]
+        if module_path!().starts_with(env!("CARGO_PKG_NAME")) {{
+                let mut record = dlog::hidden::debuginternal_pre(file!(),line!(),column!());
+                let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
 
-    source.parse().unwrap()
+                {LFORMAT_EXPAND}
+                dlog::hidden::debuginternal_sync_post(record);
+       }}
+    "#, LFORMAT_EXPAND=lformat_impl(&mut input, "formatter".to_string()).to_string());
+
+    src.parse().unwrap()
+
 }
