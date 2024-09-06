@@ -32,7 +32,7 @@ mod local_logger;
 
 pub use level::Level;
 
-pub use dlog_proc::{info_sync, perfwarn, debuginternal_async, debuginternal_sync, warn_sync};
+pub use dlog_proc::{info_sync, perfwarn, debuginternal_async, debuginternal_sync, warn_sync,perfwarn_begin};
 
 #[doc(hidden)]
 pub mod hidden {

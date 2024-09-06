@@ -300,7 +300,24 @@ Logs a message at warning leve.
 
 }
 
+/**
+Logs a performance warning interval.
 
+
+*/
+#[proc_macro] pub fn perfwarn_begin(input: TokenStream) -> TokenStream {
+    let mut input: VecDeque<_> = input.into_iter().collect();
+    let src = format!(r#"
+        {{
+            let mut record = dlog::hidden::perfwarn_begin_pre(file!(),line!(),column!());
+            let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
+            {LFORMAT_EXPAND}
+            dlog::hidden::perfwarn_begin_post(record)
+        }}
+    "#, LFORMAT_EXPAND=lformat_impl(&mut input, "formatter".to_string()).to_string());
+    src.parse().unwrap()
+
+}
 
 /**
 Logs a performance warning interval.
