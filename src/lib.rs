@@ -38,7 +38,7 @@ pub mod hidden {
     pub use crate::global_logger::GLOBAL_LOGGER;
     pub use crate::logger::{Logger};
     pub use crate::log_record::LogRecord;
-    pub use dlog_proc::{lformat,debuginternal_sync, debuginternal_async, info_sync};
+    pub use dlog_proc::{lformat,debuginternal_sync, debuginternal_async, info_sync,warn_sync};
     pub use crate::macros::{debuginternal_pre,debuginternal_sync_post,debuginternal_async_post,info_sync_post,info_sync_pre,perfwarn_begin_post, perfwarn_begin_pre, warn_sync_pre, warn_sync_post};
 }
 extern crate self as dlog;

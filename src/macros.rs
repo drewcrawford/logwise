@@ -114,30 +114,7 @@ pub fn warn_sync_post(record: LogRecord) {
     global_logger.finish_log_record(record);
 }
 
-/**
-Logs a message at warning level.
 
-```
-use dlog::warn_sync;
-warn_sync!("Hello {world}!",world=23);
-```
-*/
-
-#[macro_export]
-macro_rules! warn_sync {
-    //pass to lformat!
-    ($($arg:tt)*) => {
-        {
-            let mut record = $crate::hidden::warn_sync_pre(file!(),line!(),column!());
-
-            let mut formatter = $crate::hidden::PrivateFormatter::new(&mut record);
-
-            $crate::hidden::lformat!(formatter,$($arg)*);
-            $crate::hidden::warn_sync_post(record);
-        }
-
-    };
-}
 
 pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32, name: &'static str) -> LogRecord {
     let start = std::time::Instant::now();
@@ -221,8 +198,7 @@ macro_rules! perfwarn {
 #[cfg(test)] mod tests {
     use dlog::context::Context;
     use dlog::hidden::PrivateFormatter;
-    use dlog::warn_sync;
-    use dlog::hidden::info_sync;
+    use dlog::hidden::{info_sync,warn_sync};
     use dlog_proc::debuginternal_sync;
 
     #[test]
