@@ -1,8 +1,7 @@
 use crate::log_record::LogRecord;
 use crate::privacy::Loggable;
 
-//macros that got ported to proc
-pub use dlog_proc::debuginternal_sync;
+
 
 pub struct PrivateFormatter<'a> {
     record: &'a mut LogRecord,
@@ -145,59 +144,11 @@ pub fn perfwarn_begin_post(record: LogRecord) -> crate::interval::PerfwarnInterv
     interval
 }
 
-/**
-Logs a performance warning interval.
 
-Takes a single argument, the interval name.
-
-```
-use dlog::perfwarn_begin;
-let interval = perfwarn_begin!("Interval name");
-drop(interval);
-```
-*/
-#[macro_export]
-macro_rules! perfwarn_begin {
-    ($name:literal) => {
-        {
-            let mut record = $crate::hidden::perfwarn_begin_pre(file!(),line!(),column!());
-            record.log($name);
-
-            $crate::hidden::perfwarn_begin_post(record)
-        }
-
-    };
-}
-
-/**
-Logs a performance warning interval.
-
-```
-use dlog::perfwarn;
-let _: i32 = perfwarn!("Interval name", {
- //code to profile
-    23
-});
-```
-*/
-#[macro_export]
-macro_rules! perfwarn {
-    ($name:literal, $code:block) => {
-        {
-
-            let interval = dlog::perfwarn_begin!($name);
-            let result = $code;
-            drop(interval);
-            result
-        }
-    };
-}
 
 #[cfg(test)] mod tests {
     use dlog::context::Context;
-    use dlog::hidden::PrivateFormatter;
-    use dlog::hidden::{info_sync,warn_sync};
-    use dlog_proc::debuginternal_sync;
+    use dlog_proc::{debuginternal_sync, info_sync, warn_sync};
 
     #[test]
     fn test_warn_sync() {
@@ -206,14 +157,7 @@ macro_rules! perfwarn {
         warn_sync!("test_warn_sync Hello {world}!",world=23);
     }
 
-    #[test]
-    fn test_perfwarn_begin() {
-        crate::context::Context::reset();
-        info_sync!("test_perfwarn_begin");
-        let t = perfwarn_begin!("Hello world!");
-        warn_sync!("During the test_perfwarn_begin interval");
-        drop(t);
-    }
+
 
 
     #[test] fn perfwarn() {
@@ -233,11 +177,8 @@ macro_rules! perfwarn {
     #[test] fn test_log_rich() {
         let val = false;
         crate::context::Context::reset();
-        let mut record = crate::log_record::LogRecord::new();
-        let mut formatter = PrivateFormatter::new(&mut record);
-        crate::hidden::lformat!(formatter,"Hello {world}!",world=val);
 
-        // debuginternal_sync!("Hello {world}!",world=val);
+        debuginternal_sync!("Hello {world}!",world=val);
 
     }
 }

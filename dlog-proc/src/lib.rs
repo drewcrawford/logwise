@@ -299,3 +299,41 @@ Logs a message at warning leve.
     src.parse().unwrap()
 
 }
+
+
+
+/**
+Logs a performance warning interval.
+
+
+*/
+#[proc_macro] pub fn perfwarn(input: TokenStream) -> TokenStream {
+    let mut input: VecDeque<_> = input.into_iter().collect();
+    let last_token = input.pop_back().expect("Expected block");
+    let lformat_expand = lformat_impl(&mut input, "formatter".to_string());
+
+    let group = match last_token {
+        TokenTree::Group(g) => {
+           g
+        }
+        _ => {
+            return r#"compile_error!("Expected block")"#.parse().unwrap()
+        }
+    };
+    if group.delimiter() != proc_macro::Delimiter::Brace {
+        return r#"compile_error!("Expected block")"#.parse().unwrap()
+    }
+
+    let src = format!(r#"
+        {{
+            let mut record = dlog::hidden::perfwarn_begin_pre(file!(),line!(),column!());
+            let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
+            {LFORMAT_EXPAND}
+            let interval = dlog::hidden::perfwarn_begin_post(record);
+            let result = {BLOCK};
+            drop(interval);
+            result
+        }}
+    "#, LFORMAT_EXPAND=lformat_expand,BLOCK=group.to_string());
+    src.parse().unwrap()
+}
