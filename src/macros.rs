@@ -34,7 +34,7 @@ pub fn debuginternal_pre(file: &'static str, line: u32, column: u32) -> LogRecor
     }
 
 
-    record.log("INFO: ");
+    record.log("DEBUG: ");
 
     //file, line
     record.log(file);
