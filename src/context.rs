@@ -2,7 +2,6 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::atomic::AtomicU64;
-use crate::privacy::Loggable;
 
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -93,7 +92,7 @@ Provides a set of info that can be used by multiple logs.
 pub struct Context {
     parent: Option<Box<Context>>,
     context_id: u64,
-    mutable_context: RefCell<MutableContext>,
+    _mutable_context: RefCell<MutableContext>,
     //if some, we define a new task ID for this context.
     define_task: Option<Task>
 }
@@ -142,6 +141,7 @@ impl Context {
         })
     }
 
+
     pub fn task(&self) -> Option<&Task> {
         if let Some(task) = &self.define_task {
             Some(task)
@@ -158,7 +158,7 @@ impl Context {
     pub fn new_task() -> Context {
         Context {
             parent: None,
-            mutable_context: RefCell::new(MutableContext {
+            _mutable_context: RefCell::new(MutableContext {
 
             }),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
@@ -172,6 +172,20 @@ impl Context {
     #[inline]
     pub fn reset() {
         CONTEXT.with(|c| c.set(Some(Context::new_task())));
+    }
+
+    /**
+    Creates a new context with the current context as the parent.
+    */
+    pub fn from_context(context: Context) -> Context {
+        Context {
+            parent: Some(Box::new(context)),
+            _mutable_context: RefCell::new(MutableContext {
+
+            }),
+            context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            define_task: None,
+        }
     }
 
     #[inline]
@@ -215,7 +229,7 @@ impl Context {
         let new_context = Context {
             parent: Some(Box::new(current)),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-            mutable_context: RefCell::new(MutableContext {  }),
+            _mutable_context: RefCell::new(MutableContext {  }),
             define_task: None,
         };
         let id = new_context.context_id();
@@ -300,5 +314,18 @@ impl Context {
     #[inline] pub fn _add_task_interval(&self, key: &'static str, duration: std::time::Duration) {
         self.task().as_ref()
             .expect("No current task").add_task_interval(key, duration);
+    }
+}
+
+#[cfg(test)] mod tests {
+    use super::Context;
+
+    #[test] fn test_new_context() {
+        Context::reset();
+        let port_context = Context::current_clone().unwrap();
+        let next_context = Context::from_context(port_context);
+        next_context.clone().set_current();
+
+        Context::pop(next_context.context_id());
     }
 }
