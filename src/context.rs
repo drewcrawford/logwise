@@ -61,10 +61,11 @@ impl Drop for Task {
         crate::global_logger::GLOBAL_LOGGER.finish_log_record(record);
     }
 }
+#[derive(Clone)]
 struct TaskMutable {
     interval_statistics: HashMap<&'static str, std::time::Duration>,
 }
-
+#[derive(Clone)]
 pub struct Task {
     task_id: TaskID,
     mutable: RefCell<TaskMutable>,
@@ -80,7 +81,7 @@ impl Task {
         }
     }
 }
-
+#[derive(Clone)]
 struct MutableContext {
 }
 
@@ -88,6 +89,7 @@ struct MutableContext {
 /**
 Provides a set of info that can be used by multiple logs.
 */
+#[derive(Clone)]
 pub struct Context {
     parent: Option<Box<Context>>,
     context_id: u64,
@@ -118,11 +120,25 @@ impl Context {
 
     When using this pointer, you must ensure that the context is only accessed from the local thread,
     and is not mutated by the local thread while the pointer is in use.
+
+    If you can stand a safe API, see [current_clone] as an alternative.
     */
     #[inline]
     pub fn current() -> *const Option<Context> {
         CONTEXT.with(|c| {
             c.as_ptr()
+        })
+    }
+
+    /**
+    Clones the current context into the value.
+
+    This may be used to get a copy of the context for use in a closure.
+    */
+    #[inline]
+    pub fn current_clone() -> Option<Context> {
+        CONTEXT.with(|c| {
+            c.clone().take()
         })
     }
 
