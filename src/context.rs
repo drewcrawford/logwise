@@ -244,7 +244,7 @@ impl Context {
 
     If the context cannot be found, panics.
     */
-    pub(crate)fn pop(id: ContextID) {
+    pub fn pop(id: ContextID) {
         let mut current = CONTEXT.with(|c| c.take()).unwrap();
         loop {
             if current.context_id() == id {
