@@ -136,9 +136,7 @@ impl Context {
     */
     #[inline]
     pub fn current_clone() -> Option<Context> {
-        CONTEXT.with(|c| {
-            c.clone().take()
-        })
+        unsafe{&*Self::current()}.clone()
     }
 
 
