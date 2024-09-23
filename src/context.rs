@@ -82,7 +82,6 @@ impl Task {
 }
 
 struct MutableContext {
-    values: HashMap<&'static str, Box<dyn Loggable>>,
 }
 
 
@@ -144,7 +143,6 @@ impl Context {
         Context {
             parent: None,
             mutable_context: RefCell::new(MutableContext {
-                values: HashMap::new(),
 
             }),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
@@ -201,7 +199,7 @@ impl Context {
         let new_context = Context {
             parent: Some(Box::new(current)),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-            mutable_context: RefCell::new(MutableContext { values: Default::default() }),
+            mutable_context: RefCell::new(MutableContext {  }),
             define_task: None,
         };
         let id = new_context.context_id();
@@ -230,9 +228,7 @@ impl Context {
     }
 
 
-    pub fn set<L: Loggable + 'static>(&mut self, key: &'static str, value: L) {
-        self.mutable_context.borrow_mut().values.insert(key, Box::new(value));
-    }
+
 
 
 
