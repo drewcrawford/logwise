@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::atomic::AtomicU64;
@@ -71,7 +71,7 @@ Provides a set of info that can be used by multiple logs.
 */
 pub struct Context {
     parent: Option<Box<Context>>,
-    values: HashMap<&'static str, Box<dyn Loggable>>,
+    values: RefCell<HashMap<&'static str, Box<dyn Loggable>>>,
     context_id: u64,
     /**
     The base context of the current context.
@@ -129,7 +129,7 @@ impl Context {
     pub fn new_orphan() -> Context {
         Context {
             parent: None,
-            values: HashMap::new(),
+            values: RefCell::default(),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             base_context: Some(BaseContext {
                 interval_statistics: HashMap::new(),
@@ -186,7 +186,7 @@ impl Context {
         let current = CONTEXT.with(|c| c.take()).unwrap();
         let new_context = Context {
             parent: Some(Box::new(current)),
-            values: HashMap::new(),
+            values: RefCell::default(),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             base_context: None,
         };
@@ -217,7 +217,7 @@ impl Context {
 
 
     pub fn set<L: Loggable + 'static>(&mut self, key: &'static str, value: L) {
-        self.values.insert(key, Box::new(value));
+        self.values.borrow_mut().insert(key, Box::new(value));
     }
 
     fn base_context_mut(&mut self) -> Option<&mut BaseContext> {
