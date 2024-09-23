@@ -1,61 +1,87 @@
 use proc_macro::{TokenStream, TokenTree};
 use std::collections::{HashMap, VecDeque};
 
-
-fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<HashMap<String,String>,TokenStream> {
-    let mut kvs = HashMap::new();
+fn parse_key(input: &mut VecDeque<TokenTree>) -> Option<String> {
+    //basically we go until we get a =.
+    let mut key = String::new();
     loop {
-        //first extract the comma.
         match input.pop_front() {
             Some(TokenTree::Punct(p)) => {
-                if p.as_char() == ',' {
-                    continue;
+                if p.as_char() == '=' {
+                    return Some(key);
                 }
-                return Err(r#"compile_error!("Expected ','")"#.parse().unwrap());
+                return Some("".to_string());
             }
             Some(TokenTree::Ident(i)) => {
-                let key = i.to_string();
-                let next = input.pop_front();
-                match next {
-                    Some(TokenTree::Punct(p)) => {
-                        if p.as_char() == '=' {
-                            //expect literal
-                            let next = input.pop_front();
-                            match next {
-                                Some(TokenTree::Literal(l)) => {
-                                    kvs.insert(key,l.to_string());
-                                    continue;
-                                }
-                                Some(TokenTree::Ident(i)) => {
-                                    kvs.insert(key, i.to_string());
-                                    continue;
-                                }
-                                _ => {
-                                    let next_desc = format!("{:?}",next).replace("\"","\\\"");
-                                    let r = format!(r#"compile_error!("Expected literal near {}")"#, next_desc);
-                                    return Err(r.parse().unwrap());
-                                }
-                            }
-                        }
-                        return Err(r#"compile_error!("Expected '='")"#.parse().unwrap());
-                    }
-                    _ => {
-                        return Err(r#"compile_error!("Expected '='")"#.parse().unwrap());
-                    }
-                }
-
+                key.push_str(&i.to_string());
+            }
+            Some(TokenTree::Literal(l)) => {
+                key.push_str(&l.to_string());
+            }
+            Some(TokenTree::Group(g)) => {
+                key.push_str(&g.to_string());
             }
             None => {
-                return Ok(kvs);
-            }
-            Some(thing) => {
-                let msg = format!("compile_error!(\"Unexpected token {}\")",thing.to_string().replace("\"","\\\""));
-                return Err(msg.parse().unwrap());
+                return None;
             }
         }
     }
+}
+
+fn parse_value(input: &mut VecDeque<TokenTree>) -> String {
+    //basically we go until we get a , or end.
+    let mut value = String::new();
+    loop {
+        match input.pop_front() {
+            Some(TokenTree::Punct(p)) => {
+                if p.as_char() == ',' {
+                    return value;
+                }
+                value.push_str(&p.to_string());
+            }
+            Some(TokenTree::Ident(i)) => {
+                value.push_str(&i.to_string());
+            }
+            Some(TokenTree::Literal(l)) => {
+                value.push_str(&l.to_string());
+            }
+            Some(TokenTree::Group(g)) => {
+                value.push_str(&g.to_string());
+            }
+            None => {
+                return value;
+            }
+        }
+    }
+}
 
 
+fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<HashMap<String, String>, TokenStream> {
+    let mut kvs = HashMap::new();
+    //first extract the comma.
+    if input.is_empty() {
+        return Ok(kvs);
+    }
+    match input.pop_front() {
+        Some(TokenTree::Punct(p)) => {
+            if p.as_char() != ',' {
+                return Err(r#"compile_error!("Expected ','")"#.parse().unwrap());
+            }
+        }
+        f => {
+            return Err(r#"compile_error!("Expected ','")"#.parse().unwrap());
+        }
+    }
+    loop {
+        let key = match parse_key(input) {
+            Some(k) => k,
+            None => {
+                return Ok(kvs);
+            }
+        };
+        let value = parse_value(input);
+        kvs.insert(key, value);
+    }
 }
 
 struct LFormatResult {
@@ -63,24 +89,23 @@ struct LFormatResult {
     name: String,
 }
 
-fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> LFormatResult {
+fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LFormatResult {
     let some_input = match collect.remove(0) {
         Some(i) => i,
         None => {
-            return LFormatResult{output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string()}
+            return LFormatResult { output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string() }
         }
     };
     let format_string = match some_input {
         TokenTree::Literal(l) => {
             let out = l.to_string();
             if !out.starts_with('"') || !out.ends_with('"') {
-                return LFormatResult{output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string()};
+                return LFormatResult { output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string() };
             }
-            out[1..out.len()-1].to_string()
-
+            out[1..out.len() - 1].to_string()
         }
         _ => {
-            return LFormatResult{output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string()};
+            return LFormatResult { output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string() };
         }
     };
 
@@ -88,7 +113,7 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> LFormatResu
     let k = match build_kvs(collect) {
         Ok(kvs) => kvs,
         Err(e) => {
-            return LFormatResult{output: e, name: "".to_string()};
+            return LFormatResult { output: e, name: "".to_string() };
         }
     };
     //parse format string
@@ -100,32 +125,28 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> LFormatResu
     }
     let mut mode = Mode::Literal(String::new());
 
-    for(c,char) in format_string.chars().enumerate() {
+    for (c, char) in format_string.chars().enumerate() {
         match mode {
             Mode::Literal(mut literal) => {
                 if char == '{' {
                     //peek to see if we're escaping
-                    if format_string.chars().nth(c+1) == Some('{') {
+                    if format_string.chars().nth(c + 1) == Some('{') {
                         literal.push(char);
                         mode = Mode::Literal(literal);
-                    }
-                    else if !literal.is_empty() {
+                    } else if !literal.is_empty() {
                         //reference logger ident
                         source.push_str(&logger);
                         source.push_str(".write_literal(\"");
                         source.push_str(&literal);
                         source.push_str("\");\n");
                         mode = Mode::Key(String::new());
-                    }
-                    else {
+                    } else {
                         mode = Mode::Key(String::new());
                     }
-                }
-                else {
+                } else {
                     literal.push(char);
                     mode = Mode::Literal(literal);
                 }
-
             }
             Mode::Key(mut key) => {
                 if char == '}' {
@@ -135,7 +156,7 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> LFormatResu
                     let value = match k.get(&key) {
                         Some(l) => l.to_string(),
                         None => {
-                            return LFormatResult{output: format!(r#"compile_error!("Key {} not found")"#, key).parse().unwrap(), name: "".to_string()};
+                            return LFormatResult { output: format!(r#"compile_error!("Key {} not found")"#, key).parse().unwrap(), name: "".to_string() };
                         }
                     };
                     source.push_str(&value);
@@ -146,7 +167,6 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> LFormatResu
                     mode = Mode::Key(key);
                 }
             }
-
         }
     }
     //check end situation
@@ -160,11 +180,11 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>,logger: String) -> LFormatResu
             }
         }
         Mode::Key(_) => {
-            return LFormatResult{output: r#"compile_error!("Expected '}'")"#.parse().unwrap(), name: "".to_string()};
+            return LFormatResult { output: r#"compile_error!("Expected '}'")"#.parse().unwrap(), name: "".to_string() };
         }
     }
-    return LFormatResult{output: source.parse().unwrap(), name: format_string};
-    }
+    return LFormatResult { output: source.parse().unwrap(), name: format_string };
+}
 
 /**
 Replaces a format string with a sequence of log calls.
@@ -218,17 +238,16 @@ pub fn lformat(input: TokenStream) -> TokenStream {
         }
     }
 
-    let o = lformat_impl(&mut collect,logger_ident.to_string());
+    let o = lformat_impl(&mut collect, logger_ident.to_string());
     o.output
-
 }
-
 
 
 /**
 Logs a message at debug_internal level
 */
-#[proc_macro] pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
+#[proc_macro]
+pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
@@ -240,13 +259,13 @@ Logs a message at debug_internal level
                 {LFORMAT_EXPAND}
                 dlog::hidden::debuginternal_sync_post(record);
        }}
-    "#, LFORMAT_EXPAND=lformat_result.output);
-
+    "#, LFORMAT_EXPAND = lformat_result.output);
+    // todo!("{}", src);
     src.parse().unwrap()
-
 }
 
-#[proc_macro] pub fn debuginternal_async(input: TokenStream) -> TokenStream {
+#[proc_macro]
+pub fn debuginternal_async(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
@@ -259,17 +278,17 @@ Logs a message at debug_internal level
                 dlog::hidden::debuginternal_async_post(record).await;
             }}
         }}
-    "#, LFORMAT_EXPAND=lformat_result.output);
+    "#, LFORMAT_EXPAND = lformat_result.output);
 
     src.parse().unwrap()
-
 }
 
 /**
 Logs a message at info level.
  */
 
-#[proc_macro] pub fn info_sync(input: TokenStream) -> TokenStream {
+#[proc_macro]
+pub fn info_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
@@ -282,16 +301,16 @@ Logs a message at info level.
             {LFORMAT_EXPAND}
             dlog::hidden::info_sync_post(record);
         }}
-    "#, LFORMAT_EXPAND=lformat_result.output);
+    "#, LFORMAT_EXPAND = lformat_result.output);
 
     src.parse().unwrap()
-
 }
 
 /**
 Logs a message at warning leve.
 */
-#[proc_macro] pub fn warn_sync(input: TokenStream) -> TokenStream {
+#[proc_macro]
+pub fn warn_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
@@ -303,10 +322,9 @@ Logs a message at warning leve.
             {LFORMAT_EXPAND}
             dlog::hidden::warn_sync_post(record);
         }}
-    "#, LFORMAT_EXPAND=lformat_result.output);
+    "#, LFORMAT_EXPAND = lformat_result.output);
 
     src.parse().unwrap()
-
 }
 
 /**
@@ -314,7 +332,8 @@ Logs a performance warning interval.
 
 
 */
-#[proc_macro] pub fn perfwarn_begin(input: TokenStream) -> TokenStream {
+#[proc_macro]
+pub fn perfwarn_begin(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
@@ -324,9 +343,8 @@ Logs a performance warning interval.
             {LFORMAT_EXPAND}
             dlog::hidden::perfwarn_begin_post(record,"{NAME}")
         }}
-    "#, LFORMAT_EXPAND=lformat_result.output,NAME=lformat_result.name);
+    "#, LFORMAT_EXPAND = lformat_result.output, NAME = lformat_result.name);
     src.parse().unwrap()
-
 }
 
 /**
@@ -334,21 +352,22 @@ Logs a performance warning interval.
 
 
 */
-#[proc_macro] pub fn perfwarn(input: TokenStream) -> TokenStream {
+#[proc_macro]
+pub fn perfwarn(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let last_token = input.pop_back().expect("Expected block");
     let lformat_expand = lformat_impl(&mut input, "formatter".to_string());
 
     let group = match last_token {
         TokenTree::Group(g) => {
-           g
+            g
         }
         _ => {
             return r#"compile_error!("Expected block")"#.parse().unwrap()
         }
     };
     if group.delimiter() != proc_macro::Delimiter::Brace {
-        return r#"compile_error!("Expected block")"#.parse().unwrap()
+        return r#"compile_error!("Expected block")"#.parse().unwrap();
     }
 
     let src = format!(r#"
@@ -361,6 +380,6 @@ Logs a performance warning interval.
             drop(interval);
             result
         }}
-    "#, LFORMAT_EXPAND=lformat_expand.output,BLOCK=group.to_string(),NAME=lformat_expand.name);
+    "#, LFORMAT_EXPAND = lformat_expand.output, BLOCK = group.to_string(), NAME = lformat_expand.name);
     src.parse().unwrap()
 }

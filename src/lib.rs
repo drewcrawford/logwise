@@ -21,7 +21,7 @@ So, what do we want?
 
 mod level;
 mod logger;
-mod privacy;
+pub mod privacy;
 mod stderror_logger;
 pub mod global_logger;
 mod macros;
