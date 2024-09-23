@@ -150,12 +150,14 @@ impl Context {
 
 
     /**
-    Creates a new orphaned context
+    Creates a new orphaned context.
+
+
     */
     #[inline]
-    pub fn new_task() -> Context {
+    pub fn new_task(parent: Option<Context>) -> Context {
         Context {
-            parent: None,
+            parent: parent.map(|p| Box::new(p)),
             _mutable_context: RefCell::new(MutableContext {
 
             }),
@@ -169,7 +171,7 @@ impl Context {
     */
     #[inline]
     pub fn reset() {
-        CONTEXT.with(|c| c.set(Some(Context::new_task())));
+        CONTEXT.with(|c| c.set(Some(Context::new_task(None))));
     }
 
     /**
@@ -287,7 +289,7 @@ impl Context {
 
                 let global_logger = &crate::global_logger::GLOBAL_LOGGER;
                 global_logger.finish_log_record(record);
-                let new_ctx = Context::new_task();
+                let new_ctx = Context::new_task(None);
                 new_ctx.set_current();
                 (&*Context::current()).as_ref().unwrap()
             }
