@@ -28,29 +28,25 @@ impl Display for ContextID {
     }
 }
 
-struct BaseContext {
-    interval_statistics: HashMap<&'static str, std::time::Duration>,
-    task_id: TaskID
-}
 
-impl BaseContext {
+impl Task {
     #[inline]
-    fn add_task_interval(&mut self, key: &'static str, duration: std::time::Duration) {
-        self.interval_statistics.get_mut(key).map(|v| *v += duration).unwrap_or_else(|| {
-            self.interval_statistics.insert(key, duration);
+    fn add_task_interval(&self, key: &'static str, duration: std::time::Duration) {
+        self.mutable.borrow_mut().interval_statistics.get_mut(key).map(|v| *v += duration).unwrap_or_else(|| {
+            self.mutable.borrow_mut().interval_statistics.insert(key, duration);
         });
     }
 }
 
-impl Drop for BaseContext {
+impl Drop for Task {
     fn drop(&mut self) {
         use crate::logger::Logger;
-        if !self.interval_statistics.is_empty() {
+        if !self.mutable.borrow().interval_statistics.is_empty() {
             let mut record = crate::log_record::LogRecord::new();
             //log task ID
             record.log_owned(format!("{} ",self.task_id.0));
             record.log("PERFWARN: statistics[");
-            for (key, duration) in &self.interval_statistics {
+            for (key, duration) in &self.mutable.borrow().interval_statistics {
                 record.log(key);
                 record.log_owned(format!(": {:?},", duration));
             }
@@ -64,6 +60,29 @@ impl Drop for BaseContext {
         crate::global_logger::GLOBAL_LOGGER.finish_log_record(record);
     }
 }
+struct TaskMutable {
+    interval_statistics: HashMap<&'static str, std::time::Duration>,
+}
+
+pub struct Task {
+    task_id: TaskID,
+    mutable: RefCell<TaskMutable>,
+}
+
+impl Task {
+    fn new() -> Task {
+        Task {
+            task_id: TaskID(TASK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
+            mutable: RefCell::new(TaskMutable {
+                interval_statistics: HashMap::new(),
+            }),
+        }
+    }
+}
+
+struct MutableContext {
+    values: HashMap<&'static str, Box<dyn Loggable>>,
+}
 
 
 /**
@@ -71,12 +90,10 @@ Provides a set of info that can be used by multiple logs.
 */
 pub struct Context {
     parent: Option<Box<Context>>,
-    values: RefCell<HashMap<&'static str, Box<dyn Loggable>>>,
     context_id: u64,
-    /**
-    The base context of the current context.
-    */
-    base_context: Option<BaseContext>,
+    mutable_context: RefCell<MutableContext>,
+    //if some, we define a new task ID for this context.
+    define_task: Option<Task>
 }
 
 thread_local! {
@@ -109,32 +126,28 @@ impl Context {
         })
     }
 
-    /**
-    Returns a raw pointer to the thread-local context.
-
-    When using this pointer, you must ensure that the context is only accessed from the local thread,
-    and is not mutated by the local thread while the pointer is in use.
-    */
-    #[inline]
-    pub fn current_mut() -> *mut Option<Context> {
-        CONTEXT.with(|c| {
-            c.as_ptr()
-        })
+    pub fn task(&self) -> Option<&Task> {
+        if let Some(task) = &self.define_task {
+            Some(task)
+        } else {
+            self.parent.as_ref().and_then(|p| p.task())
+        }
     }
+
 
     /**
     Creates a new orphaned context
     */
     #[inline]
-    pub fn new_orphan() -> Context {
+    pub fn new_task() -> Context {
         Context {
             parent: None,
-            values: RefCell::default(),
-            context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-            base_context: Some(BaseContext {
-                interval_statistics: HashMap::new(),
-                task_id: TaskID(TASK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
+            mutable_context: RefCell::new(MutableContext {
+                values: HashMap::new(),
+
             }),
+            context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            define_task: Some(Task::new()),
         }
     }
 
@@ -143,12 +156,12 @@ impl Context {
     */
     #[inline]
     pub fn reset() {
-        CONTEXT.with(|c| c.set(Some(Context::new_orphan())));
+        CONTEXT.with(|c| c.set(Some(Context::new_task())));
     }
 
     #[inline]
     pub fn task_id(&self) -> TaskID {
-        self.base_context().unwrap().task_id
+        self.task().unwrap().task_id
     }
 
     /**
@@ -186,9 +199,9 @@ impl Context {
         let current = CONTEXT.with(|c| c.take()).unwrap();
         let new_context = Context {
             parent: Some(Box::new(current)),
-            values: RefCell::default(),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-            base_context: None,
+            mutable_context: RefCell::new(MutableContext { values: Default::default() }),
+            define_task: None,
         };
         let id = new_context.context_id();
         CONTEXT.with(|c| c.set(Some(new_context)));
@@ -217,26 +230,10 @@ impl Context {
 
 
     pub fn set<L: Loggable + 'static>(&mut self, key: &'static str, value: L) {
-        self.values.borrow_mut().insert(key, Box::new(value));
+        self.mutable_context.borrow_mut().values.insert(key, Box::new(value));
     }
 
-    fn base_context_mut(&mut self) -> Option<&mut BaseContext> {
-        match self.base_context.as_mut() {
-            Some(base) => Some(base),
-            None => {
-                self.parent.as_mut()?.base_context_mut()
-            }
-        }
-    }
 
-    fn base_context(&self) -> Option<&BaseContext> {
-        match self.base_context.as_ref() {
-            Some(base) => Some(base),
-            None => {
-                self.parent.as_ref()?.base_context()
-            }
-        }
-    }
 
     /**
     Internal implementation detail of the logging system.
@@ -261,11 +258,11 @@ impl Context {
 
                 //for warn, we can afford timestamp
                 record.log_timestamp();
-                record.log("No context found. Creating orphan context.");
+                record.log("No context found. Creating new task context.");
 
                 let global_logger = &crate::global_logger::GLOBAL_LOGGER;
                 global_logger.finish_log_record(record);
-                let new_ctx = Context::new_orphan();
+                let new_ctx = Context::new_task();
                 new_ctx.set_current();
                 (&*Context::current()).as_ref().unwrap()
             }
@@ -287,7 +284,8 @@ impl Context {
         record.log_owned(format!("{} ",self.task_id()));
     }
 
-    #[inline] pub fn _add_task_interval(&mut self, key: &'static str, duration: std::time::Duration) {
-        self.base_context_mut().unwrap().add_task_interval(key,duration);
+    #[inline] pub fn _add_task_interval(&self, key: &'static str, duration: std::time::Duration) {
+        self.task().as_ref()
+            .expect("No current task").add_task_interval(key, duration);
     }
 }

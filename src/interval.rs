@@ -42,8 +42,8 @@ impl Drop for PerfwarnInterval {
         let end_time = std::time::Instant::now();
         let duration = end_time.duration_since(self.start);
         unsafe {
-            let ctx = &mut *Context::current_mut();
-            ctx.as_mut().unwrap()._add_task_interval(self.label, duration);
+            let ctx = &*Context::current();
+            ctx.as_ref().unwrap()._add_task_interval(self.label, duration);
         }
 
         Context::pop(self.context_id);

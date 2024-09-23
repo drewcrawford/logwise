@@ -68,7 +68,7 @@ fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<HashMap<String, String>,
                 return Err(r#"compile_error!("Expected ','")"#.parse().unwrap());
             }
         }
-        f => {
+        _ => {
             return Err(r#"compile_error!("Expected ','")"#.parse().unwrap());
         }
     }
