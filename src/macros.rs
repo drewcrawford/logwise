@@ -185,6 +185,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     #[test] fn test_log_custom() {
         crate::context::Context::reset();
         #[derive(Debug)]
+        #[allow(dead_code)]
         struct S(i32);
         let s = S(23);
         debuginternal_sync!("{s}!",s=dlog::privacy::LogIt(&s));

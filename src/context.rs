@@ -32,8 +32,9 @@ impl Display for ContextID {
 impl Task {
     #[inline]
     fn add_task_interval(&self, key: &'static str, duration: std::time::Duration) {
-        self.mutable.borrow_mut().interval_statistics.get_mut(key).map(|v| *v += duration).unwrap_or_else(|| {
-            self.mutable.borrow_mut().interval_statistics.insert(key, duration);
+        let mut borrow = self.mutable.borrow_mut();
+        borrow.interval_statistics.get_mut(key).map(|v| *v += duration).unwrap_or_else(|| {
+            borrow.interval_statistics.insert(key, duration);
         });
     }
 }
