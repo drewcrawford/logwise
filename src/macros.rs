@@ -86,6 +86,12 @@ pub fn info_sync_post(record: LogRecord) {
     global_logger.finish_log_record(record);
 }
 
+pub async fn info_async_post(record: LogRecord) {
+    use crate::logger::Logger;
+    let global_logger = &crate::hidden::GLOBAL_LOGGER;
+    global_logger.finish_log_record_async(record).await;
+}
+
 
 pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
@@ -189,5 +195,13 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
         struct S(i32);
         let s = S(23);
         debuginternal_sync!("{s}!",s=dlog::privacy::LogIt(&s));
+    }
+
+    #[test] fn test_log_info_async() {
+        crate::context::Context::reset();
+        let _ = async {
+            dlog::info_async!("test_log_info_async");
+        };
+        //I guess we do something with this, but we can't call truntime because it depends on us...
     }
 }

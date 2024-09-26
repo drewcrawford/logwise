@@ -32,7 +32,7 @@ mod local_logger;
 
 pub use level::Level;
 
-pub use dlog_proc::{info_sync, perfwarn, debuginternal_async, debuginternal_sync, warn_sync,perfwarn_begin};
+pub use dlog_proc::{info_sync, perfwarn, debuginternal_async, debuginternal_sync, warn_sync,perfwarn_begin,info_async};
 
 #[doc(hidden)]
 pub mod hidden {
@@ -40,6 +40,6 @@ pub mod hidden {
     pub use crate::global_logger::GLOBAL_LOGGER;
     pub use crate::logger::{Logger};
     pub use crate::log_record::LogRecord;
-    pub use crate::macros::{debuginternal_pre,debuginternal_sync_post,debuginternal_async_post,info_sync_post,info_sync_pre,perfwarn_begin_post, perfwarn_begin_pre, warn_sync_pre, warn_sync_post};
+    pub use crate::macros::{debuginternal_pre,debuginternal_sync_post,debuginternal_async_post,info_sync_post,info_sync_pre,info_async_post,perfwarn_begin_post, perfwarn_begin_pre, warn_sync_pre, warn_sync_post};
 }
 extern crate self as dlog;
