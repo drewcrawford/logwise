@@ -322,7 +322,7 @@ pub fn info_async(input: TokenStream) -> TokenStream {
             let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
 
             {LFORMAT_EXPAND}
-            dlog::hidden::info_async_post(record);
+            dlog::hidden::info_async_post(record).await;
         }}
     "#, LFORMAT_EXPAND = lformat_result.output);
 
