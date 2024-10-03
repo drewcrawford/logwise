@@ -132,13 +132,11 @@ impl Context {
     */
     #[inline]
     pub fn new_task(parent: Option<Arc<Context>>, label: &'static str) -> Context {
-        let is_tracing = parent.as_ref().map(|e|e.is_tracing.load(Ordering::Relaxed)).unwrap_or(false);
-
         Context {
             parent,
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             define_task: Some(Task::new(label)),
-            is_tracing: AtomicBool::new(is_tracing),
+            is_tracing: AtomicBool::new(false),
         }
     }
 
