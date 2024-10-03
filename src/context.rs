@@ -261,6 +261,12 @@ impl Context {
     Logs the start of logs that typically use Context.
     */
     #[inline] pub fn _log_prelude(&self, record: &mut crate::log_record::LogRecord) {
+        let prefix = if self.is_tracing() {
+            "T"
+        } else {
+            " "
+        };
+        record.log(prefix);
         for _ in 0..self.nesting_level() {
             record.log(" ");
         }
