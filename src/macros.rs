@@ -209,7 +209,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
 
     #[test]
     fn test_warn_sync() {
-        crate::context::Context::reset();
+        crate::context::Context::reset("test_warn_sync");
         info_sync!("test_warn_sync");
         warn_sync!("test_warn_sync Hello {world}!",world=23);
     }
@@ -219,7 +219,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
 
     #[test] fn perfwarn() {
         use dlog::perfwarn;
-        Context::reset();
+        Context::reset("test_perfwarn");
         info_sync!("test_perfwarn");
         let _: i32 = perfwarn!("test_perfwarn interval name", {
          //code to profile
@@ -228,19 +228,19 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
 
     }
     #[test] fn test_debuginternal_sync() {
-        crate::context::Context::reset();
+        crate::context::Context::reset("test_debuginternal_sync");
         debuginternal_sync!("test_debuginternal_sync");
     }
     #[test] fn test_log_rich() {
         let val = false;
-        crate::context::Context::reset();
+        crate::context::Context::reset("test_log_rich");
 
         debuginternal_sync!("Hello {world}!",world=val);
 
     }
 
     #[test] fn test_log_custom() {
-        crate::context::Context::reset();
+        crate::context::Context::reset("test_log_custom");
         #[derive(Debug)]
         #[allow(dead_code)]
         struct S(i32);
@@ -249,7 +249,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     }
 
     #[test] fn test_log_info_async() {
-        crate::context::Context::reset();
+        crate::context::Context::reset("test_log_info_async");
         let _ = async {
             dlog::info_async!("test_log_info_async");
         };
@@ -257,7 +257,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     }
 
     #[test] fn test_trace() {
-        crate::context::Context::reset();
+        crate::context::Context::reset("test_trace");
         dlog::trace_sync!("test_trace");
     }
 }

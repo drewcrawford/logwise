@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use dlog_proc::{debuginternal_sync, info_sync};
 
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -55,7 +56,9 @@ impl Drop for Task {
 
         let mut record = crate::log_record::LogRecord::new();
         record.log_owned(format!("{} ",self.task_id.0));
-        record.log("Finished task");
+        record.log("Finished task `");
+        record.log(self.label);
+        record.log("`");
         crate::global_logger::GLOBAL_LOGGER.finish_log_record(record);
     }
 }
@@ -66,15 +69,17 @@ struct TaskMutable {
 pub struct Task {
     task_id: TaskID,
     mutable: Mutex<TaskMutable>,
+    label: &'static str,
 }
 
 impl Task {
-    fn new() -> Task {
+    fn new(label: &'static str) -> Task {
         Task {
             task_id: TaskID(TASK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
             mutable: Mutex::new(TaskMutable {
                 interval_statistics: HashMap::new(),
             }),
+            label,
         }
     }
 }
@@ -93,7 +98,7 @@ pub struct Context {
 }
 
 thread_local! {
-    static CONTEXT: Cell<Arc<Context>> = Cell::new(Arc::new(Context::new_task(None)));
+    static CONTEXT: Cell<Arc<Context>> = Cell::new(Arc::new(Context::new_task(None,"Default task")));
 }
 
 impl Context {
@@ -126,13 +131,13 @@ impl Context {
 
     */
     #[inline]
-    pub fn new_task(parent: Option<Arc<Context>>) -> Context {
+    pub fn new_task(parent: Option<Arc<Context>>, label: &'static str) -> Context {
         let is_tracing = parent.as_ref().map(|e|e.is_tracing.load(Ordering::Relaxed)).unwrap_or(false);
 
         Context {
             parent,
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-            define_task: Some(Task::new()),
+            define_task: Some(Task::new(label)),
             is_tracing: AtomicBool::new(is_tracing),
         }
     }
@@ -142,8 +147,9 @@ impl Context {
     Sets a blank context
     */
     #[inline]
-    pub fn reset() {
-        CONTEXT.with(|c| c.replace(Arc::new(Context::new_task(None))));
+    pub fn reset(label: &'static str) {
+        let new_context = Context::new_task(None,label);
+        new_context.set_current();
     }
 
     /**
@@ -195,7 +201,9 @@ impl Context {
     Sets the current context to this one.
     */
     pub fn set_current(self) {
-        CONTEXT.replace(Arc::new(self));
+        let new_label = self.task().map(|t| t.label);
+        let old = CONTEXT.replace(Arc::new(self));
+        dlog::info_sync!("Task begin: {task_label}", task_label = new_label.unwrap_or("No label"));
     }
 
     /**
@@ -275,7 +283,7 @@ impl From<Arc<Context>> for Context {
     use super::Context;
 
     #[test] fn test_new_context() {
-        Context::reset();
+        Context::reset("test_new_context");
         let port_context = Context::current();
         let next_context = Context::from_parent(port_context);
         let next_context_id = next_context.context_id();
