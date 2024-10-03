@@ -252,7 +252,7 @@ pub fn trace_sync(input: TokenStream) -> TokenStream {
     let src = format!(r#"
         #[cfg(debug_assertions)]
         {{
-            if Context::currently_tracing() {{
+            if dlog::context::Context::currently_tracing() {{
                 let mut record = dlog::hidden::trace_sync_pre(file!(),line!(),column!());
 
                 let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
@@ -276,7 +276,7 @@ pub fn trace_async(input: TokenStream) -> TokenStream {
     let src = format!(r#"
         #[cfg(debug_assertions)]
         {{
-            if Context::currently_tracing() {{
+            if dlog::context::Context::currently_tracing() {{
                 let mut record = dlog::hidden::trace_sync_pre(file!(),line!(),column!());
 
                 let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
@@ -299,7 +299,7 @@ pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
         #[cfg(debug_assertions)]
-        if module_path!().starts_with(env!("CARGO_PKG_NAME")) || Context::currently_tracing() {{
+        if module_path!().starts_with(env!("CARGO_PKG_NAME")) || dlog::context::Context::currently_tracing() {{
                 let mut record = dlog::hidden::debuginternal_pre(file!(),line!(),column!());
                 let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
 
@@ -317,7 +317,7 @@ pub fn debuginternal_async(input: TokenStream) -> TokenStream {
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
         #[cfg(debug_assertions)] {{
-            if module_path!().starts_with(env!("CARGO_PKG_NAME")) || Context::currently_tracing() {{
+            if module_path!().starts_with(env!("CARGO_PKG_NAME")) || dlog::context::Context::currently_tracing() {{
                let mut record = dlog::hidden::debuginternal_pre(file!(),line!(),column!());
                 let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
 
