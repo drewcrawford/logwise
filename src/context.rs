@@ -193,6 +193,7 @@ impl Context {
     */
     pub fn begin_trace() {
         Context::current().is_tracing.store(true, Ordering::Relaxed);
+        dlog::trace_sync!("Begin trace");
     }
 
     /**
