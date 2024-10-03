@@ -63,7 +63,6 @@ impl Drop for Task {
 struct TaskMutable {
     interval_statistics: HashMap<&'static str, std::time::Duration>,
 }
-#[derive(Clone)]
 pub struct Task {
     task_id: TaskID,
     mutable: RefCell<TaskMutable>,
@@ -87,7 +86,6 @@ struct MutableContext {
 /**
 Provides a set of info that can be used by multiple logs.
 */
-#[derive(Clone)]
 pub struct Context {
     parent: Option<Arc<Context>>,
     context_id: u64,
@@ -287,8 +285,9 @@ impl Context {
         Context::reset();
         let port_context = Context::current();
         let next_context = Context::from_parent(port_context);
-        next_context.clone().set_current();
+        let next_context_id = next_context.context_id();
+        next_context.set_current();
 
-        Context::pop(next_context.context_id());
+        Context::pop(next_context_id);
     }
 }
