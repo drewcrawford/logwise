@@ -78,9 +78,6 @@ impl Task {
         }
     }
 }
-#[derive(Clone)]
-struct MutableContext {
-}
 
 
 /**
@@ -89,7 +86,6 @@ Provides a set of info that can be used by multiple logs.
 pub struct Context {
     parent: Option<Arc<Context>>,
     context_id: u64,
-    _mutable_context: RefCell<MutableContext>,
     //if some, we define a new task ID for this context.
     define_task: Option<Task>,
     ///whether this context is currently tracing
@@ -135,9 +131,6 @@ impl Context {
 
         Context {
             parent,
-            _mutable_context: RefCell::new(MutableContext {
-
-            }),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             define_task: Some(Task::new()),
             is_tracing: AtomicBool::new(is_tracing),
@@ -160,9 +153,6 @@ impl Context {
         let is_tracing = context.is_tracing.load(Ordering::Relaxed);
         Context {
             parent: Some(context),
-            _mutable_context: RefCell::new(MutableContext {
-
-            }),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             define_task: None,
             is_tracing: AtomicBool::new(is_tracing),
