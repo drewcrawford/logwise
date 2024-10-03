@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
@@ -30,7 +30,7 @@ impl Display for ContextID {
 impl Task {
     #[inline]
     fn add_task_interval(&self, key: &'static str, duration: std::time::Duration) {
-        let mut borrow = self.mutable.borrow_mut();
+        let mut borrow = self.mutable.lock().unwrap();
         borrow.interval_statistics.get_mut(key).map(|v| *v += duration).unwrap_or_else(|| {
             borrow.interval_statistics.insert(key, duration);
         });
@@ -40,12 +40,12 @@ impl Task {
 impl Drop for Task {
     fn drop(&mut self) {
         use crate::logger::Logger;
-        if !self.mutable.borrow().interval_statistics.is_empty() {
+        if !self.mutable.lock().unwrap().interval_statistics.is_empty() {
             let mut record = crate::log_record::LogRecord::new();
             //log task ID
             record.log_owned(format!("{} ",self.task_id.0));
             record.log("PERFWARN: statistics[");
-            for (key, duration) in &self.mutable.borrow().interval_statistics {
+            for (key, duration) in &self.mutable.lock().unwrap().interval_statistics {
                 record.log(key);
                 record.log_owned(format!(": {:?},", duration));
             }
@@ -65,14 +65,14 @@ struct TaskMutable {
 }
 pub struct Task {
     task_id: TaskID,
-    mutable: RefCell<TaskMutable>,
+    mutable: Mutex<TaskMutable>,
 }
 
 impl Task {
     fn new() -> Task {
         Task {
             task_id: TaskID(TASK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
-            mutable: RefCell::new(TaskMutable {
+            mutable: Mutex::new(TaskMutable {
                 interval_statistics: HashMap::new(),
             }),
         }
