@@ -1,9 +1,9 @@
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Level {
-    /// Must be manually enabled inside the crate
-    TracePrivate,
-    /// Available in crate-only debug builds, needs some work to ship to users
+    /// Only available in trace mode.
+    Trace,
+    /// Available by default within the current crate when compiled in debug mode.  Available to users in their debug builds with tracing enabled.
     DebugInternal,
     /// Shipped to users in their debug builds
     Info,

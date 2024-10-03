@@ -119,6 +119,37 @@ pub fn warn_sync_post(record: LogRecord) {
     global_logger.finish_log_record(record);
 }
 
+pub fn trace_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
+    //safety: guarantee context won't change
+    let mut record = crate::hidden::LogRecord::new();
+
+    unsafe {
+        let read_ctx = crate::context::Context::_log_current_context(file, line, column);
+        read_ctx._log_prelude(&mut record);
+    }
+
+    record.log("TRACE: ");
+
+    //file, line
+    record.log(file);
+    record.log_owned(format!(":{}:{} ", line!(), column!()));
+
+    //for warn, we can afford timestamp
+    record.log_timestamp();
+    record
+}
+
+pub fn trace_sync_post(record: LogRecord) {
+    use crate::logger::Logger;
+    let global_logger = &crate::hidden::GLOBAL_LOGGER;
+    global_logger.finish_log_record(record);
+}
+
+pub async fn trace_async_post(record: LogRecord) {
+    use crate::logger::Logger;
+    let global_logger = &crate::hidden::GLOBAL_LOGGER;
+    global_logger.finish_log_record_async(record).await;
+}
 
 
 pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
@@ -203,5 +234,10 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
             dlog::info_async!("test_log_info_async");
         };
         //I guess we do something with this, but we can't call truntime because it depends on us...
+    }
+
+    #[test] fn test_trace() {
+        crate::context::Context::reset();
+        dlog::trace_sync!("test_trace");
     }
 }

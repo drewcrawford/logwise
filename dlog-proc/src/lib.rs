@@ -242,6 +242,53 @@ pub fn lformat(input: TokenStream) -> TokenStream {
     o.output
 }
 
+/**
+Logs a message at trace level
+*/
+#[proc_macro]
+pub fn trace_sync(input: TokenStream) -> TokenStream {
+    let mut input: VecDeque<_> = input.into_iter().collect();
+    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let src = format!(r#"
+        #[cfg(debug_assertions)]
+        {{
+            if Context::currently_tracing() {{
+                let mut record = dlog::hidden::trace_sync_pre(file!(),line!(),column!());
+
+                let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
+
+                {LFORMAT_EXPAND}
+                dlog::hidden::trace_sync_post(record);
+            }}
+        }}
+    "#, LFORMAT_EXPAND = lformat_result.output);
+
+    src.parse().unwrap()
+}
+
+/**
+Logs a message at trace level
+*/
+#[proc_macro]
+pub fn trace_async(input: TokenStream) -> TokenStream {
+    let mut input: VecDeque<_> = input.into_iter().collect();
+    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let src = format!(r#"
+        #[cfg(debug_assertions)]
+        {{
+            if Context::currently_tracing() {{
+                let mut record = dlog::hidden::trace_sync_pre(file!(),line!(),column!());
+
+                let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
+
+                {LFORMAT_EXPAND}
+                dlog::hidden::trace_async_post(record).await;
+            }}
+        }}
+    "#, LFORMAT_EXPAND = lformat_result.output);
+
+    src.parse().unwrap()
+}
 
 /**
 Logs a message at debug_internal level
@@ -252,7 +299,7 @@ pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
         #[cfg(debug_assertions)]
-        if module_path!().starts_with(env!("CARGO_PKG_NAME")) {{
+        if module_path!().starts_with(env!("CARGO_PKG_NAME")) || Context::currently_tracing() {{
                 let mut record = dlog::hidden::debuginternal_pre(file!(),line!(),column!());
                 let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
 
@@ -270,7 +317,7 @@ pub fn debuginternal_async(input: TokenStream) -> TokenStream {
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
         #[cfg(debug_assertions)] {{
-            if module_path!().starts_with(env!("CARGO_PKG_NAME")) {{
+            if module_path!().starts_with(env!("CARGO_PKG_NAME")) || Context::currently_tracing() {{
                let mut record = dlog::hidden::debuginternal_pre(file!(),line!(),column!());
                 let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
 

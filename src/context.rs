@@ -94,7 +94,9 @@ pub struct Context {
     context_id: u64,
     _mutable_context: RefCell<MutableContext>,
     //if some, we define a new task ID for this context.
-    define_task: Option<Task>
+    define_task: Option<Task>,
+    ///whether this context is currently tracing
+    is_tracing: bool,
 }
 
 thread_local! {
@@ -156,6 +158,7 @@ impl Context {
     */
     #[inline]
     pub fn new_task(parent: Option<Context>) -> Context {
+        let is_tracing = parent.as_ref().map(|e|e.is_tracing).unwrap_or(false);
         Context {
             parent: parent.map(|p| Box::new(p)),
             _mutable_context: RefCell::new(MutableContext {
@@ -163,6 +166,7 @@ impl Context {
             }),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             define_task: Some(Task::new()),
+            is_tracing
         }
     }
 
@@ -178,6 +182,7 @@ impl Context {
     Creates a new context with the current context as the parent.
     */
     pub fn from_context(context: Context) -> Context {
+        let is_tracing = context.is_tracing;
         Context {
             parent: Some(Box::new(context)),
             _mutable_context: RefCell::new(MutableContext {
@@ -185,12 +190,41 @@ impl Context {
             }),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             define_task: None,
+            is_tracing,
         }
     }
 
     #[inline]
     pub fn task_id(&self) -> TaskID {
         self.task().unwrap().task_id
+    }
+
+    /**
+    Determines whether this context is currently tracing.
+    */
+    #[inline]
+    pub const fn is_tracing(&self) -> bool {
+        self.is_tracing
+    }
+
+    /**
+    Returns true if we are currently tracing.
+*/
+    #[inline]
+    pub fn currently_tracing() -> bool {
+        CONTEXT.with(|c| {
+            unsafe{&*c.as_ptr()}.as_ref().map(|e|e.is_tracing).unwrap_or(false)
+        })
+    }
+
+    /**
+    Begins tracing for the current context.
+
+    */
+    pub fn begin_trace() {
+        CONTEXT.with(|c| {
+            unsafe{&mut *c.as_ptr()}.as_mut().unwrap().is_tracing = true;
+        });
     }
 
     /**
@@ -226,11 +260,13 @@ impl Context {
     */
     pub(crate) fn new_push() -> ContextID {
         let current = CONTEXT.with(|c| c.take()).unwrap();
+        let is_tracing = current.is_tracing;
         let new_context = Context {
             parent: Some(Box::new(current)),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             _mutable_context: RefCell::new(MutableContext {  }),
             define_task: None,
+            is_tracing,
         };
         let id = new_context.context_id();
         CONTEXT.with(|c| c.set(Some(new_context)));

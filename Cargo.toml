@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 dlog-proc = { path = "dlog-proc" }
 log = "0.4.22"
+
+[dev-dependencies]
