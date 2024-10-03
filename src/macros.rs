@@ -28,7 +28,7 @@ pub fn debuginternal_pre(file: &'static str, line: u32, column: u32) -> LogRecor
     let mut record = crate::hidden::LogRecord::new();
 
     unsafe {
-        let read_ctx = crate::context::Context::_log_current_context(file,line,column);
+        let read_ctx = crate::context::Context::current();
         read_ctx._log_prelude(&mut record);
 
     }
@@ -65,7 +65,7 @@ pub fn info_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     let mut record = crate::hidden::LogRecord::new();
 
     unsafe {
-        let read_ctx = crate::context::Context::_log_current_context(file, line, column);
+        let read_ctx = crate::context::Context::current();
         read_ctx._log_prelude(&mut record);
     }
 
@@ -98,7 +98,7 @@ pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     let mut record = crate::hidden::LogRecord::new();
 
     unsafe {
-        let read_ctx = crate::context::Context::_log_current_context(file, line, column);
+        let read_ctx = crate::context::Context::current();
         read_ctx._log_prelude(&mut record);
     }
 
@@ -124,7 +124,7 @@ pub fn trace_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     let mut record = crate::hidden::LogRecord::new();
 
     unsafe {
-        let read_ctx = crate::context::Context::_log_current_context(file, line, column);
+        let read_ctx = crate::context::Context::current();
         read_ctx._log_prelude(&mut record);
     }
 
@@ -156,7 +156,7 @@ pub fn error_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     let mut record = crate::hidden::LogRecord::new();
 
     unsafe {
-        let read_ctx = crate::context::Context::_log_current_context(file, line, column);
+        let read_ctx = crate::context::Context::current();
         read_ctx._log_prelude(&mut record);
     }
 
@@ -191,7 +191,7 @@ pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32) -> LogReco
     let mut record = crate::hidden::LogRecord::new();
 
     unsafe {
-        let read_ctx = crate::context::Context::_log_current_context(file, line, column);
+        let read_ctx = crate::context::Context::current();
         read_ctx._log_prelude(&mut record);
     }
 

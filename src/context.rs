@@ -1,11 +1,10 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
-
-
 
 static CONTEXT_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -90,7 +89,7 @@ Provides a set of info that can be used by multiple logs.
 */
 #[derive(Clone)]
 pub struct Context {
-    parent: Option<Box<Context>>,
+    parent: Option<Arc<Context>>,
     context_id: u64,
     _mutable_context: RefCell<MutableContext>,
     //if some, we define a new task ID for this context.
@@ -100,46 +99,22 @@ pub struct Context {
 }
 
 thread_local! {
-    static CONTEXT: Cell<Option<Context>> = const{Cell::new(None)};
+    static CONTEXT: Cell<Arc<Context>> = Cell::new(Arc::new(Context::new_task(None)));
 }
 
 impl Context {
-    /**
-    Determines whether a context is currently set.
-    */
-    #[inline]
-    pub fn has_current() -> bool {
-        CONTEXT.with(|c| {
-            let context = c.take();
-            let result = context.is_some();
-            c.set(context);
-            result
-        })
-    }
-    /**
-    Returns a raw pointer to the thread-local context.
-
-    When using this pointer, you must ensure that the context is only accessed from the local thread,
-    and is not mutated by the local thread while the pointer is in use.
-
-    If you can stand a safe API, see [current_clone] as an alternative.
-    */
-    #[inline]
-    pub fn current() -> *const Option<Context> {
-        CONTEXT.with(|c| {
-            c.as_ptr()
-        })
-    }
 
     /**
-    Clones the current context into the value.
-
-    This may be used to get a copy of the context for use in a closure.
+    Returns the current context.
     */
     #[inline]
-    pub fn current_clone() -> Option<Context> {
-        unsafe{&*Self::current()}.clone()
+    pub fn current() -> Arc<Context> {
+        CONTEXT.with(|c|
+            //safety: we don't let anyone get a mutable reference to this
+            unsafe{&*c.as_ptr()}.clone()
+        )
     }
+
 
 
     pub fn task(&self) -> Option<&Task> {
@@ -157,10 +132,11 @@ impl Context {
 
     */
     #[inline]
-    pub fn new_task(parent: Option<Context>) -> Context {
+    pub fn new_task(parent: Option<Arc<Context>>) -> Context {
         let is_tracing = parent.as_ref().map(|e|e.is_tracing).unwrap_or(false);
+
         Context {
-            parent: parent.map(|p| Box::new(p)),
+            parent,
             _mutable_context: RefCell::new(MutableContext {
 
             }),
@@ -170,21 +146,22 @@ impl Context {
         }
     }
 
+
     /**
     Sets a blank context
     */
     #[inline]
     pub fn reset() {
-        CONTEXT.with(|c| c.set(Some(Context::new_task(None))));
+        CONTEXT.with(|c| c.replace(Arc::new(Context::new_task(None))));
     }
 
     /**
     Creates a new context with the current context as the parent.
     */
-    pub fn from_context(context: Context) -> Context {
+    pub fn from_parent(context: Arc<Context>) -> Context {
         let is_tracing = context.is_tracing;
         Context {
-            parent: Some(Box::new(context)),
+            parent: Some(context),
             _mutable_context: RefCell::new(MutableContext {
 
             }),
@@ -213,7 +190,8 @@ impl Context {
     #[inline]
     pub fn currently_tracing() -> bool {
         CONTEXT.with(|c| {
-            unsafe{&*c.as_ptr()}.as_ref().map(|e|e.is_tracing).unwrap_or(false)
+            //safety: we don't let anyone get a mutable reference to this
+            unsafe{&*c.as_ptr()}.is_tracing
         })
     }
 
@@ -223,7 +201,8 @@ impl Context {
     */
     pub fn begin_trace() {
         CONTEXT.with(|c| {
-            unsafe{&mut *c.as_ptr()}.as_mut().unwrap().is_tracing = true;
+            //safety: we don't let anyone get a mutable reference to this
+            todo!()
         });
     }
 
@@ -231,7 +210,7 @@ impl Context {
     Sets the current context to this one.
     */
     pub fn set_current(self) {
-        CONTEXT.set(Some(self));
+        CONTEXT.replace(Arc::new(self));
     }
 
     /**
@@ -259,17 +238,17 @@ impl Context {
     Pushes the current context onto the stack and sets this context as the current one.
     */
     pub(crate) fn new_push() -> ContextID {
-        let current = CONTEXT.with(|c| c.take()).unwrap();
+        let current = Context::current();
         let is_tracing = current.is_tracing;
         let new_context = Context {
-            parent: Some(Box::new(current)),
+            parent: Some(current),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             _mutable_context: RefCell::new(MutableContext {  }),
             define_task: None,
             is_tracing,
         };
         let id = new_context.context_id();
-        CONTEXT.with(|c| c.set(Some(new_context)));
+        CONTEXT.replace(Arc::new(new_context));
         id
     }
 
@@ -281,15 +260,15 @@ impl Context {
     If the context cannot be found, panics.
     */
     pub fn pop(id: ContextID) {
-        let mut current = CONTEXT.with(|c| c.take()).unwrap();
+        let mut current = Context::current();
         loop {
             if current.context_id() == id {
-                let parent = current.parent.take().unwrap();
-                CONTEXT.set(Some(*parent));
+                let parent = current.parent.clone().expect("No parent context");
+                CONTEXT.replace(parent);
                 return;
             }
-            let parent = current.parent.take().unwrap();
-            current = *parent;
+            let parent = current.parent.as_ref().expect("No parent context").clone();
+            current = parent;
         }
     }
 
@@ -298,43 +277,7 @@ impl Context {
 
 
 
-    /**
-    Internal implementation detail of the logging system.
 
-    # Safety
-    You must guarantee that the context is not destroyed or mutated while the reference is in use.
-    */
-    #[inline]
-    pub unsafe fn _log_current_context(file: &'static str,line: u32, column: u32) -> &'static Context {
-        use crate::logger::Logger;
-        match (&*Context::current()).as_ref() {
-            None => {
-                /*
-                Create an additional warning about the missing context.
-                 */
-                let mut record = crate::log_record::LogRecord::new();
-                record.log("WARN: ");
-
-                //file, line
-                record.log(file);
-                record.log_owned(format!(":{}:{} ",line,column));
-
-                //for warn, we can afford timestamp
-                record.log_timestamp();
-                record.log("No context found. Creating new task context.");
-
-                let global_logger = &crate::global_logger::GLOBAL_LOGGER;
-                global_logger.finish_log_record(record);
-                let new_ctx = Context::new_task(None);
-                new_ctx.set_current();
-                (&*Context::current()).as_ref().unwrap()
-            }
-            Some(ctx) => {
-                ctx
-            }
-
-        }
-    }
     /**
     Internal implementation detail of the logging system.
 
@@ -358,8 +301,8 @@ impl Context {
 
     #[test] fn test_new_context() {
         Context::reset();
-        let port_context = Context::current_clone().unwrap();
-        let next_context = Context::from_context(port_context);
+        let port_context = Context::current();
+        let next_context = Context::from_parent(port_context);
         next_context.clone().set_current();
 
         Context::pop(next_context.context_id());
