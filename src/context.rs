@@ -54,12 +54,14 @@ impl Drop for Task {
             crate::global_logger::GLOBAL_LOGGER.finish_log_record(record);
         }
 
-        let mut record = crate::log_record::LogRecord::new();
-        record.log_owned(format!("{} ",self.task_id.0));
-        record.log("Finished task `");
-        record.log(self.label);
-        record.log("`");
-        crate::global_logger::GLOBAL_LOGGER.finish_log_record(record);
+        if self.label != "Default task" {
+            let mut record = crate::log_record::LogRecord::new();
+            record.log_owned(format!("{} ", self.task_id.0));
+            record.log("Finished task `");
+            record.log(self.label);
+            record.log("`");
+            crate::global_logger::GLOBAL_LOGGER.finish_log_record(record);
+        }
     }
 }
 #[derive(Clone)]
