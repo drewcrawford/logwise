@@ -27,11 +27,8 @@ pub fn debuginternal_pre(file: &'static str, line: u32, column: u32) -> LogRecor
     //safety: guarantee context won't change
     let mut record = crate::hidden::LogRecord::new();
 
-    unsafe {
-        let read_ctx = crate::context::Context::current();
-        read_ctx._log_prelude(&mut record);
-
-    }
+    let read_ctx = crate::context::Context::current();
+    read_ctx._log_prelude(&mut record);
 
 
     record.log("DEBUG: ");
@@ -64,16 +61,15 @@ pub fn info_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
     let mut record = crate::hidden::LogRecord::new();
 
-    unsafe {
-        let read_ctx = crate::context::Context::current();
-        read_ctx._log_prelude(&mut record);
-    }
+    let read_ctx = crate::context::Context::current();
+    read_ctx._log_prelude(&mut record);
+
 
     record.log("INFO: ");
 
     //file, line
     record.log(file);
-    record.log_owned(format!(":{}:{} ", line!(), column!()));
+    record.log_owned(format!(":{}:{} ", line, column));
 
     //for info, we can afford timestamp
     record.log_timestamp();
@@ -97,16 +93,14 @@ pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
     let mut record = crate::hidden::LogRecord::new();
 
-    unsafe {
-        let read_ctx = crate::context::Context::current();
-        read_ctx._log_prelude(&mut record);
-    }
+    let read_ctx = crate::context::Context::current();
+    read_ctx._log_prelude(&mut record);
 
     record.log("WARN: ");
 
     //file, line
     record.log(file);
-    record.log_owned(format!(":{}:{} ", line!(), column!()));
+    record.log_owned(format!(":{}:{} ", line, column));
 
     //for warn, we can afford timestamp
     record.log_timestamp();
@@ -123,16 +117,14 @@ pub fn trace_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
     let mut record = crate::hidden::LogRecord::new();
 
-    unsafe {
-        let read_ctx = crate::context::Context::current();
-        read_ctx._log_prelude(&mut record);
-    }
+    let read_ctx = crate::context::Context::current();
+    read_ctx._log_prelude(&mut record);
 
     record.log("TRACE: ");
 
     //file, line
     record.log(file);
-    record.log_owned(format!(":{}:{} ", line!(), column!()));
+    record.log_owned(format!(":{}:{} ", line, column));
 
     //for warn, we can afford timestamp
     record.log_timestamp();
@@ -155,16 +147,14 @@ pub fn error_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
     let mut record = crate::hidden::LogRecord::new();
 
-    unsafe {
-        let read_ctx = crate::context::Context::current();
-        read_ctx._log_prelude(&mut record);
-    }
+    let read_ctx = crate::context::Context::current();
+    read_ctx._log_prelude(&mut record);
 
     record.log("ERROR: ");
 
     //file, line
     record.log(file);
-    record.log_owned(format!(":{}:{} ", line!(), column!()));
+    record.log_owned(format!(":{}:{} ", line, column));
 
     //for warn, we can afford timestamp
     record.log_timestamp();
@@ -190,10 +180,8 @@ pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32) -> LogReco
     //safety: guarantee context won't change
     let mut record = crate::hidden::LogRecord::new();
 
-    unsafe {
-        let read_ctx = crate::context::Context::current();
-        read_ctx._log_prelude(&mut record);
-    }
+    let read_ctx = crate::context::Context::current();
+    read_ctx._log_prelude(&mut record);
 
     record.log("PERFWARN: BEGIN ");
 

@@ -65,10 +65,8 @@ impl Drop for PerfwarnInterval {
 
         Context::pop(self.context_id);
         let mut record = LogRecord::new();
-        unsafe {
-            let ctx = (&*Context::current());
-            ctx._log_prelude(&mut record);
-        }
+        let ctx = Context::current();
+        ctx._log_prelude(&mut record);
         record.log("PERWARN: END ");
         record.log_time_since(end_time);
 
