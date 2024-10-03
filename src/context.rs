@@ -229,7 +229,7 @@ impl Context {
                     }
                 }
             }
-            let parent_private = dlog::privacy::IPromiseItsNotPrivate(parent_task);
+            let parent_private = dlog::privacy::IPromiseItsNotPrivate(parent_task.map(|e| e.0.to_string()).unwrap_or("?".to_string()));
             debuginternal_sync!("Begin task {label} parent: {parent}",label=new_label,parent=parent_private);
         }
     }
