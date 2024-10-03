@@ -265,6 +265,12 @@ impl Context {
     }
 }
 
+impl From<Arc<Context>> for Context {
+    fn from(arc: Arc<Context>) -> Self {
+        Self::from_parent(arc)
+    }
+}
+
 #[cfg(test)] mod tests {
     use super::Context;
 
