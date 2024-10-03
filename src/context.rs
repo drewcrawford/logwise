@@ -204,7 +204,7 @@ impl Context {
         let new_task_id = self.task_id();
         let old = CONTEXT.replace(Arc::new(self));
         if old.task_id() != new_task_id {
-            debuginternal_sync!("Begin task ")
+            debuginternal_sync!("Begin task {label}",label=new_label);
         }
     }
 
