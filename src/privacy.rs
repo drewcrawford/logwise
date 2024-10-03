@@ -340,13 +340,13 @@ Escape hatch, we promise we aren't sending private data to servers.
 */
 pub struct IPromiseItsNotPrivate<T>(pub T);
 
-impl<T: Loggable> Loggable for IPromiseItsNotPrivate<T> {
+impl<T: Debug> Loggable for IPromiseItsNotPrivate<T> {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
-        self.0.log_all(record);
+        Self::log_all(self, record);
     }
     #[inline]
     fn log_all(&self, record: &mut LogRecord) {
-        self.0.log_all(record);
+        record.log_owned(format!("{:?}", self.0));
     }
 }
