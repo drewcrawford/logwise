@@ -25,7 +25,10 @@ impl PerfwarnInterval {
 */
     #[inline]
     pub fn new(label: &'static str, time: std::time::Instant) -> Self {
-        let context_id = Context::new_push();
+        let current_context = Context::current();
+        let new_context = Context::from_parent(current_context);
+        let context_id = new_context.context_id();
+        Context::set_current(new_context);
         Self {
             label,
             start: time,

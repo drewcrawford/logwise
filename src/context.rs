@@ -234,23 +234,7 @@ impl Context {
         ContextID(self.context_id)
     }
 
-    /**
-    Pushes the current context onto the stack and sets this context as the current one.
-    */
-    pub(crate) fn new_push() -> ContextID {
-        let current = Context::current();
-        let is_tracing = current.is_tracing;
-        let new_context = Context {
-            parent: Some(current),
-            context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-            _mutable_context: RefCell::new(MutableContext {  }),
-            define_task: None,
-            is_tracing,
-        };
-        let id = new_context.context_id();
-        CONTEXT.replace(Arc::new(new_context));
-        id
-    }
+
 
 
 
