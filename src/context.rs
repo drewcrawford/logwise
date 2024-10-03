@@ -2,7 +2,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::Arc;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -93,7 +93,7 @@ pub struct Context {
     //if some, we define a new task ID for this context.
     define_task: Option<Task>,
     ///whether this context is currently tracing
-    is_tracing: bool,
+    is_tracing: AtomicBool,
 }
 
 thread_local! {
@@ -131,7 +131,7 @@ impl Context {
     */
     #[inline]
     pub fn new_task(parent: Option<Arc<Context>>) -> Context {
-        let is_tracing = parent.as_ref().map(|e|e.is_tracing).unwrap_or(false);
+        let is_tracing = parent.as_ref().map(|e|e.is_tracing.load(Ordering::Relaxed)).unwrap_or(false);
 
         Context {
             parent,
@@ -140,7 +140,7 @@ impl Context {
             }),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             define_task: Some(Task::new()),
-            is_tracing
+            is_tracing: AtomicBool::new(is_tracing),
         }
     }
 
@@ -157,7 +157,7 @@ impl Context {
     Creates a new context with the current context as the parent.
     */
     pub fn from_parent(context: Arc<Context>) -> Context {
-        let is_tracing = context.is_tracing;
+        let is_tracing = context.is_tracing.load(Ordering::Relaxed);
         Context {
             parent: Some(context),
             _mutable_context: RefCell::new(MutableContext {
@@ -165,7 +165,7 @@ impl Context {
             }),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             define_task: None,
-            is_tracing,
+            is_tracing: AtomicBool::new(is_tracing),
         }
     }
 
@@ -178,8 +178,8 @@ impl Context {
     Determines whether this context is currently tracing.
     */
     #[inline]
-    pub const fn is_tracing(&self) -> bool {
-        self.is_tracing
+    pub fn is_tracing(&self) -> bool {
+        self.is_tracing.load(Ordering::Relaxed)
     }
 
     /**
@@ -189,7 +189,7 @@ impl Context {
     pub fn currently_tracing() -> bool {
         CONTEXT.with(|c| {
             //safety: we don't let anyone get a mutable reference to this
-            unsafe{&*c.as_ptr()}.is_tracing
+            unsafe{&*c.as_ptr()}.is_tracing.load(Ordering::Relaxed)
         })
     }
 
@@ -198,10 +198,7 @@ impl Context {
 
     */
     pub fn begin_trace() {
-        CONTEXT.with(|c| {
-            //safety: we don't let anyone get a mutable reference to this
-            todo!()
-        });
+        Context::current().is_tracing.store(true, Ordering::Relaxed);
     }
 
     /**
