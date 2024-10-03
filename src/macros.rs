@@ -151,6 +151,38 @@ pub async fn trace_async_post(record: LogRecord) {
     global_logger.finish_log_record_async(record).await;
 }
 
+pub fn error_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
+    //safety: guarantee context won't change
+    let mut record = crate::hidden::LogRecord::new();
+
+    unsafe {
+        let read_ctx = crate::context::Context::_log_current_context(file, line, column);
+        read_ctx._log_prelude(&mut record);
+    }
+
+    record.log("ERROR: ");
+
+    //file, line
+    record.log(file);
+    record.log_owned(format!(":{}:{} ", line!(), column!()));
+
+    //for warn, we can afford timestamp
+    record.log_timestamp();
+    record
+}
+
+pub fn error_sync_post(record: LogRecord) {
+    use crate::logger::Logger;
+    let global_logger = &crate::hidden::GLOBAL_LOGGER;
+    global_logger.finish_log_record(record);
+}
+
+pub async fn error_async_post(record: LogRecord) {
+    use crate::logger::Logger;
+    let global_logger = &crate::hidden::GLOBAL_LOGGER;
+    global_logger.finish_log_record_async(record).await;
+}
+
 
 pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     let start = std::time::Instant::now();

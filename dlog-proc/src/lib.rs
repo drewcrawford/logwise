@@ -453,3 +453,45 @@ pub fn perfwarn(input: TokenStream) -> TokenStream {
     "#, LFORMAT_EXPAND = lformat_expand.output, BLOCK = group.to_string(), NAME = lformat_expand.name);
     src.parse().unwrap()
 }
+
+/**
+Logs a message at error level.
+*/
+#[proc_macro]
+pub fn error_sync(input: TokenStream) -> TokenStream {
+    let mut input: VecDeque<_> = input.into_iter().collect();
+    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let src = format!(r#"
+        {{
+            let mut record = dlog::hidden::error_sync_pre(file!(),line!(),column!());
+
+            let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
+
+            {LFORMAT_EXPAND}
+            dlog::hidden::error_sync_post(record);
+        }}
+    "#, LFORMAT_EXPAND = lformat_result.output);
+
+    src.parse().unwrap()
+}
+
+/**
+Logs a message at error level.
+*/
+#[proc_macro]
+pub fn error_async(input: TokenStream) -> TokenStream {
+    let mut input: VecDeque<_> = input.into_iter().collect();
+    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let src = format!(r#"
+        {{
+            let mut record = dlog::hidden::error_sync_pre(file!(),line!(),column!());
+
+            let mut formatter = dlog::hidden::PrivateFormatter::new(&mut record);
+
+            {LFORMAT_EXPAND}
+            dlog::hidden::error_async_post(record).await;
+        }}
+    "#, LFORMAT_EXPAND = lformat_result.output);
+
+    src.parse().unwrap()
+}
