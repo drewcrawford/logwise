@@ -116,11 +116,11 @@ impl Context {
 
 
 
-    pub fn task(&self) -> Option<&Task> {
+    pub fn task(&self) -> &Task {
         if let Some(task) = &self.define_task {
-            Some(task)
+            task
         } else {
-            self.parent.as_ref().and_then(|p| p.task())
+            self.parent.as_ref().expect("No parent context").task()
         }
     }
 
@@ -165,7 +165,7 @@ impl Context {
 
     #[inline]
     pub fn task_id(&self) -> TaskID {
-        self.task().unwrap().task_id
+        self.task().task_id
     }
 
     /**
@@ -200,9 +200,12 @@ impl Context {
     Sets the current context to this one.
     */
     pub fn set_current(self) {
-        let new_label = self.task().map(|t| t.label);
+        let new_label = self.task().label;
+        let new_task_id = self.task_id();
         let old = CONTEXT.replace(Arc::new(self));
-        dlog::info_sync!("Task begin: {task_label}", task_label = new_label.unwrap_or("No label"));
+        if old.task_id() != new_task_id {
+            debuginternal_sync!("Begin task ")
+        }
     }
 
     /**
@@ -273,8 +276,7 @@ impl Context {
     }
 
     #[inline] pub fn _add_task_interval(&self, key: &'static str, duration: std::time::Duration) {
-        self.task().as_ref()
-            .expect("No current task").add_task_interval(key, duration);
+        self.task().add_task_interval(key, duration);
     }
 }
 
