@@ -13,7 +13,6 @@ use crate::logger::Logger;
 pub struct PerfwarnInterval {
     label: &'static str,
     start: std::time::Instant,
-    context_id: ContextID,
     scale: f32,
 }
 
@@ -25,14 +24,9 @@ impl PerfwarnInterval {
 */
     #[inline]
     pub fn new(label: &'static str, time: std::time::Instant) -> Self {
-        let current_context = Context::current();
-        let new_context = Context::from_parent(current_context);
-        let context_id = new_context.context_id();
-        Context::set_current(new_context);
         Self {
             label,
             start: time,
-            context_id,
             scale: 1.0,
         }
     }
@@ -66,7 +60,6 @@ impl Drop for PerfwarnInterval {
         let ctx = Context::current();
         ctx._add_task_interval(self.label, duration);
 
-        Context::pop(self.context_id);
         let mut record = LogRecord::new();
         let ctx = Context::current();
         ctx._log_prelude(&mut record);
