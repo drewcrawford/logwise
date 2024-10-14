@@ -4,7 +4,7 @@ Defines our Interval types.
 These represent 2 paired log values, such as a start and end time.
 */
 
-use crate::context::{Context, ContextID};
+use crate::context::{Context};
 use crate::global_logger::GLOBAL_LOGGER;
 use crate::log_record::LogRecord;
 use crate::logger::Logger;

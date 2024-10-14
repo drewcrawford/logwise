@@ -1,7 +1,8 @@
 [package]
-name = "dlog-proc"
+name = "dlog_proc"
 version = "0.1.0"
 edition = "2021"
+description = "procmacro crate for dlog"
 
 [dependencies]
 

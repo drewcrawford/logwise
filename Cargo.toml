@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-dlog-proc = { path = "dlog-proc" }
-log = "0.4.22"
+dlog_proc = { path = "dlog_proc" }
 
 [dev-dependencies]

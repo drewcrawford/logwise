@@ -1,5 +1,6 @@
-/*!
 # dlog
+
+![logo](art/logo.png)
 
 dlog is an opinionated logging library for Rust.
 
@@ -13,7 +14,7 @@ Typical logging crates, such as [log](https://crates.io/crates/log), offer small
 
 Here are some problems:
 
-* Suppose I am doing print-style debugging in my library.  Is `debug` the right level to use?  Or is `debug` where I put messages for *users* of my library to debug *their own* code?
+* Suppose I am doing print-style debugging in my library.  Is `debug` the right level to use?  Or is `debug` where I put messages for *users* of my library to debug *their own* code?   
 * How can I compile-out expensive logs by default but collect them from users when they report a bug?
 * What's the appropriate log level for "This is slow and should be optimized"?
 
@@ -49,7 +50,6 @@ dlog currently logs all messages to stderr.  In the future, other logging backen
 For example,
 
 ```rust
-# let val = false;
         dlog::debuginternal_sync!("Hello {world}!",world=val);
 ```
 
@@ -64,12 +64,12 @@ is only evaluated if the log message is actually printed, and is compiled out wh
 
 Consider the following log message:
 
-```ignore
+```
 Completed job 23 named 'Gift for Alice' in 3.4 seconds.
 ```
 
 Another gripe I have about the `log` crate's API is there is no way to represent which parts of the log may contain
-sensitive user data (in this case, the name of the job).  It may be useful to collect this log, but it may be
+sensitive user data (in this case, the name of the job).  It may be useful to collect this log, but it may be 
 undesirable to include the sensitive variable in the log message.
 
 dlog's design is designed each variable in the log message conforms to the `Loggable` trait, which defines a public
@@ -85,39 +85,3 @@ consider using the `dlog::context` APIs to propagate the logging context to chil
 
 
 
-
-
-
-
-*/
-
-
-mod level;
-mod logger;
-pub mod privacy;
-mod stderror_logger;
-pub mod global_logger;
-mod macros;
-mod log_record;
-pub mod interval;
-pub mod context;
-mod local_logger;
-
-pub use level::Level;
-
-pub use dlog_proc::{info_sync, perfwarn, debuginternal_async, debuginternal_sync, warn_sync,perfwarn_begin,info_async, trace_sync, trace_async,error_sync, error_async};
-
-#[doc(hidden)]
-pub mod hidden {
-    pub use crate::macros::{PrivateFormatter};
-    pub use crate::global_logger::GLOBAL_LOGGER;
-    pub use crate::logger::{Logger};
-    pub use crate::log_record::LogRecord;
-    pub use crate::macros::{debuginternal_pre,debuginternal_sync_post,debuginternal_async_post,
-                            info_sync_post,info_sync_pre,info_async_post,
-                            perfwarn_begin_post, perfwarn_begin_pre,
-                            warn_sync_pre, warn_sync_post,
-                            trace_sync_pre, trace_sync_post, trace_async_post,
-                            error_sync_pre, error_sync_post, error_async_post};
-}
-extern crate self as dlog;
