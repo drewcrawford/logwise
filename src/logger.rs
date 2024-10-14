@@ -15,7 +15,7 @@ pub trait Logger: Debug  {
     Submits the log record for logging asynchronously.
 
     This allows loggers to reuse an async context that already exists.
-    Loggers may choose to implement this as a simple wrapper around [finish_log_record] if they wish.
+    Loggers may choose to implement this as a simple wrapper around [Self::finish_log_record] if they wish.
 
     */
     async fn finish_log_record_async(&self, record: LogRecord);

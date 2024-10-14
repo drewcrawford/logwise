@@ -65,7 +65,7 @@ is only evaluated if the log message is actually printed, and is compiled out wh
 
 Consider the following log message:
 
-```ignore
+```text
 Completed job 23 named 'Gift for Alice' in 3.4 seconds.
 ```
 

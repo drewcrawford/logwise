@@ -20,7 +20,7 @@ Instead, the design is as follows:
 
 1.  Create a new [LogRecord].
 2.  Progressively write to the [LogRecord].
-3.  Finish the [LogRecord] and submit it to the [Logger].
+3.  Finish the [LogRecord] and submit it to the [dlog::logger::Logger].
 
 */
 #[derive(Debug,Clone,PartialEq, Hash)]
