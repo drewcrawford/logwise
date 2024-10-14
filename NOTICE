@@ -1,4 +1,4 @@
-dlog https://sealedabstract.com/code/dlog
+logwise https://sealedabstract.com/code/logwise
 An opinionated logging framework for Rust.
 Copyright 2024 Drew Crawford.
 

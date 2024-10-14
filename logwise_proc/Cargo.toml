@@ -1,8 +1,8 @@
 [package]
-name = "dlog_proc"
+name = "logwise_proc"
 version = "0.1.0"
 edition = "2021"
-description = "procmacro crate for dlog"
+description = "procmacro crate for logwise"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

@@ -1,12 +1,12 @@
-# dlog
+# logwise
 
 ![logo](art/logo.png)
 
-dlog is an opinionated logging library for Rust.
+logwise is an opinionated logging library for Rust.
 
 # Development status
 
-dlog is experimental and the API may change.
+logwise is experimental and the API may change.
 
 # The problem
 
@@ -22,11 +22,11 @@ These problems cannot be solved within the ecosystem-wide common-denominator API
 
 # An analogy
 
-There is a simple analogy to *module visibility*.  There are usecases to make a module private.  There are usecases to make it public.  To make it `pub(crate)`.  To make it `pub(super)`, except if it's a release build, and so on.  dlog provides tools like that, but for logging.
+There is a simple analogy to *module visibility*.  There are usecases to make a module private.  There are usecases to make it public.  To make it `pub(crate)`.  To make it `pub(super)`, except if it's a release build, and so on.  logwise provides tools like that, but for logging.
 
 # The facade
 
-dlog provides an opinionated set of log levels for defined set of usecases.
+logwise provides an opinionated set of log levels for defined set of usecases.
 
 
 | Name          | Usecase                                 | Build type required | Conditions                                                                         |
@@ -43,14 +43,14 @@ dlog provides an opinionated set of log levels for defined set of usecases.
 
 # The implementation
 
-dlog currently logs all messages to stderr.  In the future, other logging backends may be added.
+logwise currently logs all messages to stderr.  In the future, other logging backends may be added.
 
 # The API
 
 For example,
 
 ```rust
-        dlog::debuginternal_sync!("Hello {world}!",world=val);
+        logwise::debuginternal_sync!("Hello {world}!",world=val);
 ```
 
 See the docs for more information.  Each log level has a synchronous and asynchronous version.  The synchronous version
@@ -72,15 +72,15 @@ Another gripe I have about the `log` crate's API is there is no way to represent
 sensitive user data (in this case, the name of the job).  It may be useful to collect this log, but it may be 
 undesirable to include the sensitive variable in the log message.
 
-dlog's design is designed each variable in the log message conforms to the `Loggable` trait, which defines a public
+logwise's design is designed each variable in the log message conforms to the `Loggable` trait, which defines a public
 and private representation of the variable.  This allows different versions of the log to be generated
 from the same log message, depending on the desired privacy level.
 
 # Multithreading
 
-dlog has out-of-the-box support for scoped logging in a stack-based, thread-local model.
+logwise has out-of-the-box support for scoped logging in a stack-based, thread-local model.
 If you are e.g. spawning a child thread, writing an async executor or similar,
-consider using the `dlog::context` APIs to propagate the logging context to child threads.
+consider using the `logwise::context` APIs to propagate the logging context to child threads.
 
 
 

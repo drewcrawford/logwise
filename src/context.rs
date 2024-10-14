@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use dlog_proc::{debuginternal_sync};
+use logwise_proc::{debuginternal_sync};
 
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -198,7 +198,7 @@ impl Context {
     */
     pub fn begin_trace() {
         Context::current().is_tracing.store(true, Ordering::Relaxed);
-        dlog::trace_sync!("Begin trace");
+        logwise::trace_sync!("Begin trace");
     }
 
     /**

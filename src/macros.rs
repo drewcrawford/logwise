@@ -205,8 +205,8 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
 
 
 #[cfg(test)] mod tests {
-    use dlog::context::Context;
-    use dlog_proc::{debuginternal_sync, info_sync, warn_sync};
+    use logwise::context::Context;
+    use logwise_proc::{debuginternal_sync, info_sync, warn_sync};
 
     #[test]
     fn test_warn_sync() {
@@ -219,7 +219,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
 
 
     #[test] fn perfwarn() {
-        use dlog::perfwarn;
+        use logwise::perfwarn;
         Context::reset("test_perfwarn");
         info_sync!("test_perfwarn");
         let _: i32 = perfwarn!("test_perfwarn interval name", {
@@ -246,19 +246,19 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
         #[allow(dead_code)]
         struct S(i32);
         let s = S(23);
-        debuginternal_sync!("{s}!",s=dlog::privacy::LogIt(&s));
+        debuginternal_sync!("{s}!",s=logwise::privacy::LogIt(&s));
     }
 
     #[test] fn test_log_info_async() {
         crate::context::Context::reset("test_log_info_async");
         let _ = async {
-            dlog::info_async!("test_log_info_async");
+            logwise::info_async!("test_log_info_async");
         };
         //I guess we do something with this, but we can't call truntime because it depends on us...
     }
 
     #[test] fn test_trace() {
         crate::context::Context::reset("test_trace");
-        dlog::trace_sync!("test_trace");
+        logwise::trace_sync!("test_trace");
     }
 }
