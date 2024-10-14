@@ -1,9 +1,18 @@
 [package]
 name = "dlog"
 version = "0.1.0"
+authors = ["Drew Crawford <drew@sealedabstract.com>"]
 edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "an opinionated logging library for Rust"
+homepage = "https://sealedabstract.com/code/dlog"
+repository = "https://github.com/code/dlog"
+keywords = ["logging"]
+categories = ["development-tools::debugging", "development-tools::profiling"]
+
+exclude = [".*", "art"]
 
 [dependencies]
-dlog_proc = { path = "dlog_proc" }
+dlog_proc = { path = "dlog_proc", version = "0.1.0" }
 
 [dev-dependencies]
