@@ -299,14 +299,14 @@ pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
-        #[cfg(debug_assertions)]
-        if module_path!().starts_with(env!("CARGO_PKG_NAME")) || logwise::context::Context::currently_tracing() {{
-                let mut record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
-                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
-
-                {LFORMAT_EXPAND}
-                logwise::hidden::debuginternal_sync_post(record);
-       }}
+        #[cfg(debug_assertions)] {{
+            if module_path!().starts_with(env!("CARGO_PKG_NAME")) || logwise::context::Context::currently_tracing() {{
+                    let mut record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
+                    let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                    {LFORMAT_EXPAND}
+                    logwise::hidden::debuginternal_sync_post(record);
+           }}
+        }}
     "#, LFORMAT_EXPAND = lformat_result.output);
     // todo!("{}", src);
     src.parse().unwrap()
@@ -363,12 +363,9 @@ pub fn info_async(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
-        #[cfg(debug_assertions)]
+        #[cfg(debug_assertions)] {{
             let mut record = logwise::hidden::info_sync_pre(file!(),line!(),column!());
-
-        {{
             let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
-
             {LFORMAT_EXPAND}
             logwise::hidden::info_async_post(record).await;
         }}
