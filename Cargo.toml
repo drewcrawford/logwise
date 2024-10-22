@@ -6,11 +6,11 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "an opinionated logging library for Rust"
 homepage = "https://sealedabstract.com/code/logwise"
-repository = "https://github.com/code/logwise"
+repository = "https://github.com/drewcrawford/logwise"
 keywords = ["logging"]
 categories = ["development-tools::debugging", "development-tools::profiling"]
 
-exclude = [".*", "art"]
+exclude = [".*"]
 
 [dependencies]
 logwise_proc = { path = "logwise_proc", version = "0.1.0" }
