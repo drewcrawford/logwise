@@ -7,13 +7,14 @@ These represent 2 paired log values, such as a start and end time.
 
 use crate::context::{Context};
 use crate::global_logger::GLOBAL_LOGGER;
+use crate::Level;
 use crate::log_record::LogRecord;
 use crate::logger::Logger;
 
 #[derive(Debug)]
 pub struct PerfwarnInterval {
     label: &'static str,
-    start: std::time::Instant,
+    start: crate::sys::Instant,
     scale: f32,
 }
 
@@ -24,7 +25,7 @@ impl PerfwarnInterval {
     Do not use this manually, instead use the `perfwarn!` macro, or if you need to access the interval directly, use `perfwarn_begin!`.
 */
     #[inline]
-    pub fn new(label: &'static str, time: std::time::Instant) -> Self {
+    pub fn new(label: &'static str, time: crate::sys::Instant) -> Self {
         Self {
             label,
             start: time,
@@ -36,7 +37,7 @@ impl PerfwarnInterval {
     #[doc(hidden)]
     ///internal implementation detail
     pub fn log_timestamp(&self, record: &mut LogRecord) {
-        let time = std::time::Instant::now();
+        let time = crate::sys::Instant::now();
         let duration = time.duration_since(self.start);
         record.log_owned(format!("[{:?}] ", duration));
     }
@@ -56,12 +57,12 @@ impl PerfwarnInterval {
 
 impl Drop for PerfwarnInterval {
     fn drop(&mut self) {
-        let end_time = std::time::Instant::now();
+        let end_time = crate::sys::Instant::now();
         let duration = end_time.duration_since(self.start);
         let ctx = Context::current();
         ctx._add_task_interval(self.label, duration);
 
-        let mut record = LogRecord::new();
+        let mut record = LogRecord::new(Level::PerfWarn);
         let ctx = Context::current();
         ctx._log_prelude(&mut record);
         record.log("PERWARN: END ");
@@ -91,7 +92,9 @@ boilerplate notes.
  */
 
 #[cfg(test)] mod tests {
-    #[test] fn assert_send_sync() {
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn assert_send_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<super::PerfwarnInterval>();
     }

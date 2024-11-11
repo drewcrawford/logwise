@@ -5,6 +5,7 @@ use std::fmt::Display;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use logwise_proc::{debuginternal_sync};
+use crate::Level;
 
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -43,7 +44,7 @@ impl Drop for Task {
     fn drop(&mut self) {
         use crate::logger::Logger;
         if !self.mutable.lock().unwrap().interval_statistics.is_empty() {
-            let mut record = crate::log_record::LogRecord::new();
+            let mut record = crate::log_record::LogRecord::new(Level::PerfWarn);
             //log task ID
             record.log_owned(format!("{} ",self.task_id.0));
             record.log("PERFWARN: statistics[");
@@ -56,7 +57,7 @@ impl Drop for Task {
         }
 
         if self.label != "Default task" {
-            let mut record = crate::log_record::LogRecord::new();
+            let mut record = crate::log_record::LogRecord::new(Level::Info);
             record.log_owned(format!("{} ", self.task_id.0));
             record.log("Finished task `");
             record.log(self.label);
@@ -314,8 +315,14 @@ impl From<Arc<Context>> for Context {
 
 #[cfg(test)] mod tests {
     use super::Context;
+    #[cfg(target_arch="wasm32")]
+    use wasm_bindgen_test::*;
+    #[cfg(target_arch = "wasm32")]
+    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
-    #[test] fn test_new_context() {
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    fn test_new_context() {
         Context::reset("test_new_context");
         let port_context = Context::current();
         let next_context = Context::from_parent(port_context);

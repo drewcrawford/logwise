@@ -15,4 +15,13 @@ exclude = [".*"]
 [dependencies]
 logwise_proc = { path = "logwise_proc", version = "0.1.0" }
 
+[target.'cfg(target_arch="wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+web-time = "1.1"
+web-sys = {version = "0.3",features=["console"]}
+
+
+[target.'cfg(target_arch="wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3.45"
+
 [dev-dependencies]

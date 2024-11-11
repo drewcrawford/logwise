@@ -103,6 +103,7 @@ mod log_record;
 pub mod interval;
 pub mod context;
 mod local_logger;
+mod sys;
 
 pub use level::Level;
 

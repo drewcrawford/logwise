@@ -1,11 +1,12 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
 use std::fmt::{Debug, Display};
 use std::sync::OnceLock;
+use crate::Level;
 
-static INITIAL_TIMESTAMP: OnceLock<std::time::Instant> = OnceLock::new();
+static INITIAL_TIMESTAMP: OnceLock<crate::sys::Instant> = OnceLock::new();
 
-fn initial_timestamp() -> std::time::Instant {
-    *INITIAL_TIMESTAMP.get_or_init(|| std::time::Instant::now())
+fn initial_timestamp() -> crate::sys::Instant {
+    *INITIAL_TIMESTAMP.get_or_init(|| crate::sys::Instant::now())
 }
 
 /**
@@ -26,6 +27,7 @@ Instead, the design is as follows:
 #[derive(Debug,Clone,PartialEq, Hash)]
 pub struct LogRecord {
     pub(crate) parts: Vec<String>,
+    level: Level,
 }
 impl LogRecord {
     /**
@@ -47,31 +49,35 @@ impl LogRecord {
         self.parts.push(message);
     }
 
-    pub fn new() -> Self {
+    pub fn new(level: Level) -> Self {
         Self {
             parts: Vec::new(),
+            level,
         }
     }
 
     /**
     Log the current time to the record, followed by a space.
     */
-    pub fn log_timestamp(&mut self) -> std::time::Instant {
-        let time = std::time::Instant::now();
+    pub fn log_timestamp(&mut self) -> crate::sys::Instant {
+        let time = crate::sys::Instant::now();
         let duration = time.duration_since(initial_timestamp());
         self.log_owned(format!("[{:?}] ", duration));
         time
     }
 
-    pub fn log_time_since(&mut self, start: std::time::Instant) {
+    pub fn log_time_since(&mut self, start: crate::sys::Instant) {
         let duration = start.duration_since(initial_timestamp());
         self.log_owned(format!("[{:?}] ", duration));
+    }
+    pub fn level(&self) -> Level {
+        self.level
     }
 }
 
 impl Default for LogRecord {
     fn default() -> Self {
-        Self::new()
+        Self::new(Level::Info)
     }
 }
 

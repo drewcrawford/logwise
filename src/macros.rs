@@ -1,3 +1,4 @@
+use crate::Level;
 //SPDX-License-Identifier: MIT OR Apache-2.0
 use crate::log_record::LogRecord;
 use crate::privacy::Loggable;
@@ -26,7 +27,7 @@ impl<'a> PrivateFormatter<'a> {
 
 pub fn debuginternal_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new();
+    let mut record = crate::hidden::LogRecord::new(Level::DebugInternal);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
@@ -60,7 +61,7 @@ pub async fn debuginternal_async_post(record: LogRecord) {
 
 pub fn info_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new();
+    let mut record = crate::hidden::LogRecord::new(Level::Info);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
@@ -92,7 +93,7 @@ pub async fn info_async_post(record: LogRecord) {
 
 pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new();
+    let mut record = crate::hidden::LogRecord::new(Level::Warning);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
@@ -116,7 +117,7 @@ pub fn warn_sync_post(record: LogRecord) {
 
 pub fn trace_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new();
+    let mut record = crate::hidden::LogRecord::new(Level::Trace);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
@@ -146,7 +147,7 @@ pub async fn trace_async_post(record: LogRecord) {
 
 pub fn error_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new();
+    let mut record = crate::hidden::LogRecord::new(Level::Error);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
@@ -176,10 +177,10 @@ pub async fn error_async_post(record: LogRecord) {
 
 
 pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
-    let start = std::time::Instant::now();
+    let start = crate::sys::Instant::now();
 
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new();
+    let mut record = crate::hidden::LogRecord::new(Level::PerfWarn);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
@@ -198,7 +199,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     use crate::logger::Logger;
     let global_logger = &crate::hidden::GLOBAL_LOGGER;
     global_logger.finish_log_record(record);
-    let interval = crate::interval::PerfwarnInterval::new(name, std::time::Instant::now());
+    let interval = crate::interval::PerfwarnInterval::new(name, crate::sys::Instant::now());
     interval
 }
 
@@ -208,7 +209,8 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     use logwise::context::Context;
     use logwise_proc::{debuginternal_sync, info_sync, warn_sync};
 
-    #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     fn test_warn_sync() {
         crate::context::Context::reset("test_warn_sync");
         info_sync!("test_warn_sync");
@@ -218,7 +220,9 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
 
 
 
-    #[test] fn perfwarn() {
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn perfwarn() {
         use logwise::perfwarn;
         Context::reset("test_perfwarn");
         info_sync!("test_perfwarn");
@@ -228,11 +232,15 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
         });
 
     }
-    #[test] fn test_debuginternal_sync() {
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_debuginternal_sync() {
         crate::context::Context::reset("test_debuginternal_sync");
         debuginternal_sync!("test_debuginternal_sync");
     }
-    #[test] fn test_log_rich() {
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_log_rich() {
         let val = false;
         crate::context::Context::reset("test_log_rich");
 
@@ -240,7 +248,9 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
 
     }
 
-    #[test] fn test_log_custom() {
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_log_custom() {
         crate::context::Context::reset("test_log_custom");
         #[derive(Debug)]
         #[allow(dead_code)]
@@ -249,7 +259,9 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
         debuginternal_sync!("{s}!",s=logwise::privacy::LogIt(&s));
     }
 
-    #[test] fn test_log_info_async() {
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_log_info_async() {
         crate::context::Context::reset("test_log_info_async");
         let _ = async {
             logwise::info_async!("test_log_info_async");
@@ -257,7 +269,9 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
         //I guess we do something with this, but we can't call truntime because it depends on us...
     }
 
-    #[test] fn test_trace() {
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_trace() {
         crate::context::Context::reset("test_trace");
         logwise::trace_sync!("test_trace");
     }
