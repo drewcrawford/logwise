@@ -1,6 +1,5 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
 use std::io::Write;
-use crate::Level;
 use crate::log_record::LogRecord;
 use crate::logger::Logger;
 

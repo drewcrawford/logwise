@@ -84,6 +84,20 @@ impl Loggable for u64 {
     }
 }
 
+/**usize might be private.
+*/
+
+impl Loggable for usize {
+    #[inline]
+    fn log_redacting_private_info(&self, record: &mut LogRecord) {
+        record.log("<usize>")
+    }
+    #[inline]
+    fn log_all(&self, record: &mut LogRecord) {
+        record.log_owned(format!("{}", self));
+    }
+}
+
 /**
 u128 might be private.
 */

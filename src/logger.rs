@@ -1,5 +1,6 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
 use std::fmt::{Debug};
+use std::future::Future;
 use crate::hidden::LogRecord;
 
 pub trait Logger: Debug  {
@@ -18,7 +19,7 @@ pub trait Logger: Debug  {
     Loggers may choose to implement this as a simple wrapper around [Self::finish_log_record] if they wish.
 
     */
-    async fn finish_log_record_async(&self, record: LogRecord);
+    fn finish_log_record_async<'s>(&'s self, record: LogRecord) -> impl Future<Output=()> + 's;
 
     /**
     The application may imminently exit.  Ensure all buffers are flushed and up to date.
