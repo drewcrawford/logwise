@@ -1,6 +1,6 @@
 [package]
 name = "logwise"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Drew Crawford <drew@sealedabstract.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -9,6 +9,7 @@ homepage = "https://sealedabstract.com/code/logwise"
 repository = "https://github.com/drewcrawford/logwise"
 keywords = ["logging"]
 categories = ["development-tools::debugging", "development-tools::profiling"]
+rust-version = "1.78.0"
 
 exclude = [".*"]
 
