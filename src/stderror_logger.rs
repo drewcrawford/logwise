@@ -26,6 +26,7 @@ impl Logger for StdErrorLogger {
             lock.write_all(b"\n").expect("Can't log to stderr");
         }
         #[cfg(target_arch="wasm32")] {
+            use crate::Level;
             let msg = record.parts.join("");
             match record.level() {
                 Level::Trace => {
