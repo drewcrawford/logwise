@@ -1,6 +1,6 @@
 [package]
 name = "logwise"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Drew Crawford <drew@sealedabstract.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
