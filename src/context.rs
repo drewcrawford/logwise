@@ -23,11 +23,7 @@ impl Display for TaskID {
 
 #[derive(Copy,Clone,Debug,PartialEq,Eq,Hash)]
 pub struct ContextID(u64);
-impl Display for ContextID {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+
 
 
 impl Task {
@@ -102,7 +98,7 @@ pub struct Context {
 }
 
 thread_local! {
-    static CONTEXT: Cell<Arc<Context>> = Cell::new(Arc::new(Context::new_task(None,"Default task")));
+    static CONTEXT: Cell<Arc<Context>> = Cell::new(Context::new_task(None,"Default task"));
 }
 
 impl Context {
@@ -130,18 +126,20 @@ impl Context {
 
 
     /**
-    Creates a new orphaned context.
+    Creates a new context.
 
-
+    # Parameters
+    * `parent` - the parent context.  If None, this context will be orphaned.
+    * `label` - a debug label for the context.
     */
     #[inline]
-    pub fn new_task(parent: Option<Arc<Context>>, label: &'static str) -> Context {
-        Context {
+    pub fn new_task(parent: Option<Arc<Context>>, label: &'static str) -> Arc<Context> {
+        Arc::new(Context {
             parent,
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             define_task: Some(Task::new(label)),
             is_tracing: AtomicBool::new(false),
-        }
+        })
     }
 
 
@@ -159,14 +157,14 @@ impl Context {
 
     This preserves the parent's task.
     */
-    pub fn from_parent(context: Arc<Context>) -> Context {
+    pub fn from_parent(context: Arc<Context>) -> Arc<Context> {
         let is_tracing = context.is_tracing.load(Ordering::Relaxed);
-        Context {
+        Arc::new(Context {
             parent: Some(context),
             context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             define_task: None,
             is_tracing: AtomicBool::new(is_tracing),
-        }
+        })
     }
 
     #[inline]
@@ -205,11 +203,11 @@ impl Context {
     /**
     Sets the current context to this one.
     */
-    pub fn set_current(self) {
+    pub fn set_current(self: Arc<Self>) {
         let new_label = self.task().label;
         //find the parent task
         let new_task_id = self.task_id();
-        let old = CONTEXT.replace(Arc::new(self));
+        let old = CONTEXT.replace(self);
         if old.task_id() != new_task_id {
             //find parent task if applicable
             let current = Context::current();
@@ -265,7 +263,7 @@ impl Context {
 
     If the context cannot be found, panics.
     */
-    pub fn pop(id: ContextID) {
+    pub fn pop(id: ContextID)  {
         let mut current = Context::current();
         loop {
             if current.context_id() == id {
