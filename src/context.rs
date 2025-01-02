@@ -2,8 +2,11 @@
 use std::cell::{Cell};
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::task::Poll;
 use logwise_proc::{debuginternal_sync};
 use crate::Level;
 
@@ -305,11 +308,40 @@ impl Context {
     }
 }
 
-impl From<Arc<Context>> for Context {
-    fn from(arc: Arc<Context>) -> Self {
-        Self::from_parent(arc)
+
+
+/**
+Applies the context to the given future for the duration of a poll event.
+
+This can be used to inject a future with "plausible context" to hostile executors.
+*/
+pub struct ApplyContext<F>(Arc<Context>,F);
+
+impl<F> ApplyContext<F> {
+    /**
+    Creates a new type given the context to apply and the future to poll
+*/
+    pub fn new(context: Arc<Context>, f: F) -> Self {
+        Self(context, f)
     }
 }
+
+impl<F> Future for ApplyContext<F> where F: Future {
+    type Output = F::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        let (context, fut) = unsafe {
+            let d = self.get_unchecked_mut();
+            (d.0.clone(), Pin::new_unchecked(&mut d.1))
+        };
+        let id = context.context_id();
+        context.set_current();
+        let r = fut.poll(cx);
+        Context::pop(id);
+        r
+    }
+}
+
 
 #[cfg(test)] mod tests {
     use super::Context;
