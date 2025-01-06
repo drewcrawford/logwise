@@ -1,5 +1,4 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
-use std::io::Write;
 use crate::log_record::LogRecord;
 use crate::logger::Logger;
 
@@ -19,6 +18,7 @@ impl Logger for StdErrorLogger {
 
     fn finish_log_record(&self, record: LogRecord) {
         #[cfg(not(target_arch="wasm32"))] {
+            use std::io::Write;
             let mut lock = std::io::stderr().lock();
             for part in record.parts {
                 lock.write_all(part.as_bytes()).expect("Can't log to stderr");

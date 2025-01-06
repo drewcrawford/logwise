@@ -232,7 +232,7 @@ impl Context {
                     }
                 }
             }
-            debuginternal_sync!("Begin task `{label}` parent: `{parent}`",label=new_label,parent=parent_task.map(|e| e.0.to_string()).unwrap_or("?".to_string()));
+            debuginternal_sync!("Enter task `{label}` parent: `{parent}`",label=new_label,parent=parent_task.map(|e| e.0.to_string()).unwrap_or("?".to_string()));
         }
     }
 
