@@ -1,5 +1,6 @@
-use crate::Level;
 //SPDX-License-Identifier: MIT OR Apache-2.0
+
+use crate::Level;
 use crate::log_record::LogRecord;
 use crate::privacy::Loggable;
 
