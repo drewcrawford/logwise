@@ -125,6 +125,16 @@ impl Hash for Context {
     }
 }
 
+impl Display for Context {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let nesting = self.nesting_level();
+        write!(f, "{}{} ({})", 
+               "  ".repeat(nesting),
+               self.task_id(), 
+               self.task().label)
+    }
+}
+
 thread_local! {
     static CONTEXT: Cell<Context> = Cell::new(Context::new_task(None,"Default task"));
 }
@@ -440,5 +450,44 @@ impl<F> Future for ApplyContext<F> where F: Future {
         assert_eq!(map.get(&context2), Some(&"value1")); // same as context1
         assert_eq!(map.get(&context3), Some(&"value3"));
         assert_eq!(map.len(), 2); // only 2 unique contexts
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    fn test_context_display() {
+        Context::reset("root_task");
+        let root_context = Context::current();
+        
+        // Root context should have no indentation (nesting level 0)
+        let root_display = format!("{}", root_context);
+        assert!(root_display.starts_with(&format!("{} (root_task)", root_context.task_id())));
+        assert!(!root_display.starts_with("  ")); // no indentation
+        
+        // Create a child context
+        let child_context = Context::from_parent(root_context.clone());
+        child_context.clone().set_current();
+        let child_display = format!("{}", child_context);
+        
+        // Child should have 1 level of indentation
+        assert!(child_display.starts_with("  ")); // 2 spaces for nesting level 1
+        assert!(child_display.contains(&format!("{} (root_task)", root_context.task_id())));
+        
+        // Create a new task context as child
+        let task_context = Context::new_task(Some(child_context.clone()), "child_task");
+        task_context.clone().set_current();
+        let task_display = format!("{}", task_context);
+        
+        // Task context should have 2 levels of indentation
+        assert!(task_display.starts_with("    ")); // 4 spaces for nesting level 2
+        assert!(task_display.contains(&format!("{} (child_task)", task_context.task_id())));
+        
+        // Create grandchild
+        let grandchild_context = Context::from_parent(task_context.clone());
+        grandchild_context.clone().set_current();
+        let grandchild_display = format!("{}", grandchild_context);
+        
+        // Grandchild should have 3 levels of indentation
+        assert!(grandchild_display.starts_with("      ")); // 6 spaces for nesting level 3
+        assert!(grandchild_display.contains(&format!("{} (child_task)", task_context.task_id())));
     }
 }
