@@ -110,6 +110,14 @@ pub struct Context {
     inner: Arc<ContextInner>,
 }
 
+impl PartialEq for Context {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+}
+
+impl Eq for Context {}
+
 thread_local! {
     static CONTEXT: Cell<Context> = Cell::new(Context::new_task(None,"Default task"));
 }
@@ -374,5 +382,21 @@ impl<F> Future for ApplyContext<F> where F: Future {
         next_context.set_current();
 
         Context::pop(next_context_id);
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    fn test_context_equality() {
+        Context::reset("test_context_equality");
+        let context1 = Context::current();
+        let context2 = context1.clone();
+        let context3 = Context::new_task(None, "different_task");
+
+        // Same Arc pointer should be equal
+        assert_eq!(context1, context2);
+        
+        // Different Arc pointers should not be equal
+        assert_ne!(context1, context3);
+        assert_ne!(context2, context3);
     }
 }
