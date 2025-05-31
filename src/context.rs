@@ -3,6 +3,7 @@ use std::cell::{Cell};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::future::Future;
+use std::hash::{Hash, Hasher};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -117,6 +118,12 @@ impl PartialEq for Context {
 }
 
 impl Eq for Context {}
+
+impl Hash for Context {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.inner).hash(state);
+    }
+}
 
 thread_local! {
     static CONTEXT: Cell<Context> = Cell::new(Context::new_task(None,"Default task"));
@@ -398,5 +405,40 @@ impl<F> Future for ApplyContext<F> where F: Future {
         // Different Arc pointers should not be equal
         assert_ne!(context1, context3);
         assert_ne!(context2, context3);
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    fn test_context_hash() {
+        use std::collections::HashMap;
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        Context::reset("test_context_hash");
+        let context1 = Context::current();
+        let context2 = context1.clone();
+        let context3 = Context::new_task(None, "different_task");
+
+        // Same Arc pointer should have same hash
+        let mut hasher1 = DefaultHasher::new();
+        let mut hasher2 = DefaultHasher::new();
+        context1.hash(&mut hasher1);
+        context2.hash(&mut hasher2);
+        assert_eq!(hasher1.finish(), hasher2.finish());
+
+        // Different Arc pointers should have different hashes (highly likely)
+        let mut hasher3 = DefaultHasher::new();
+        context3.hash(&mut hasher3);
+        assert_ne!(hasher1.finish(), hasher3.finish());
+
+        // Test that Context can be used as HashMap key
+        let mut map = HashMap::new();
+        map.insert(context1.clone(), "value1");
+        map.insert(context3.clone(), "value3");
+
+        assert_eq!(map.get(&context1), Some(&"value1"));
+        assert_eq!(map.get(&context2), Some(&"value1")); // same as context1
+        assert_eq!(map.get(&context3), Some(&"value3"));
+        assert_eq!(map.len(), 2); // only 2 unique contexts
     }
 }
