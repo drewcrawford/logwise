@@ -90,11 +90,11 @@ impl Task {
 
 
 /**
-Provides a set of info that can be used by multiple logs.
+Internal context data.
 */
 #[derive(Debug)]
-pub struct Context {
-    parent: Option<Arc<Context>>,
+struct ContextInner {
+    parent: Option<Context>,
     context_id: u64,
     //if some, we define a new task ID for this context.
     define_task: Option<Task>,
@@ -102,8 +102,16 @@ pub struct Context {
     is_tracing: AtomicBool,
 }
 
+/**
+Provides a set of info that can be used by multiple logs.
+*/
+#[derive(Debug, Clone)]
+pub struct Context {
+    inner: Arc<ContextInner>,
+}
+
 thread_local! {
-    static CONTEXT: Cell<Arc<Context>> = Cell::new(Context::new_task(None,"Default task"));
+    static CONTEXT: Cell<Context> = Cell::new(Context::new_task(None,"Default task"));
 }
 
 impl Context {
@@ -112,7 +120,7 @@ impl Context {
     Returns the current context.
     */
     #[inline]
-    pub fn current() -> Arc<Context> {
+    pub fn current() -> Context {
         CONTEXT.with(|c|
             //safety: we don't let anyone get a mutable reference to this
             unsafe{&*c.as_ptr()}.clone()
@@ -122,10 +130,10 @@ impl Context {
 
 
     pub fn task(&self) -> &Task {
-        if let Some(task) = &self.define_task {
+        if let Some(task) = &self.inner.define_task {
             task
         } else {
-            self.parent.as_ref().expect("No parent context").task()
+            self.inner.parent.as_ref().expect("No parent context").task()
         }
     }
 
@@ -138,13 +146,15 @@ impl Context {
     * `label` - a debug label for the context.
     */
     #[inline]
-    pub fn new_task(parent: Option<Arc<Context>>, label: &'static str) -> Arc<Context> {
-        Arc::new(Context {
-            parent,
-            context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-            define_task: Some(Task::new(label)),
-            is_tracing: AtomicBool::new(false),
-        })
+    pub fn new_task(parent: Option<Context>, label: &'static str) -> Context {
+        Context {
+            inner: Arc::new(ContextInner {
+                parent,
+                context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+                define_task: Some(Task::new(label)),
+                is_tracing: AtomicBool::new(false),
+            })
+        }
     }
 
 
@@ -162,14 +172,16 @@ impl Context {
 
     This preserves the parent's task.
     */
-    pub fn from_parent(context: Arc<Context>) -> Arc<Context> {
-        let is_tracing = context.is_tracing.load(Ordering::Relaxed);
-        Arc::new(Context {
-            parent: Some(context),
-            context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-            define_task: None,
-            is_tracing: AtomicBool::new(is_tracing),
-        })
+    pub fn from_parent(context: Context) -> Context {
+        let is_tracing = context.inner.is_tracing.load(Ordering::Relaxed);
+        Context {
+            inner: Arc::new(ContextInner {
+                parent: Some(context),
+                context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+                define_task: None,
+                is_tracing: AtomicBool::new(is_tracing),
+            })
+        }
     }
 
     #[inline]
@@ -182,7 +194,7 @@ impl Context {
     */
     #[inline]
     pub fn is_tracing(&self) -> bool {
-        self.is_tracing.load(Ordering::Relaxed)
+        self.inner.is_tracing.load(Ordering::Relaxed)
     }
 
     /**
@@ -192,7 +204,7 @@ impl Context {
     pub fn currently_tracing() -> bool {
         CONTEXT.with(|c| {
             //safety: we don't let anyone get a mutable reference to this
-            unsafe{&*c.as_ptr()}.is_tracing.load(Ordering::Relaxed)
+            unsafe{&*c.as_ptr()}.inner.is_tracing.load(Ordering::Relaxed)
         })
     }
 
@@ -201,14 +213,14 @@ impl Context {
 
     */
     pub fn begin_trace() {
-        Context::current().is_tracing.store(true, Ordering::Relaxed);
+        Context::current().inner.is_tracing.store(true, Ordering::Relaxed);
         logwise::trace_sync!("Begin trace");
     }
 
     /**
     Sets the current context to this one.
     */
-    pub fn set_current(self: Arc<Self>) {
+    pub fn set_current(self) {
         let new_label = self.task().label;
         //find the parent task
         let new_task_id = self.task_id();
@@ -225,7 +237,7 @@ impl Context {
                     break;
                 }
                 else {
-                    match &search.parent {
+                    match &search.inner.parent {
                         Some(parent) => search = parent,
                         None => {
                             parent_task = None;
@@ -244,7 +256,7 @@ impl Context {
     pub fn nesting_level(&self) -> usize {
         let mut level = 0;
         let mut current = self;
-        while let Some(parent) = &current.parent {
+        while let Some(parent) = &current.inner.parent {
             level += 1;
             current = parent;
         }
@@ -256,7 +268,7 @@ impl Context {
     */
     #[inline]
     pub fn context_id(&self) -> ContextID {
-        ContextID(self.context_id)
+        ContextID(self.inner.context_id)
     }
 
 
@@ -272,11 +284,11 @@ impl Context {
         let mut current = Context::current();
         loop {
             if current.context_id() == id {
-                let parent = current.parent.clone().expect("No parent context");
+                let parent = current.inner.parent.clone().expect("No parent context");
                 CONTEXT.replace(parent);
                 return;
             }
-            let parent = current.parent.as_ref().expect("No parent context").clone();
+            let parent = current.inner.parent.as_ref().expect("No parent context").clone();
             current = parent;
         }
     }
@@ -317,13 +329,13 @@ Applies the context to the given future for the duration of a poll event.
 
 This can be used to inject a future with "plausible context" to hostile executors.
 */
-pub struct ApplyContext<F>(Arc<Context>,F);
+pub struct ApplyContext<F>(Context,F);
 
 impl<F> ApplyContext<F> {
     /**
     Creates a new type given the context to apply and the future to poll
 */
-    pub fn new(context: Arc<Context>, f: F) -> Self {
+    pub fn new(context: Context, f: F) -> Self {
         Self(context, f)
     }
 }
