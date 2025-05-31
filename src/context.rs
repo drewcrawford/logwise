@@ -135,6 +135,13 @@ impl Display for Context {
     }
 }
 
+impl AsRef<Task> for Context {
+    fn as_ref(&self) -> &Task {
+        self.task()
+    }
+}
+
+
 thread_local! {
     static CONTEXT: Cell<Context> = Cell::new(Context::new_task(None,"Default task"));
 }
@@ -383,7 +390,7 @@ impl<F> Future for ApplyContext<F> where F: Future {
 
 
 #[cfg(test)] mod tests {
-    use super::Context;
+    use super::{Context, Task, TaskID};
     #[cfg(target_arch="wasm32")]
     use wasm_bindgen_test::*;
     #[cfg(target_arch = "wasm32")]
@@ -489,5 +496,51 @@ impl<F> Future for ApplyContext<F> where F: Future {
         // Grandchild should have 3 levels of indentation
         assert!(grandchild_display.starts_with("      ")); // 6 spaces for nesting level 3
         assert!(grandchild_display.contains(&format!("{} (child_task)", task_context.task_id())));
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    fn test_context_as_ref_task() {
+        Context::reset("test_as_ref");
+        let context = Context::current();
+        
+        // Test that AsRef<Task> works
+        let task_ref: &Task = context.as_ref();
+        assert_eq!(task_ref.task_id, context.task_id());
+        assert_eq!(task_ref.label, "test_as_ref");
+        
+        // Test that we can use Context where &Task is expected
+        fn takes_task_ref(task: &Task) -> TaskID {
+            task.task_id
+        }
+        
+        // Test explicit AsRef usage
+        let id1 = takes_task_ref(context.as_ref());
+        assert_eq!(id1, context.task_id());
+        
+        // Test with generic function that accepts AsRef<Task>
+        fn takes_as_ref_task<T: AsRef<Task>>(item: T) -> TaskID {
+            item.as_ref().task_id
+        }
+        
+        let id2 = takes_as_ref_task(&context);
+        let id3 = takes_as_ref_task(context.clone());
+        assert_eq!(id1, id2);
+        assert_eq!(id2, id3);
+        
+        // Test with different context types
+        let child_context = Context::from_parent(context.clone());
+        let child_task_ref: &Task = child_context.as_ref();
+        
+        // Child should have same task as parent (since from_parent preserves task)
+        assert_eq!(child_task_ref.task_id, context.task_id());
+        assert_eq!(child_task_ref.label, "test_as_ref");
+        
+        let new_task_context = Context::new_task(Some(context.clone()), "new_task");
+        let new_task_ref: &Task = new_task_context.as_ref();
+        
+        // New task should have different ID and label
+        assert_ne!(new_task_ref.task_id, context.task_id());
+        assert_eq!(new_task_ref.label, "new_task");
     }
 }
