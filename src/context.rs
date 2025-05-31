@@ -65,10 +65,11 @@ impl Drop for Task {
         }
     }
 }
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 struct TaskMutable {
     interval_statistics: HashMap<&'static str, std::time::Duration>,
 }
+#[derive(Debug)]
 pub struct Task {
     task_id: TaskID,
     mutable: Mutex<TaskMutable>,
@@ -91,6 +92,7 @@ impl Task {
 /**
 Provides a set of info that can be used by multiple logs.
 */
+#[derive(Debug)]
 pub struct Context {
     parent: Option<Arc<Context>>,
     context_id: u64,

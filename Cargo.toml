@@ -2,14 +2,14 @@
 name = "logwise"
 version = "0.2.3"
 authors = ["Drew Crawford <drew@sealedabstract.com>"]
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "an opinionated logging library for Rust"
 homepage = "https://sealedabstract.com/code/logwise"
 repository = "https://github.com/drewcrawford/logwise"
 keywords = ["logging"]
 categories = ["development-tools::debugging", "development-tools::profiling"]
-rust-version = "1.78.0"
+rust-version = "1.85.0"
 
 exclude = [".*"]
 
