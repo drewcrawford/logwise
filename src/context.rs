@@ -310,7 +310,7 @@ impl Context {
     /**
     Pops the context with specified ID.
 
-    If the context cannot be found, panics.
+    If the context cannot be found, logs a warning.
     */
     pub fn pop(id: ContextID)  {
         let mut current = Context::current();
@@ -320,8 +320,15 @@ impl Context {
                 CONTEXT.replace(parent);
                 return;
             }
-            let parent = current.inner.parent.as_ref().expect("No parent context").clone();
-            current = parent;
+            match current.inner.parent.as_ref() {
+                None => {
+                    logwise::warn_sync!("Tried to pop context with ID {id}, but it was not found in the current context chain.", id=id.0);
+                    return;
+                },
+                Some(ctx) => {
+                    current = ctx.clone()
+                }
+            }
         }
     }
 
