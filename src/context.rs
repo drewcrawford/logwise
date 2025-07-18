@@ -32,7 +32,7 @@ pub struct ContextID(u64);
 
 impl Task {
     #[inline]
-    fn add_task_interval(&self, key: &'static str, duration: std::time::Duration) {
+    fn add_task_interval(&self, key: &'static str, duration: crate::sys::Duration) {
         let mut borrow = self.mutable.lock().unwrap();
         borrow.interval_statistics.get_mut(key).map(|v| *v += duration).unwrap_or_else(|| {
             borrow.interval_statistics.insert(key, duration);
@@ -68,7 +68,7 @@ impl Drop for Task {
 }
 #[derive(Clone,Debug)]
 struct TaskMutable {
-    interval_statistics: HashMap<&'static str, std::time::Duration>,
+    interval_statistics: HashMap<&'static str, crate::sys::Duration>,
 }
 #[derive(Debug)]
 pub struct Task {
@@ -356,7 +356,7 @@ impl Context {
         record.log_owned(format!("{} ",self.task_id()));
     }
 
-    #[inline] pub fn _add_task_interval(&self, key: &'static str, duration: std::time::Duration) {
+    #[inline] pub fn _add_task_interval(&self, key: &'static str, duration: crate::sys::Duration) {
         self.task().add_task_interval(key, duration);
     }
 }

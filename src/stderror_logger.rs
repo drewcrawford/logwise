@@ -48,6 +48,9 @@ impl Logger for StdErrorLogger {
                     web_sys::console::warn_1(&msg.into());
                 }
                 Level::Error => {
+                    if msg == "DEBUGME" {
+                        panic!("DEBUGME")
+                    }
                     web_sys::console::error_1(&msg.into());
                 }
                 Level::Panic => {
