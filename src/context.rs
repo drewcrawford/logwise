@@ -42,7 +42,6 @@ impl Task {
 
 impl Drop for Task {
     fn drop(&mut self) {
-        use crate::logger::Logger;
         if !self.mutable.lock().unwrap().interval_statistics.is_empty() {
             let mut record = crate::log_record::LogRecord::new(Level::PerfWarn);
             //log task ID
@@ -53,7 +52,7 @@ impl Drop for Task {
                 record.log_owned(format!(": {:?},", duration));
             }
             record.log("]");
-            crate::global_logger::GLOBAL_LOGGER.finish_log_record(record);
+            crate::global_logger::global_logger().finish_log_record(record);
         }
 
         if self.label != "Default task" {
@@ -62,7 +61,7 @@ impl Drop for Task {
             record.log("Finished task `");
             record.log(self.label);
             record.log("`");
-            crate::global_logger::GLOBAL_LOGGER.finish_log_record(record);
+            crate::global_logger::global_logger().finish_log_record(record);
         }
     }
 }

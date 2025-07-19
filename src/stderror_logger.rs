@@ -5,7 +5,7 @@ use crate::logger::Logger;
 /**
 A reference logger that logs to stderr.
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StdErrorLogger {}
 
 impl StdErrorLogger {
@@ -61,9 +61,11 @@ impl Logger for StdErrorLogger {
 
     }
 
-    async fn finish_log_record_async(&self, record: LogRecord) {
-        //todo: this locks, which is maybe not what we want?
-        self.finish_log_record(record)
+    fn finish_log_record_async<'s>(&'s self, record: LogRecord) -> std::pin::Pin<Box<dyn std::future::Future<Output=()> + Send + 's>> {
+        Box::pin(async move {
+            //todo: this locks, which is maybe not what we want?
+            self.finish_log_record(record)
+        })
     }
 
     fn prepare_to_die(&self) {

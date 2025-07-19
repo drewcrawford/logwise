@@ -1,9 +1,8 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
 use std::fmt::{Debug};
-use std::future::Future;
 use crate::hidden::LogRecord;
 
-pub trait Logger: Debug  {
+pub trait Logger: Debug + Send + Sync {
 
     /**
     Submits the log record for logging.
@@ -19,7 +18,7 @@ pub trait Logger: Debug  {
     Loggers may choose to implement this as a simple wrapper around [Self::finish_log_record] if they wish.
 
     */
-    fn finish_log_record_async<'s>(&'s self, record: LogRecord) -> impl Future<Output=()> + 's;
+    fn finish_log_record_async<'s>(&'s self, record: LogRecord) -> std::pin::Pin<Box<dyn std::future::Future<Output=()> + Send + 's>>;
 
     /**
     The application may imminently exit.  Ensure all buffers are flushed and up to date.
@@ -48,32 +47,4 @@ Send/Sync makes sense for typical loggers but I could imagine corner cases where
 
 */
 
-/**
-A logger that hides, without erasing, the underlying type of logger.
-*/
-#[derive(Debug)]
-pub struct AnyLogger<L: Logger>(L);
-
-impl<L: Logger> AnyLogger<L> {
-    pub const fn new(logger: L) -> AnyLogger<L> {
-        AnyLogger(logger)
-    }
-}
-
-impl<L: Logger> Logger for AnyLogger<L> {
-
-
-    fn finish_log_record(&self, record: LogRecord) {
-        self.0.finish_log_record(record)
-    }
-
-
-    async fn finish_log_record_async(&self, record: LogRecord) {
-        self.0.finish_log_record_async(record).await
-    }
-
-    fn prepare_to_die(&self) {
-        self.0.prepare_to_die()
-    }
-}
 

@@ -112,7 +112,7 @@ pub use logwise_proc::{info_sync, perfwarn, debuginternal_async, debuginternal_s
 #[doc(hidden)]
 pub mod hidden {
     pub use crate::macros::{PrivateFormatter};
-    pub use crate::global_logger::GLOBAL_LOGGER;
+    pub use crate::global_logger::global_logger;
     pub use crate::logger::{Logger};
     pub use crate::log_record::LogRecord;
     pub use crate::macros::{debuginternal_pre,debuginternal_sync_post,debuginternal_async_post,
