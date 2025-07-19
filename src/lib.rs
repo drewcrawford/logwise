@@ -97,6 +97,7 @@ mod level;
 mod logger;
 pub mod privacy;
 mod stderror_logger;
+mod inmemory_logger;
 pub mod global_logger;
 mod macros;
 mod log_record;
@@ -106,6 +107,8 @@ mod local_logger;
 mod sys;
 
 pub use level::Level;
+pub use inmemory_logger::InMemoryLogger;
+pub use global_logger::{set_global_logger, global_logger};
 
 pub use logwise_proc::{info_sync, perfwarn, debuginternal_async, debuginternal_sync, warn_sync,perfwarn_begin,info_async, trace_sync, trace_async,error_sync, error_async};
 
