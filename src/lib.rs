@@ -105,6 +105,7 @@ pub mod interval;
 pub mod context;
 mod local_logger;
 mod sys;
+mod spinlock;
 
 pub use level::Level;
 pub use inmemory_logger::InMemoryLogger;
