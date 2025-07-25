@@ -126,3 +126,5 @@ pub mod hidden {
                             error_sync_pre, error_sync_post, error_async_post};
 }
 extern crate self as logwise;
+
+pub use sys::Duration;
