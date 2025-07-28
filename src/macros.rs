@@ -47,13 +47,17 @@ pub fn debuginternal_pre(file: &'static str, line: u32, column: u32) -> LogRecor
 }
 
 pub fn debuginternal_sync_post(record: LogRecord) {
-    let global_logger = crate::hidden::global_logger();
-    global_logger.finish_log_record(record);
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record(record.clone());
+    }
 }
 
 pub async fn debuginternal_async_post(record: LogRecord) {
-    let global_logger = crate::hidden::global_logger();
-    global_logger.finish_log_record_async(record).await;
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record_async(record.clone()).await;
+    }
 }
 
 
@@ -78,13 +82,17 @@ pub fn info_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
 }
 
 pub fn info_sync_post(record: LogRecord) {
-    let global_logger = crate::hidden::global_logger();
-    global_logger.finish_log_record(record);
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record(record.clone());
+    }
 }
 
 pub async fn info_async_post(record: LogRecord) {
-    let global_logger = crate::hidden::global_logger();
-    global_logger.finish_log_record_async(record).await;
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record_async(record.clone()).await;
+    }
 }
 
 
@@ -107,8 +115,10 @@ pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
 }
 
 pub fn warn_sync_post(record: LogRecord) {
-    let global_logger = crate::hidden::global_logger();
-    global_logger.finish_log_record(record);
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record(record.clone());
+    }
 }
 
 pub fn trace_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
@@ -130,13 +140,17 @@ pub fn trace_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
 }
 
 pub fn trace_sync_post(record: LogRecord) {
-    let global_logger = crate::hidden::global_logger();
-    global_logger.finish_log_record(record);
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record(record.clone());
+    }
 }
 
 pub async fn trace_async_post(record: LogRecord) {
-    let global_logger = crate::hidden::global_logger();
-    global_logger.finish_log_record_async(record).await;
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record_async(record.clone()).await;
+    }
 }
 
 pub fn error_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
@@ -158,13 +172,17 @@ pub fn error_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
 }
 
 pub fn error_sync_post(record: LogRecord) {
-    let global_logger = crate::hidden::global_logger();
-    global_logger.finish_log_record(record);
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record(record.clone());
+    }
 }
 
 pub async fn error_async_post(record: LogRecord) {
-    let global_logger = crate::hidden::global_logger();
-    global_logger.finish_log_record_async(record).await;
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record_async(record.clone()).await;
+    }
 }
 
 
@@ -188,8 +206,10 @@ pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32) -> LogReco
 }
 
 pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::interval::PerfwarnInterval {
-    let global_logger = crate::hidden::global_logger();
-    global_logger.finish_log_record(record);
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record(record.clone());
+    }
     let interval = crate::interval::PerfwarnInterval::new(name, crate::sys::Instant::now());
     interval
 }

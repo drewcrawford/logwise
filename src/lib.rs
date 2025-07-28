@@ -109,14 +109,14 @@ mod spinlock;
 
 pub use level::Level;
 pub use inmemory_logger::InMemoryLogger;
-pub use global_logger::{set_global_logger, global_logger};
+pub use global_logger::{add_global_logger, set_global_loggers, global_loggers};
 
 pub use logwise_proc::{info_sync, perfwarn, debuginternal_async, debuginternal_sync, warn_sync,perfwarn_begin,info_async, trace_sync, trace_async,error_sync, error_async};
 
 #[doc(hidden)]
 pub mod hidden {
     pub use crate::macros::{PrivateFormatter};
-    pub use crate::global_logger::global_logger;
+    pub use crate::global_logger::global_loggers;
     pub use crate::logger::{Logger};
     pub use crate::log_record::LogRecord;
     pub use crate::macros::{debuginternal_pre,debuginternal_sync_post,debuginternal_async_post,

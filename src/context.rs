@@ -52,7 +52,10 @@ impl Drop for Task {
                 record.log_owned(format!(": {:?},", duration));
             }
             record.log("]");
-            crate::global_logger::global_logger().finish_log_record(record);
+            let global_loggers = crate::global_logger::global_loggers();
+            for logger in global_loggers {
+                logger.finish_log_record(record.clone());
+            }
         }
 
         if self.label != "Default task" {
@@ -61,7 +64,10 @@ impl Drop for Task {
             record.log("Finished task `");
             record.log(self.label);
             record.log("`");
-            crate::global_logger::global_logger().finish_log_record(record);
+            let global_loggers = crate::global_logger::global_loggers();
+            for logger in global_loggers {
+                logger.finish_log_record(record.clone());
+            }
         }
     }
 }

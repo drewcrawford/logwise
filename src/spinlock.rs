@@ -76,7 +76,7 @@ impl<T> Spinlock<T> {
         let result = unsafe { f(&mut *self.data.get()) };
 
         // Release the lock
-        self.spin_lock_write();
+        self.spin_unlock_write();
         result
     }
 

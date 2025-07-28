@@ -6,7 +6,7 @@ These represent 2 paired log values, such as a start and end time.
 */
 
 use crate::context::{Context};
-use crate::global_logger::global_logger;
+use crate::global_logger::global_loggers;
 use crate::Level;
 use crate::log_record::LogRecord;
 
@@ -72,7 +72,10 @@ impl Drop for PerfwarnInterval {
         record.log(" ");
         let scaled_duration = duration.mul_f32(self.scale);
         record.log_owned(format!("[interval took {:?}] ", scaled_duration));
-        global_logger().finish_log_record(record);
+        let global_loggers = global_loggers();
+        for logger in global_loggers {
+            logger.finish_log_record(record.clone());
+        }
 
     }
 }
