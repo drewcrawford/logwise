@@ -1,6 +1,6 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
 use std::fmt::{Debug};
-use crate::hidden::LogRecord;
+use crate::log_record::LogRecord;
 
 pub trait Logger: Debug + Send + Sync {
 

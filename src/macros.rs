@@ -28,7 +28,7 @@ impl<'a> PrivateFormatter<'a> {
 
 pub fn debuginternal_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new(Level::DebugInternal);
+    let mut record = crate::log_record::LogRecord::new(Level::DebugInternal);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
@@ -64,7 +64,7 @@ pub async fn debuginternal_async_post(record: LogRecord) {
 
 pub fn info_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new(Level::Info);
+    let mut record = crate::log_record::LogRecord::new(Level::Info);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
@@ -98,7 +98,7 @@ pub async fn info_async_post(record: LogRecord) {
 
 pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new(Level::Warning);
+    let mut record = crate::log_record::LogRecord::new(Level::Warning);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
@@ -123,7 +123,7 @@ pub fn warn_sync_post(record: LogRecord) {
 
 pub fn trace_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new(Level::Trace);
+    let mut record = crate::log_record::LogRecord::new(Level::Trace);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
@@ -155,7 +155,7 @@ pub async fn trace_async_post(record: LogRecord) {
 
 pub fn error_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new(Level::Error);
+    let mut record = crate::log_record::LogRecord::new(Level::Error);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
@@ -190,7 +190,7 @@ pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32) -> LogReco
     let start = crate::sys::Instant::now();
 
     //safety: guarantee context won't change
-    let mut record = crate::hidden::LogRecord::new(Level::PerfWarn);
+    let mut record = crate::log_record::LogRecord::new(Level::PerfWarn);
 
     let read_ctx = crate::context::Context::current();
     read_ctx._log_prelude(&mut record);
