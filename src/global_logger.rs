@@ -29,8 +29,8 @@ The logger will be wrapped in Arc and appended to the list. This function is thr
 pub fn add_global_logger(logger: Arc<dyn Logger>) {
     let logger_clone = logger.clone();
     GLOBAL_LOGGERS_PTR.get_or_init(|| {
-        // Initialize the global loggers with the provided logger.
-        Spinlock::new(vec![logger_clone])
+        // Initialize the global loggers with a default StdErrorLogger.
+        Spinlock::new(vec![Arc::new(StdErrorLogger::new())])
     }).with_mut(|loggers| loggers.push(logger));
 }
 

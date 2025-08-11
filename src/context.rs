@@ -148,7 +148,7 @@ impl AsRef<Task> for Context {
 
 
 thread_local! {
-    static CONTEXT: Cell<Context> = Cell::new(Context::new_task(None,"Default task"));
+    static CONTEXT: Cell<Context> = Cell::new(Context::new_task_internal(None,"Default task",0));
 }
 
 impl Context {
@@ -184,10 +184,15 @@ impl Context {
     */
     #[inline]
     pub fn new_task(parent: Option<Context>, label: &'static str) -> Context {
+        let context_id = CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        debuginternal_sync!("Creating task {id} `{label}`",id=context_id, label=label);
+        Self::new_task_internal(parent, label,context_id)
+    }
+    #[inline] fn new_task_internal(parent: Option<Context>, label: &'static str,context_id: u64) -> Context {
         Context {
             inner: Arc::new(ContextInner {
                 parent,
-                context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+                context_id: context_id,
                 define_task: Some(Task::new(label)),
                 is_tracing: AtomicBool::new(false),
             })
@@ -283,7 +288,6 @@ impl Context {
                     }
                 }
             }
-            debuginternal_sync!("Enter task `{label}` parent: `{parent}`",label=new_label,parent=parent_task.map(|e| e.0.to_string()).unwrap_or("?".to_string()));
         }
     }
 
@@ -392,10 +396,10 @@ impl<F> Future for ApplyContext<F> where F: Future {
             let d = self.get_unchecked_mut();
             (d.0.clone(), Pin::new_unchecked(&mut d.1))
         };
-        let id = context.context_id();
+        let prior_context = Context::current();
         context.set_current();
         let r = fut.poll(cx);
-        Context::pop(id);
+        prior_context.set_current();
         r
     }
 }
