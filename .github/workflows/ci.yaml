@@ -6,7 +6,7 @@ env:
 jobs:
   ci:
     name: Build on ${{ matrix.os }}
-    runs-on: {{matrix.os}}
+    runs-on: ${{matrix.os}}
 
     strategy:
       matrix:
@@ -47,14 +47,14 @@ jobs:
             FLAGS=""  
           fi  
           # if TARGET is non-empty, prepend "--target"
-          if [ -n "$TARGET"]; then
+          if [ -n "$TARGET" ]; then
               TARGET="--target=$TARGET"
           else
               TARGET=""
           fi
           
           cargo fmt --check  
-          cargo check    $FLAGS  $TARGET
-          cargo clippy --no-deps $FLAGS  $TARGET
-          cargo doc      $FLAGS  $TARGET
-          cargo test     $FLAGS $TARGET
+          cargo ${{ matrix.channel }} check    $FLAGS  $TARGET
+          cargo ${{ matrix.channel }} clippy --no-deps $FLAGS  $TARGET
+          cargo ${{ matrix.channel }} doc      $FLAGS  $TARGET
+          cargo ${{ matrix.channel }} test     $FLAGS $TARGET
