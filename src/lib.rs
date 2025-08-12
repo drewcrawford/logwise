@@ -172,8 +172,7 @@ struct Config {
     port: u16,
 }
 
-fn main() {
-    // Initialize root context
+// Initialize root context
     Context::reset("application".to_string());
 
     // Log application startup
@@ -203,7 +202,6 @@ fn main() {
     });
 
     logwise::info_sync!("Application ready", port=config.port);
-}
 ```
 
 ## Custom Logger Implementation
