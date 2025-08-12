@@ -14,7 +14,7 @@ rust-version = "1.85.0"
 exclude = [".*"]
 
 [dependencies]
-logwise_proc = { path = "logwise_proc", version = "0.1.0" }
+logwise_proc = { path = "logwise_proc", version = "0.3.0" }
 
 [dev-dependencies]
 
