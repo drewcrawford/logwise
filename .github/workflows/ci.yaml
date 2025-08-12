@@ -59,6 +59,7 @@ jobs:
         run:
           # at the moment, GitHub is too far behind mainline rust (v1.89.0-v1.91.0-nightly)
           rustup update
+          rustup +nightly comopnent add rustfmt
 
       - name: rustfmt
         run: cargo ${{ matrix.channel }} fmt --check
