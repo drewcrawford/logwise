@@ -1,8 +1,60 @@
-on: [push]
+# matrix v2
+on: [push,pull_request]
+env:
+  RUSTFLAGS: "-D warnings"
+
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    name: Build on ${{ matrix.host_os }}
+    runs-on: {{matrix.host_os}}
+
+    strategy:
+      matrix:
+        channel: [""]
+        features: [""]
+        target: [""]
+        host_os: ['ubuntu-latest']
+        
+        include:
+          # only linux build contains wasm32 build
+          - channel: "+nightly"
+            target: "wasm32-unknown-unknown"
+            host_os: "ubuntu-latest"
+
     steps:
-      - uses: actions/checkout@v2
-      - run: cargo test
-      - run: cargo doc
+      - uses: actions/checkout@v4
+
+      - name: Cache target
+        uses: actions/cache@v4
+        with:
+          key: target-${{ matrix.host_os }}-${{ matrix.target }}-${{ matrix.features }}-${{ hashFiles('**/Cargo.lock') }}
+          path: "target"
+          restore-keys: |
+            target-${{ matrix.host_os }}-${{ matrix.target }}-${{ matrix.features }}-
+            target-${{ matrix.host_os }}-${{ matrix.target }}-
+            target-${{ matrix.host_os }}-
+
+      - name: "CI"
+        # expose the raw comma-separated list in FEATURE_FLAGS  
+        env:
+          FEATURE_FLAGS: ${{ matrix.features }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          # if FEATURE_FLAGS is non-empty, prepend "--features="  
+          if [ -n "$FEATURE_FLAGS" ]; then  
+            FLAGS="--features=$FEATURE_FLAGS"  
+          else  
+            FLAGS=""  
+          fi  
+          # if TARGET is non-empty, prepend "--target"
+          if [ -n "$TARGET"]; then
+              TARGET="--target=$TARGET"
+          else
+              TARGET=""
+          fi
+          
+          cargo fmt --check  
+          cargo check    $FLAGS  $TARGET
+          cargo clippy --no-deps $FLAGS  $TARGET
+          cargo doc      $FLAGS  $TARGET
+          cargo test     $FLAGS $TARGET
