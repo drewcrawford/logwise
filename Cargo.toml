@@ -17,9 +17,6 @@ exclude = [".*"]
 logwise_proc = { path = "logwise_proc", version = "0.1.0" }
 
 [dev-dependencies]
-# for print_demo
-test_executors = "0.3.4"
-continue = "0.1"
 
 [features]
 logwise_internal = []

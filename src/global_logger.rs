@@ -27,7 +27,6 @@ Adds a logger to the global loggers.
 The logger will be wrapped in Arc and appended to the list. This function is thread-safe.
 */
 pub fn add_global_logger(logger: Arc<dyn Logger>) {
-    let logger_clone = logger.clone();
     GLOBAL_LOGGERS_PTR.get_or_init(|| {
         // Initialize the global loggers with a default StdErrorLogger.
         Spinlock::new(vec![Arc::new(StdErrorLogger::new())])

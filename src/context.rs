@@ -8,7 +8,6 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::task::Poll;
-use logwise_proc::{debuginternal_sync};
 use crate::Level;
 
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
@@ -262,32 +261,7 @@ impl Context {
     Sets the current context to this one.
     */
     pub fn set_current(self) {
-        let new_label = &self.task().label;
-        //find the parent task
-        let new_task_id = self.task_id();
-        let old = CONTEXT.replace(self);
-        if old.task_id() != new_task_id {
-            //find parent task if applicable
-            let current = Context::current();
-
-            let mut search = &current;
-            let parent_task;
-            loop {
-                if search.task_id() != new_task_id {
-                    parent_task = Some(search.task_id());
-                    break;
-                }
-                else {
-                    match &search.inner.parent {
-                        Some(parent) => search = parent,
-                        None => {
-                            parent_task = None;
-                            break;
-                        },
-                    }
-                }
-            }
-        }
+        CONTEXT.replace(self);
     }
 
     /**
