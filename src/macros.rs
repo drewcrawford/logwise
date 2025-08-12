@@ -232,6 +232,7 @@ impl From<bool> for LoggingDomain {
 /// ```rust
 /// # #[macro_use] extern crate logwise;
 /// declare_logging_domain!();
+/// # fn main() { }
 ///
 /// pub fn my_function() {
 ///     // This will only log when built with --features logwise_internal
