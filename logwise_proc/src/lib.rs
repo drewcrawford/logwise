@@ -364,8 +364,15 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LFormatRes
 /// should use the higher-level logging macros instead.
 ///
 /// # Syntax
-/// ```ignore
-/// lformat!(formatter_ident, "format string with {keys}", key1=value1, key2=value2);
+/// ```
+/// # struct Formatter;
+/// # impl Formatter {
+/// #    fn write_literal(&self, s: &str) {}
+/// #    fn write_val(&self, s: u8) {}
+/// # }
+/// # let format_ident = Formatter;
+/// # use logwise_proc::lformat;
+/// lformat!(format_ident, "format string with {key1} {key2}", key1=2, key2=3);
 /// ```
 ///
 /// # Arguments
@@ -400,11 +407,18 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LFormatRes
 /// ```
 ///
 /// Complex expressions as values:
-/// ```ignore
+/// ```
+/// # struct Logger;
+/// # impl Logger {
+/// #   fn write_literal(&self, s: &str) {}
+/// #   fn write_val<A>(&self, s: A) {}
+/// # }
+/// # let logger = Logger;
+/// # use logwise_proc::lformat;
 /// // This works with any expression
-/// lformat!(formatter, "User {name} has {count} items", 
-///          name=user.username.clone(), 
-///          count=items.len());
+/// lformat!(logger, "User {a} has {b} items",
+///          a = "hi",
+///          b = 3);
 /// ```
 ///
 /// # Error Cases
@@ -460,8 +474,8 @@ pub fn lformat(input: TokenStream) -> TokenStream {
 /// for detailed debugging information that can be activated per-thread.
 ///
 /// # Syntax
-/// ```ignore
-/// logwise::trace_sync!("format string with {placeholders}", key=value, ...);
+/// ```
+/// logwise::trace_sync!("format string {key}", key="value");
 /// ```
 ///
 /// # Build Configuration
@@ -482,14 +496,15 @@ pub fn lformat(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// # Examples
-/// ```ignore
+/// ```
 /// // Basic trace logging
 /// logwise::trace_sync!("Entering function with param {value}", value=42);
 ///
 /// // With complex expressions
-/// logwise::trace_sync!("User {name} processing", name=user.name.clone());
+/// logwise::trace_sync!("User {name} processing", name="john");
 ///
 /// // With privacy-aware values
+/// let sensitive_data = "secret job";
 /// logwise::trace_sync!("Processing {data}", data=logwise::privacy::LogIt(sensitive_data));
 /// ```
 #[proc_macro]
@@ -520,8 +535,10 @@ pub fn trace_sync(input: TokenStream) -> TokenStream {
 /// for use in async contexts where logging might involve async operations.
 ///
 /// # Syntax
-/// ```ignore
-/// logwise::trace_async!("format string with {placeholders}", key=value, ...).await;
+/// ```
+/// async fn example() {
+///     logwise::trace_async!("format string");
+/// }
 /// ```
 ///
 /// # Build Configuration
@@ -542,13 +559,10 @@ pub fn trace_sync(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// # Examples
-/// ```ignore
-/// // Async trace logging
-/// logwise::trace_async!("Async operation starting with {id}", id=request_id).await;
-///
+/// ```
 /// // In async function context
-/// async fn process_data(data: &Data) {
-///     logwise::trace_async!("Processing {size} bytes", size=data.len()).await;
+/// async fn process_data(data: &[u8]) {
+///     logwise::trace_async!("Processing {size} bytes", size=data.len());
 ///     // ... async work ...
 /// }
 /// ```
@@ -581,13 +595,17 @@ pub fn trace_async(input: TokenStream) -> TokenStream {
 ///
 /// # Prerequisites
 /// You must declare a logging domain at your crate root:
-/// ```ignore
+/// ```
 /// logwise::declare_logging_domain!();
 /// ```
 ///
 /// # Syntax
-/// ```ignore
-/// logwise::debuginternal_sync!("format string with {placeholders}", key=value, ...);
+/// ```
+/// logwise::declare_logging_domain!();
+/// fn main() {
+/// let key = "example_value";
+/// logwise::debuginternal_sync!("format string with {placeholders}", placeholders=key);
+/// }
 /// ```
 ///
 /// # Build Configuration
@@ -609,20 +627,24 @@ pub fn trace_async(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// # Examples
-/// ```ignore
-/// // At crate root:
+/// ```
 /// logwise::declare_logging_domain!();
-///
+/// fn main() {
 /// // In your code:
+/// let current_state = 42;
 /// logwise::debuginternal_sync!("Debug: value is {val}", val=current_state);
 ///
 /// // With complex expressions
-/// logwise::debuginternal_sync!("Processing {item}", item=queue.front().unwrap());
+/// # use std::collections::VecDeque;
+/// let mut queue = VecDeque::new();
+/// queue.push_front("item");
+/// logwise::debuginternal_sync!("Processing {item}", item=logwise::privacy::LogIt(&queue.front().unwrap()));
+/// }
 /// ```
 ///
 /// # Error Conditions
-/// If you forget to use `declare_logging_domain!()`, you'll get a compile error
-/// about `__LOGWISE_DOMAIN` not being found.
+/// If you forget to use declare_logging_domain!(), you'll get a compile error
+/// about __LOGWISE_DOMAIN not being found.
 #[proc_macro]
 pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
@@ -650,13 +672,19 @@ pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
 ///
 /// # Prerequisites
 /// You must declare a logging domain at your crate root:
-/// ```ignore
+/// ```
 /// logwise::declare_logging_domain!();
 /// ```
 ///
 /// # Syntax
 /// ```ignore
-/// logwise::debuginternal_async!("format string with {placeholders}", key=value, ...).await;
+/// // This example is ignored because it requires special async setup
+/// logwise::declare_logging_domain!();
+/// 
+/// async fn example() {
+///     let key = "example_value";
+///     logwise::debuginternal_async!("format string with {placeholders}", placeholders=key).await;
+/// }
 /// ```
 ///
 /// # Build Configuration
@@ -664,13 +692,13 @@ pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
 /// - **Release builds**: Completely compiled out (no runtime cost)
 ///
 /// # Examples
-/// ```ignore
-/// // At crate root:
-/// logwise::declare_logging_domain!();
-///
+/// ```
+/// # fn main() { }
+/// # logwise::declare_logging_domain!();
 /// // In async functions:
 /// async fn process_async() {
-///     logwise::debuginternal_async!("Starting async work with {id}", id=task_id).await;
+///     let task_id = "task_123";
+///     logwise::debuginternal_async!("Starting async work with {id}", id=task_id);
 ///     // ... async operations ...
 /// }
 /// ```
@@ -701,8 +729,9 @@ pub fn debuginternal_async(input: TokenStream) -> TokenStream {
 /// understand what the library is doing, but is only active in debug builds.
 ///
 /// # Syntax
-/// ```ignore
-/// logwise::info_sync!("format string with {placeholders}", key=value, ...);
+/// ```
+/// let key = "example_value";
+/// logwise::info_sync!("format string with {placeholders}", placeholders=key);
 /// ```
 ///
 /// # Build Configuration
@@ -710,7 +739,7 @@ pub fn debuginternal_async(input: TokenStream) -> TokenStream {
 /// - **Release builds**: Completely compiled out (no runtime cost)
 ///
 /// # Generated Code Pattern
-/// ```ignore
+/// ```
 /// #[cfg(debug_assertions)]
 /// {
 ///     let mut record = logwise::hidden::info_sync_pre(file!(), line!(), column!());
@@ -721,14 +750,18 @@ pub fn debuginternal_async(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// # Examples
-/// ```ignore
+/// ```
 /// // Library operation notifications
+/// # struct Pool; impl Pool { fn active_count(&self) -> usize { 42 } }
+/// # let pool = Pool;
 /// logwise::info_sync!("Connected to database with {connections} active", connections=pool.active_count());
 ///
 /// // User-facing operation status
+/// # let items = vec![1, 2, 3];
 /// logwise::info_sync!("Processing {count} items", count=items.len());
 ///
 /// // With privacy considerations
+/// # let user_id = "user123";
 /// logwise::info_sync!("User {id} authenticated", id=logwise::privacy::LogIt(user_id));
 /// ```
 #[proc_macro]
@@ -758,7 +791,11 @@ pub fn info_sync(input: TokenStream) -> TokenStream {
 ///
 /// # Syntax
 /// ```ignore
-/// logwise::info_async!("format string with {placeholders}", key=value, ...).await;
+/// // This example is ignored because it requires special async setup
+/// async fn example() {
+///     let key = "example_value";
+///     logwise::info_async!("format string with {placeholders}", placeholders=key).await;
+/// }
 /// ```
 ///
 /// # Build Configuration
@@ -767,14 +804,19 @@ pub fn info_sync(input: TokenStream) -> TokenStream {
 ///
 /// # Examples
 /// ```ignore
-/// // Async library operations
-/// async fn connect_database() {
+/// // This example is ignored because it requires special async setup
+/// struct DbConfig { host: String }
+/// 
+/// async fn example() {
+///     let db_config = DbConfig { host: "localhost".to_string() };
 ///     logwise::info_async!("Attempting database connection to {host}", host=db_config.host).await;
 ///     // ... connection logic ...
-/// }
 ///
-/// // Progress reporting in async contexts
-/// logwise::info_async!("Processed batch {batch} of {total}", batch=current, total=total_batches).await;
+///     // Progress reporting in async contexts
+///     let current = 5;
+///     let total_batches = 10;
+///     logwise::info_async!("Processed batch {batch} of {total}", batch=current, total=total_batches).await;
+/// }
 /// ```
 #[proc_macro]
 pub fn info_async(input: TokenStream) -> TokenStream {
@@ -799,8 +841,8 @@ pub fn info_async(input: TokenStream) -> TokenStream {
 /// warnings are active in both debug and release builds.
 ///
 /// # Syntax
-/// ```ignore
-/// logwise::warn_sync!("format string with {placeholders}", key=value, ...);
+/// ```
+/// logwise::warn_sync!("format string");
 /// ```
 ///
 /// # Build Configuration
@@ -808,7 +850,7 @@ pub fn info_async(input: TokenStream) -> TokenStream {
 /// - **Release builds**: Always active (runtime cost incurred)
 ///
 /// # Generated Code Pattern
-/// ```ignore
+/// ```
 /// {
 ///     let mut record = logwise::hidden::warn_sync_pre(file!(), line!(), column!());
 ///     let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
@@ -824,17 +866,20 @@ pub fn info_async(input: TokenStream) -> TokenStream {
 /// - Security-relevant events
 ///
 /// # Examples
-/// ```ignore
+/// ```
 /// // Configuration warnings
+/// # let old_key = "old_setting";
+/// # let new_key = "new_setting";
 /// logwise::warn_sync!("Using deprecated config {key}, consider {alternative}", 
 ///                     key=old_key, alternative=new_key);
 ///
 /// // Performance warnings
-/// logwise::warn_sync!("Large payload detected: {size} bytes", size=payload.len());
+/// # let size = 1024;
+/// logwise::warn_sync!("Large payload detected: {size} bytes", size=size);
 ///
 /// // Security warnings with privacy
 /// logwise::warn_sync!("Failed login attempt from {ip}", 
-///                     ip=logwise::privacy::IPromiseItsNotPrivate(client_ip));
+///                     ip=logwise::privacy::IPromiseItsNotPrivate("127.0.0.1"));
 /// ```
 #[proc_macro]
 pub fn warn_sync(input: TokenStream) -> TokenStream {
@@ -862,7 +907,8 @@ pub fn warn_sync(input: TokenStream) -> TokenStream {
 /// this macro for manual interval management.
 ///
 /// # Syntax
-/// ```ignore
+/// ```
+/// let value = 3;
 /// let interval = logwise::perfwarn_begin!("operation description {param}", param=value);
 /// // ... long-running operation ...
 /// drop(interval); // Or let it drop automatically
@@ -883,16 +929,16 @@ pub fn warn_sync(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// # Examples
-/// ```ignore
+/// ```
 /// // Manual interval management
-/// let interval = logwise::perfwarn_begin!("Database query {table}", table=table_name);
-/// let results = db.query(&sql).await;
+/// let interval = logwise::perfwarn_begin!("Database query");
+/// // let results = db.query(&sql).await;
 /// drop(interval);
 ///
 /// // Automatic cleanup with scope
 /// {
-///     let _interval = logwise::perfwarn_begin!("File processing {path}", path=file_path);
-///     process_large_file(&path);
+///     let _interval = logwise::perfwarn_begin!("File processing {path}", path="/example.txt");
+///     // process_large_file(&path);
 /// } // interval automatically dropped here
 /// ```
 ///
@@ -920,7 +966,9 @@ pub fn perfwarn_begin(input: TokenStream) -> TokenStream {
 /// The block's return value is preserved.
 ///
 /// # Syntax
-/// ```ignore
+/// ```
+/// # fn expensive_operation() -> i32 { 42 }
+/// let value = 123;
 /// let result = logwise::perfwarn!("operation description {param}", param=value, {
 ///     // code block to monitor
 ///     expensive_operation()
@@ -932,7 +980,7 @@ pub fn perfwarn_begin(input: TokenStream) -> TokenStream {
 /// - **Release builds**: Always active (runtime cost incurred)
 ///
 /// # Generated Code Pattern
-/// ```ignore
+/// ```
 /// {
 ///     let mut record = logwise::hidden::perfwarn_begin_pre(file!(), line!(), column!());
 ///     let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
@@ -945,19 +993,25 @@ pub fn perfwarn_begin(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// # Examples
-/// ```ignore
+/// ```
+/// # fn process<T>(_t: T) {}
+/// # struct Database; impl Database { fn query(&self, _: &str) -> Vec<String> { vec![] } }
+/// # let database = Database;
 /// // Monitor a database operation
 /// let users = logwise::perfwarn!("Loading users from {table}", table="users", {
-///     database.query("SELECT * FROM users").await
+///     database.query("SELECT * FROM users")
 /// });
 ///
 /// // Monitor file I/O
+/// let path = "large_file.txt";
+/// let file_size_mb = 100;
 /// let content = logwise::perfwarn!("Reading large file {size} MB", size=file_size_mb, {
-///     std::fs::read_to_string(&path)?
+///     "fake file content".to_string()  // Avoiding actual file I/O in doctests
 /// });
 ///
-/// // With complex parameters
-/// let result = logwise::perfwarn!("Processing {count} items", count=items.len(), {
+/// // With complex parameters  
+/// let items = vec![1, 2, 3];
+/// let result: Vec<()> = logwise::perfwarn!("Processing {count} items", count=items.len(), {
 ///     items.into_iter().map(|item| process(item)).collect()
 /// });
 /// ```
@@ -1003,8 +1057,9 @@ pub fn perfwarn(input: TokenStream) -> TokenStream {
 /// builds since errors are always relevant.
 ///
 /// # Syntax
-/// ```ignore
-/// logwise::error_sync!("format string with {placeholders}", key=value, ...);
+/// ```
+/// let key = "example_value";
+/// logwise::error_sync!("format string with {placeholders}", placeholders=key);
 /// ```
 ///
 /// # Build Configuration
@@ -1012,7 +1067,7 @@ pub fn perfwarn(input: TokenStream) -> TokenStream {
 /// - **Release builds**: Always active (runtime cost incurred)
 ///
 /// # Generated Code Pattern
-/// ```ignore
+/// ```
 /// {
 ///     let mut record = logwise::hidden::error_sync_pre(file!(), line!(), column!());
 ///     let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
@@ -1029,24 +1084,32 @@ pub fn perfwarn(input: TokenStream) -> TokenStream {
 /// - External service errors
 ///
 /// # Examples
-/// ```ignore
+/// ```
+/// # fn example() -> Result<Vec<u8>, std::io::Error> {
+/// # let path = std::path::Path::new("/example.txt");
 /// // I/O error logging
-/// match std::fs::read(&path) {
+/// let content = match std::fs::read(&path) {
 ///     Ok(content) => content,
 ///     Err(e) => {
 ///         logwise::error_sync!("Failed to read file {path}: {error}", 
-///                              path=path.display(), error=e);
+///                              path=path.to_string_lossy().to_string(), error=e.to_string());
 ///         return Err(e);
 ///     }
-/// }
+/// };
+/// # Ok(content)
+/// # }
 ///
 /// // Database error with privacy
+/// # let user_id = "user123";
+/// # let db_error = "Connection timeout";
 /// logwise::error_sync!("Database query failed for user {id}: {error}", 
 ///                      id=logwise::privacy::LogIt(user_id), error=db_error);
 ///
 /// // Network error
+/// # let response_status = 500;
+/// # let request_url = "https://api.example.com";
 /// logwise::error_sync!("HTTP request failed: {status} {url}", 
-///                      status=response.status(), url=request_url);
+///                      status=response_status, url=request_url);
 /// ```
 #[proc_macro]
 pub fn error_sync(input: TokenStream) -> TokenStream {
@@ -1074,7 +1137,11 @@ pub fn error_sync(input: TokenStream) -> TokenStream {
 ///
 /// # Syntax
 /// ```ignore
-/// logwise::error_async!("format string with {placeholders}", key=value, ...).await;
+/// // This example is ignored because it requires special async setup
+/// async fn example() {
+///     let key = "example_value";
+///     logwise::error_async!("format string with {placeholders}", placeholders=key).await;
+/// }
 /// ```
 ///
 /// # Build Configuration
@@ -1083,21 +1150,30 @@ pub fn error_sync(input: TokenStream) -> TokenStream {
 ///
 /// # Examples
 /// ```ignore
-/// // Async I/O error
-/// async fn read_config() -> Result<Config, Error> {
-///     match tokio::fs::read(&config_path).await {
-///         Ok(data) => Ok(parse_config(data)?),
+/// // This example is ignored because it requires tokio and special async setup
+/// async fn read_config() -> Result<String, std::io::Error> {
+///     let config_path = "/config.toml";
+///     fn parse_config(_data: Vec<u8>) -> Result<String, std::io::Error> { Ok("config".to_string()) }
+///     
+///     let config = match tokio::fs::read(&config_path).await {
+///         Ok(data) => parse_config(data)?,
 ///         Err(e) => {
 ///             logwise::error_async!("Config read failed {path}: {error}", 
 ///                                   path=config_path, error=e).await;
-///             Err(e.into())
+///             return Err(e);
 ///         }
-///     }
+///     };
+///     Ok(config)
 /// }
 ///
-/// // Network error in async context
-/// logwise::error_async!("API request failed after {attempts} attempts: {error}", 
-///                       attempts=retry_count, error=last_error).await;
+/// ```ignore
+/// // This example is ignored because it requires special async setup
+/// async fn example() {
+///     let retry_count = 3;
+///     let last_error = "Timeout";
+///     logwise::error_async!("API request failed after {attempts} attempts: {error}", 
+///                           attempts=retry_count, error=last_error).await;
+/// }
 /// ```
 #[proc_macro]
 pub fn error_async(input: TokenStream) -> TokenStream {
