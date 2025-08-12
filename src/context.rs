@@ -1,22 +1,20 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
-use std::cell::{Cell};
+use crate::Level;
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::future::Future;
 use std::hash::{Hash, Hasher};
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::task::Poll;
-use crate::Level;
 
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
 
 static CONTEXT_ID: AtomicU64 = AtomicU64::new(0);
 
-
-
-#[derive(Copy,Clone,Debug,PartialEq,Eq,Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TaskID(u64);
 impl Display for TaskID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -24,18 +22,20 @@ impl Display for TaskID {
     }
 }
 
-#[derive(Copy,Clone,Debug,PartialEq,Eq,Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ContextID(u64);
-
-
 
 impl Task {
     #[inline]
     fn add_task_interval(&self, key: &'static str, duration: crate::sys::Duration) {
         let mut borrow = self.mutable.lock().unwrap();
-        borrow.interval_statistics.get_mut(key).map(|v| *v += duration).unwrap_or_else(|| {
-            borrow.interval_statistics.insert(key, duration);
-        });
+        borrow
+            .interval_statistics
+            .get_mut(key)
+            .map(|v| *v += duration)
+            .unwrap_or_else(|| {
+                borrow.interval_statistics.insert(key, duration);
+            });
     }
 }
 
@@ -44,7 +44,7 @@ impl Drop for Task {
         if !self.mutable.lock().unwrap().interval_statistics.is_empty() {
             let mut record = crate::log_record::LogRecord::new(Level::PerfWarn);
             //log task ID
-            record.log_owned(format!("{} ",self.task_id.0));
+            record.log_owned(format!("{} ", self.task_id.0));
             record.log("PERFWARN: statistics[");
             for (key, duration) in &self.mutable.lock().unwrap().interval_statistics {
                 record.log(key);
@@ -70,7 +70,7 @@ impl Drop for Task {
         }
     }
 }
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 struct TaskMutable {
     interval_statistics: HashMap<&'static str, crate::sys::Duration>,
 }
@@ -92,7 +92,6 @@ impl Task {
         }
     }
 }
-
 
 /**
 Internal context data.
@@ -132,10 +131,13 @@ impl Hash for Context {
 impl Display for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let nesting = self.nesting_level();
-        write!(f, "{}{} ({})", 
-               "  ".repeat(nesting),
-               self.task_id(), 
-               self.task().label)
+        write!(
+            f,
+            "{}{} ({})",
+            "  ".repeat(nesting),
+            self.task_id(),
+            self.task().label
+        )
     }
 }
 
@@ -145,13 +147,11 @@ impl AsRef<Task> for Context {
     }
 }
 
-
 thread_local! {
     static CONTEXT: Cell<Context> = Cell::new(Context::new_task_internal(None,"Default task".to_string(),0));
 }
 
 impl Context {
-
     /**
     Returns the current context.
     */
@@ -159,20 +159,20 @@ impl Context {
     pub fn current() -> Context {
         CONTEXT.with(|c|
             //safety: we don't let anyone get a mutable reference to this
-            unsafe{&*c.as_ptr()}.clone()
-        )
+            unsafe{&*c.as_ptr()}.clone())
     }
-
-
 
     pub fn task(&self) -> &Task {
         if let Some(task) = &self.inner.define_task {
             task
         } else {
-            self.inner.parent.as_ref().expect("No parent context").task()
+            self.inner
+                .parent
+                .as_ref()
+                .expect("No parent context")
+                .task()
         }
     }
-
 
     /**
     Creates a new context.
@@ -184,26 +184,26 @@ impl Context {
     #[inline]
     pub fn new_task(parent: Option<Context>, label: String) -> Context {
         let context_id = CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        Self::new_task_internal(parent, label,context_id)
+        Self::new_task_internal(parent, label, context_id)
     }
-    #[inline] fn new_task_internal(parent: Option<Context>, label: String,context_id: u64) -> Context {
+    #[inline]
+    fn new_task_internal(parent: Option<Context>, label: String, context_id: u64) -> Context {
         Context {
             inner: Arc::new(ContextInner {
                 parent,
                 context_id,
                 define_task: Some(Task::new(label)),
                 is_tracing: AtomicBool::new(false),
-            })
+            }),
         }
     }
-
 
     /**
     Sets a blank context
     */
     #[inline]
     pub fn reset(label: String) {
-        let new_context = Context::new_task(None,label);
+        let new_context = Context::new_task(None, label);
         new_context.set_current();
     }
 
@@ -220,7 +220,7 @@ impl Context {
                 context_id: CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
                 define_task: None,
                 is_tracing: AtomicBool::new(is_tracing),
-            })
+            }),
         }
     }
 
@@ -238,13 +238,16 @@ impl Context {
     }
 
     /**
-    Returns true if we are currently tracing.
-*/
+        Returns true if we are currently tracing.
+    */
     #[inline]
     pub fn currently_tracing() -> bool {
         CONTEXT.with(|c| {
             //safety: we don't let anyone get a mutable reference to this
-            unsafe{&*c.as_ptr()}.inner.is_tracing.load(Ordering::Relaxed)
+            unsafe { &*c.as_ptr() }
+                .inner
+                .is_tracing
+                .load(Ordering::Relaxed)
         })
     }
 
@@ -253,7 +256,10 @@ impl Context {
 
     */
     pub fn begin_trace() {
-        Context::current().inner.is_tracing.store(true, Ordering::Relaxed);
+        Context::current()
+            .inner
+            .is_tracing
+            .store(true, Ordering::Relaxed);
         logwise::trace_sync!("Begin trace");
     }
 
@@ -285,16 +291,12 @@ impl Context {
         ContextID(self.inner.context_id)
     }
 
-
-
-
-
     /**
     Pops the context with specified ID.
 
     If the context cannot be found, logs a warning.
     */
-    pub fn pop(id: ContextID)  {
+    pub fn pop(id: ContextID) {
         let mut current = Context::current();
         loop {
             if current.context_id() == id {
@@ -304,64 +306,58 @@ impl Context {
             }
             match current.inner.parent.as_ref() {
                 None => {
-                    logwise::warn_sync!("Tried to pop context with ID {id}, but it was not found in the current context chain.", id=id.0);
+                    logwise::warn_sync!(
+                        "Tried to pop context with ID {id}, but it was not found in the current context chain.",
+                        id = id.0
+                    );
                     return;
-                },
-                Some(ctx) => {
-                    current = ctx.clone()
                 }
+                Some(ctx) => current = ctx.clone(),
             }
         }
     }
-
-
-
-
-
-
 
     /**
     Internal implementation detail of the logging system.
 
     Logs the start of logs that typically use Context.
     */
-    #[inline] pub fn _log_prelude(&self, record: &mut crate::log_record::LogRecord) {
-        let prefix = if self.is_tracing() {
-            "T"
-        } else {
-            " "
-        };
+    #[inline]
+    pub fn _log_prelude(&self, record: &mut crate::log_record::LogRecord) {
+        let prefix = if self.is_tracing() { "T" } else { " " };
         record.log(prefix);
         for _ in 0..self.nesting_level() {
             record.log(" ");
         }
-        record.log_owned(format!("{} ",self.task_id()));
+        record.log_owned(format!("{} ", self.task_id()));
     }
 
-    #[inline] pub fn _add_task_interval(&self, key: &'static str, duration: crate::sys::Duration) {
+    #[inline]
+    pub fn _add_task_interval(&self, key: &'static str, duration: crate::sys::Duration) {
         self.task().add_task_interval(key, duration);
     }
 }
-
-
 
 /**
 Applies the context to the given future for the duration of a poll event.
 
 This can be used to inject a future with "plausible context" to hostile executors.
 */
-pub struct ApplyContext<F>(Context,F);
+pub struct ApplyContext<F>(Context, F);
 
 impl<F> ApplyContext<F> {
     /**
-    Creates a new type given the context to apply and the future to poll
-*/
+        Creates a new type given the context to apply and the future to poll
+    */
     pub fn new(context: Context, f: F) -> Self {
         Self(context, f)
     }
 }
 
-impl<F> Future for ApplyContext<F> where F: Future {
+impl<F> Future for ApplyContext<F>
+where
+    F: Future,
+{
     type Output = F::Output;
 
     fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
@@ -377,10 +373,10 @@ impl<F> Future for ApplyContext<F> where F: Future {
     }
 }
 
-
-#[cfg(test)] mod tests {
+#[cfg(test)]
+mod tests {
     use super::{Context, Task, TaskID};
-    #[cfg(target_arch="wasm32")]
+    #[cfg(target_arch = "wasm32")]
     use wasm_bindgen_test::*;
     #[cfg(target_arch = "wasm32")]
     wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
@@ -407,7 +403,7 @@ impl<F> Future for ApplyContext<F> where F: Future {
 
         // Same Arc pointer should be equal
         assert_eq!(context1, context2);
-        
+
         // Different Arc pointers should not be equal
         assert_ne!(context1, context3);
         assert_ne!(context2, context3);
@@ -453,35 +449,35 @@ impl<F> Future for ApplyContext<F> where F: Future {
     fn test_context_display() {
         Context::reset("root_task".to_string());
         let root_context = Context::current();
-        
+
         // Root context should have no indentation (nesting level 0)
         let root_display = format!("{}", root_context);
         assert!(root_display.starts_with(&format!("{} (root_task)", root_context.task_id())));
         assert!(!root_display.starts_with("  ")); // no indentation
-        
+
         // Create a child context
         let child_context = Context::from_parent(root_context.clone());
         child_context.clone().set_current();
         let child_display = format!("{}", child_context);
-        
+
         // Child should have 1 level of indentation
         assert!(child_display.starts_with("  ")); // 2 spaces for nesting level 1
         assert!(child_display.contains(&format!("{} (root_task)", root_context.task_id())));
-        
+
         // Create a new task context as child
         let task_context = Context::new_task(Some(child_context.clone()), "child_task".to_string());
         task_context.clone().set_current();
         let task_display = format!("{}", task_context);
-        
+
         // Task context should have 2 levels of indentation
         assert!(task_display.starts_with("    ")); // 4 spaces for nesting level 2
         assert!(task_display.contains(&format!("{} (child_task)", task_context.task_id())));
-        
+
         // Create grandchild
         let grandchild_context = Context::from_parent(task_context.clone());
         grandchild_context.clone().set_current();
         let grandchild_display = format!("{}", grandchild_context);
-        
+
         // Grandchild should have 3 levels of indentation
         assert!(grandchild_display.starts_with("      ")); // 6 spaces for nesting level 3
         assert!(grandchild_display.contains(&format!("{} (child_task)", task_context.task_id())));
@@ -492,42 +488,42 @@ impl<F> Future for ApplyContext<F> where F: Future {
     fn test_context_as_ref_task() {
         Context::reset("test_as_ref".to_string());
         let context = Context::current();
-        
+
         // Test that AsRef<Task> works
         let task_ref: &Task = context.as_ref();
         assert_eq!(task_ref.task_id, context.task_id());
         assert_eq!(task_ref.label, "test_as_ref");
-        
+
         // Test that we can use Context where &Task is expected
         fn takes_task_ref(task: &Task) -> TaskID {
             task.task_id
         }
-        
+
         // Test explicit AsRef usage
         let id1 = takes_task_ref(context.as_ref());
         assert_eq!(id1, context.task_id());
-        
+
         // Test with generic function that accepts AsRef<Task>
         fn takes_as_ref_task<T: AsRef<Task>>(item: T) -> TaskID {
             item.as_ref().task_id
         }
-        
+
         let id2 = takes_as_ref_task(&context);
         let id3 = takes_as_ref_task(context.clone());
         assert_eq!(id1, id2);
         assert_eq!(id2, id3);
-        
+
         // Test with different context types
         let child_context = Context::from_parent(context.clone());
         let child_task_ref: &Task = child_context.as_ref();
-        
+
         // Child should have same task as parent (since from_parent preserves task)
         assert_eq!(child_task_ref.task_id, context.task_id());
         assert_eq!(child_task_ref.label, "test_as_ref");
-        
+
         let new_task_context = Context::new_task(Some(context.clone()), "new_task".to_string());
         let new_task_ref: &Task = new_task_context.as_ref();
-        
+
         // New task should have different ID and label
         assert_ne!(new_task_ref.task_id, context.task_id());
         assert_eq!(new_task_ref.label, "new_task");

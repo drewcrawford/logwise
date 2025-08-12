@@ -18,8 +18,8 @@ pub struct Spinlock<T> {
     locked: std::sync::atomic::AtomicU8,
 }
 
-unsafe impl <T: Send> Send for Spinlock<T> {}
-unsafe impl <T: Send> Sync for Spinlock<T> {}
+unsafe impl<T: Send> Send for Spinlock<T> {}
+unsafe impl<T: Send> Sync for Spinlock<T> {}
 
 impl<T> Spinlock<T> {
     pub fn new(data: T) -> Self {
@@ -31,13 +31,9 @@ impl<T> Spinlock<T> {
 
     fn spin_lock_write(&self) {
         // Spin until we can acquire the lock
-        while self.locked
-            .compare_exchange_weak(
-                UNLOCKED,
-                LOCKED_WRITE,
-                Acquire,
-                Relaxed,
-            )
+        while self
+            .locked
+            .compare_exchange_weak(UNLOCKED, LOCKED_WRITE, Acquire, Relaxed)
             .is_err()
         {
             std::hint::spin_loop();
@@ -50,13 +46,17 @@ impl<T> Spinlock<T> {
     }
 
     fn spin_lock_read(&self) {
-        while self.locked.fetch_update(Acquire, Relaxed, |v| {
-            if v < (LOCKED_WRITE - 1) {
-                Some(v + 1)
-            } else {
-                None
-            }
-        }).is_err() {
+        while self
+            .locked
+            .fetch_update(Acquire, Relaxed, |v| {
+                if v < (LOCKED_WRITE - 1) {
+                    Some(v + 1)
+                } else {
+                    None
+                }
+            })
+            .is_err()
+        {
             std::hint::spin_loop();
         }
     }

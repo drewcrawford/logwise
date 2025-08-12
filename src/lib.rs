@@ -92,45 +92,45 @@ consider using the `logwise::context` APIs to propagate the logging context to c
 
 */
 
-
-mod level;
-mod logger;
-pub mod privacy;
-mod stderror_logger;
-mod inmemory_logger;
-pub mod global_logger;
-mod macros;
-mod log_record;
-pub mod interval;
 pub mod context;
+pub mod global_logger;
+mod inmemory_logger;
+pub mod interval;
+mod level;
 mod local_logger;
-mod sys;
+mod log_record;
+mod logger;
+mod macros;
+pub mod privacy;
 mod spinlock;
+mod stderror_logger;
+mod sys;
 
 declare_logging_domain!();
 
-pub use level::Level;
-pub use logger::Logger;
-pub use log_record::LogRecord;
+pub use global_logger::{add_global_logger, global_loggers, set_global_loggers};
 pub use inmemory_logger::InMemoryLogger;
-pub use global_logger::{add_global_logger, set_global_loggers, global_loggers};
+pub use level::Level;
+pub use log_record::LogRecord;
+pub use logger::Logger;
 
-pub use logwise_proc::{info_sync, perfwarn, debuginternal_async, debuginternal_sync, warn_sync,perfwarn_begin,info_async, trace_sync, trace_async,error_sync, error_async};
+pub use logwise_proc::{
+    debuginternal_async, debuginternal_sync, error_async, error_sync, info_async, info_sync,
+    perfwarn, perfwarn_begin, trace_async, trace_sync, warn_sync,
+};
 
 pub use macros::LoggingDomain;
 
-
-
 #[doc(hidden)]
 pub mod hidden {
-    pub use crate::macros::{PrivateFormatter};
     pub use crate::global_logger::global_loggers;
-    pub use crate::macros::{debuginternal_pre,debuginternal_sync_post,debuginternal_async_post,
-                            info_sync_post,info_sync_pre,info_async_post,
-                            perfwarn_begin_post, perfwarn_begin_pre,
-                            warn_sync_pre, warn_sync_post,
-                            trace_sync_pre, trace_sync_post, trace_async_post,
-                            error_sync_pre, error_sync_post, error_async_post};
+    pub use crate::macros::PrivateFormatter;
+    pub use crate::macros::{
+        debuginternal_async_post, debuginternal_pre, debuginternal_sync_post, error_async_post,
+        error_sync_post, error_sync_pre, info_async_post, info_sync_post, info_sync_pre,
+        perfwarn_begin_post, perfwarn_begin_pre, trace_async_post, trace_sync_post, trace_sync_pre,
+        warn_sync_post, warn_sync_pre,
+    };
 }
 extern crate self as logwise;
 

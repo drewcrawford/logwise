@@ -15,17 +15,19 @@ impl StdErrorLogger {
 }
 
 impl Logger for StdErrorLogger {
-
     fn finish_log_record(&self, record: LogRecord) {
-        #[cfg(not(target_arch="wasm32"))] {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
             use std::io::Write;
             let mut lock = std::io::stderr().lock();
             for part in record.parts {
-                lock.write_all(part.as_bytes()).expect("Can't log to stderr");
+                lock.write_all(part.as_bytes())
+                    .expect("Can't log to stderr");
             }
             lock.write_all(b"\n").expect("Can't log to stderr");
         }
-        #[cfg(target_arch="wasm32")] {
+        #[cfg(target_arch = "wasm32")]
+        {
             use crate::Level;
             let msg = record.parts.join("");
             match record.level() {
@@ -58,10 +60,12 @@ impl Logger for StdErrorLogger {
                 }
             }
         }
-
     }
 
-    fn finish_log_record_async<'s>(&'s self, record: LogRecord) -> std::pin::Pin<Box<dyn std::future::Future<Output=()> + Send + 's>> {
+    fn finish_log_record_async<'s>(
+        &'s self,
+        record: LogRecord,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 's>> {
         Box::pin(async move {
             //todo: this locks, which is maybe not what we want?
             self.finish_log_record(record)

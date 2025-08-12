@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
+use crate::Level;
 use std::fmt::{Debug, Display};
 use std::sync::OnceLock;
-use crate::Level;
 
 static INITIAL_TIMESTAMP: OnceLock<crate::sys::Instant> = OnceLock::new();
 
@@ -24,7 +24,7 @@ Instead, the design is as follows:
 3.  Finish the [LogRecord] and submit it to the [logwise::logger::Logger].
 
 */
-#[derive(Debug,Clone,PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct LogRecord {
     pub(crate) parts: Vec<String>,
     level: Level,

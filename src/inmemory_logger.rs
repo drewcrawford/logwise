@@ -1,9 +1,9 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
-use std::sync::{Arc, Mutex};
-use crate::logger::Logger;
 use crate::log_record::LogRecord;
-use std::pin::Pin;
+use crate::logger::Logger;
 use std::future::Future;
+use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::time::Duration;
 
@@ -58,7 +58,7 @@ impl InMemoryLogger {
 
     /**
     Drains all logs into a single string, clearing the internal buffer.
-    
+
     Returns a string with all log messages joined by newlines.
     After calling this method, the internal log buffer will be empty.
     */
@@ -101,14 +101,16 @@ impl InMemoryLogger {
     with your own operations.  Note that this is subject to the usual caveats of async programming,
     namely that the other future must yield control to allow the log draining to happen.
     */
-    pub fn periodic_drain_to_console(self: &Arc<Self>, duration: crate::Duration) -> impl Future<Output=()> {
+    pub fn periodic_drain_to_console(
+        self: &Arc<Self>,
+        duration: crate::Duration,
+    ) -> impl Future<Output = ()> {
         PeriodicDrainToConsole {
             logger: self.clone(),
-            duration: duration,
+            duration,
             start_time: None,
         }
     }
-
 }
 
 impl Logger for InMemoryLogger {
@@ -118,7 +120,10 @@ impl Logger for InMemoryLogger {
         logs.push(log_string);
     }
 
-    fn finish_log_record_async<'s>(&'s self, record: LogRecord) -> Pin<Box<dyn Future<Output=()> + Send + 's>> {
+    fn finish_log_record_async<'s>(
+        &'s self,
+        record: LogRecord,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 's>> {
         // Simple async wrapper around the synchronous implementation
         Box::pin(async move {
             self.finish_log_record(record);
@@ -139,7 +144,10 @@ struct PeriodicDrainToConsole {
 impl Future for PeriodicDrainToConsole {
     type Output = ();
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+    fn poll(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
         // Drain logs to console
 
         let start_time = match self.start_time {
@@ -153,21 +161,22 @@ impl Future for PeriodicDrainToConsole {
         };
         let finished = start_time.elapsed() >= self.duration;
         if finished {
-            logwise::warn_sync!("PeriodicDrainToConsole task completing; you will need a new task to see logs after this point.");
+            logwise::warn_sync!(
+                "PeriodicDrainToConsole task completing; you will need a new task to see logs after this point."
+            );
         }
         self.logger.drain_to_console();
 
         if finished {
             // If the duration has elapsed, finish the future
             Poll::Ready(())
-        }
-        else {
+        } else {
             //empirically, if we do this inline in chrome, we will repeatedly poll the future
             //instead of interleaving with other tasks.
-            #[cfg(target_arch = "wasm32")]
-            use wasm_thread as thread;
             #[cfg(not(target_arch = "wasm32"))]
             use std::thread;
+            #[cfg(target_arch = "wasm32")]
+            use wasm_thread as thread;
             // Otherwise, register the waker and continue polling
             let move_waker = cx.waker().clone();
             thread::spawn(move || {

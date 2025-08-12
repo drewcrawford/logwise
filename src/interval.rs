@@ -5,9 +5,9 @@ Defines our Interval types.
 These represent 2 paired log values, such as a start and end time.
 */
 
-use crate::context::{Context};
-use crate::global_logger::global_loggers;
 use crate::Level;
+use crate::context::Context;
+use crate::global_logger::global_loggers;
 use crate::log_record::LogRecord;
 
 #[derive(Debug)]
@@ -19,10 +19,10 @@ pub struct PerfwarnInterval {
 
 impl PerfwarnInterval {
     /**
-    Creates a new interval.
+        Creates a new interval.
 
-    Do not use this manually, instead use the `perfwarn!` macro, or if you need to access the interval directly, use `perfwarn_begin!`.
-*/
+        Do not use this manually, instead use the `perfwarn!` macro, or if you need to access the interval directly, use `perfwarn_begin!`.
+    */
     #[inline]
     pub fn new(label: &'static str, time: crate::sys::Instant) -> Self {
         Self {
@@ -42,16 +42,15 @@ impl PerfwarnInterval {
     }
 
     /**
-    Cause the reported time interval to be scaled by the amount.
+        Cause the reported time interval to be scaled by the amount.
 
-    Consider a case where we're warning about "some subset of the interval".  For example,
-    let's say by tweaking constants we can get a 20% speedup.  Warning about the entire interval
-    would be misleading.  Instead, we can scale the interval by 0.2 to reflect the subset.
-*/
+        Consider a case where we're warning about "some subset of the interval".  For example,
+        let's say by tweaking constants we can get a 20% speedup.  Warning about the entire interval
+        would be misleading.  Instead, we can scale the interval by 0.2 to reflect the subset.
+    */
     pub fn scale(&mut self, scale: f32) {
         self.scale = scale;
     }
-
 }
 
 impl Drop for PerfwarnInterval {
@@ -67,7 +66,6 @@ impl Drop for PerfwarnInterval {
         record.log("PERWARN: END ");
         record.log_time_since(end_time);
 
-
         record.log(self.label);
         record.log(" ");
         let scaled_duration = duration.mul_f32(self.scale);
@@ -76,7 +74,6 @@ impl Drop for PerfwarnInterval {
         for logger in global_loggers {
             logger.finish_log_record(record.clone());
         }
-
     }
 }
 
@@ -93,7 +90,8 @@ boilerplate notes.
 8.  Send/Sync, Probably?
  */
 
-#[cfg(test)] mod tests {
+#[cfg(test)]
+mod tests {
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     fn assert_send_sync() {

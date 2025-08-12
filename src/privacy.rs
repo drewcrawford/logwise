@@ -1,6 +1,6 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
-use std::fmt::Debug;
 use crate::log_record::LogRecord;
+use std::fmt::Debug;
 
 pub trait Loggable {
     /**
@@ -23,8 +23,6 @@ pub trait Loggable {
     fn log_all(&self, record: &mut LogRecord);
 }
 
-
-
 /**
 u8 is probably not private.
 */
@@ -42,7 +40,6 @@ impl Loggable for u8 {
 /**
 u16 might be private.
 */
-
 impl Loggable for u16 {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -57,7 +54,6 @@ impl Loggable for u16 {
 /**
 u32 might be private.
 */
-
 impl Loggable for u32 {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -72,7 +68,6 @@ impl Loggable for u32 {
 /**
 u64 might be private.
 */
-
 impl Loggable for u64 {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -86,7 +81,6 @@ impl Loggable for u64 {
 
 /**usize might be private.
 */
-
 impl Loggable for usize {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -101,7 +95,6 @@ impl Loggable for usize {
 /**
 u128 might be private.
 */
-
 impl Loggable for u128 {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -116,7 +109,6 @@ impl Loggable for u128 {
 /**
 i8 is probably not private.
 */
-
 impl Loggable for i8 {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -131,7 +123,6 @@ impl Loggable for i8 {
 /**
 i16 might be private.
 */
-
 impl Loggable for i16 {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -146,7 +137,6 @@ impl Loggable for i16 {
 /**
 i32 might be private.
 */
-
 impl Loggable for i32 {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -161,7 +151,6 @@ impl Loggable for i32 {
 /**
 i64 might be private.
 */
-
 impl Loggable for i64 {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -176,7 +165,6 @@ impl Loggable for i64 {
 /**
 i128 might be private.
 */
-
 impl Loggable for i128 {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -191,7 +179,6 @@ impl Loggable for i128 {
 /**
 f32 might be private.
 */
-
 impl Loggable for f32 {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -206,7 +193,6 @@ impl Loggable for f32 {
 /**
 f64 might be private.
 */
-
 impl Loggable for f64 {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -221,7 +207,6 @@ impl Loggable for f64 {
 /**
 bool is probably not private.
 */
-
 impl Loggable for bool {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -236,7 +221,6 @@ impl Loggable for bool {
 /**
 char is probably not private.
 */
-
 impl Loggable for char {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -251,7 +235,6 @@ impl Loggable for char {
 /**
 String might be private.
 */
-
 impl Loggable for String {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -266,7 +249,6 @@ impl Loggable for String {
 /**
 &str might be private.
 */
-
 impl Loggable for &str {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -281,7 +263,6 @@ impl Loggable for &str {
 /**
 slices depend on the underlying type.
 */
-
 impl<T: Loggable> Loggable for &[T] {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -306,7 +287,6 @@ impl<T: Loggable> Loggable for &[T] {
 /**
 Option depends on the underlying type.
 */
-
 impl<T: Loggable> Loggable for Option<T> {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -315,7 +295,7 @@ impl<T: Loggable> Loggable for Option<T> {
                 record.log("Some(");
                 t.log_redacting_private_info(record);
                 record.log(")");
-            },
+            }
             None => record.log("None"),
         }
     }
@@ -326,7 +306,7 @@ impl<T: Loggable> Loggable for Option<T> {
                 record.log("Some(");
                 t.log_all(record);
                 record.log(")");
-            },
+            }
             None => record.log("None"),
         }
     }
@@ -335,7 +315,6 @@ impl<T: Loggable> Loggable for Option<T> {
 /**
 Escape hatch, we won't send any data to servers.
 */
-
 pub struct LogIt<T>(pub T);
 
 impl<T: Debug> Loggable for LogIt<T> {
@@ -348,7 +327,6 @@ impl<T: Debug> Loggable for LogIt<T> {
         record.log_owned(format!("{:?}", self.0));
     }
 }
-
 
 /**
 Escape hatch, we promise we aren't sending private data to servers.
