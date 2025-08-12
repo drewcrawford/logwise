@@ -55,22 +55,22 @@ jobs:
           echo "features=${FEATURES_ARG}" >> "$GITHUB_OUTPUT"
           echo "target=${TARGET_ARG}"   >> "$GITHUB_OUTPUT"
 
-      - name: Github rust fix
+      - name: Github update Rust
         if: runner.os == 'Linux' && !(env.GITEA_ACTIONS == 'true')
         run: |
           # at the moment, GitHub is too far behind mainline rust (v1.89.0-v1.91.0-nightly)
           rustup update
-          # if nightly
-            if [ "${{ matrix.channel }}" == "+nightly" ]; then
-                rustup +nightly component add rustfmt clippy
-                # if nightly and wasm32 target
-                if [ "${{ matrix.target }}" == "wasm32-unknown-unknown" ];
-                then
-                  rustup +nightly target add wasm32-unknown-unknown
-                fi
-            fi
+      - name: Install wasm target
+        if: matrix.target == 'wasm32-unknown-unknown'
+        run: rustup ${{ matrix.channel}} target add wasm32-unknown-unknown
+        
+      - name: Install wasm-bindgen-test-runner
+        if: matrix.target == 'wasm32-unknown-unknown'
+        run: cargo ${{ matrix.channel }} install wasm-bindgen-test-runner
 
-          
+      - name: Install nightly components
+        if: matrix.channel == '+nightly'
+        run: rustup ${{ matrix.channel }} component add rustfmt clippy
 
       - name: rustfmt
         run: cargo ${{ matrix.channel }} fmt --check
