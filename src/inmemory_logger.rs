@@ -40,6 +40,12 @@ pub struct InMemoryLogger {
     logs: Mutex<Vec<String>>,
 }
 
+impl Default for InMemoryLogger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InMemoryLogger {
     /**
     Creates a new InMemoryLogger with an empty log buffer.
@@ -98,7 +104,7 @@ impl InMemoryLogger {
     pub fn periodic_drain_to_console(self: &Arc<Self>, duration: crate::Duration) -> impl Future<Output=()> {
         PeriodicDrainToConsole {
             logger: self.clone(),
-            duration: duration.into(),
+            duration: duration,
             start_time: None,
         }
     }

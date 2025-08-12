@@ -190,7 +190,7 @@ impl Context {
         Context {
             inner: Arc::new(ContextInner {
                 parent,
-                context_id: context_id,
+                context_id,
                 define_task: Some(Task::new(label)),
                 is_tracing: AtomicBool::new(false),
             })

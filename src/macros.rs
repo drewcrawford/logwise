@@ -246,8 +246,8 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     for logger in global_loggers {
         logger.finish_log_record(record.clone());
     }
-    let interval = crate::interval::PerfwarnInterval::new(name, crate::sys::Instant::now());
-    interval
+    
+    crate::interval::PerfwarnInterval::new(name, crate::sys::Instant::now())
 }
 
 

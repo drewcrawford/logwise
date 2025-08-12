@@ -6,7 +6,7 @@ use crate::Level;
 static INITIAL_TIMESTAMP: OnceLock<crate::sys::Instant> = OnceLock::new();
 
 fn initial_timestamp() -> crate::sys::Instant {
-    *INITIAL_TIMESTAMP.get_or_init(|| crate::sys::Instant::now())
+    *INITIAL_TIMESTAMP.get_or_init(crate::sys::Instant::now)
 }
 
 /**
