@@ -34,27 +34,37 @@ jobs:
             target-${{ matrix.os }}-${{ matrix.target }}-
             target-${{ matrix.os }}-
 
-      - name: "CI"
-        # expose the raw comma-separated list in FEATURE_FLAGS  
+      # Compute reusable args once
+      - name: Compute cargo args
+        id: args
+        shell: bash
         env:
           FEATURE_FLAGS: ${{ matrix.features }}
           TARGET: ${{ matrix.target }}
         run: |
-          # if FEATURE_FLAGS is non-empty, prepend "--features="  
-          if [ -n "$FEATURE_FLAGS" ]; then  
-            FLAGS="--features=$FEATURE_FLAGS"  
-          else  
-            FLAGS=""  
-          fi  
-          # if TARGET is non-empty, prepend "--target"
-          if [ -n "$TARGET" ]; then
-              TARGET="--target=$TARGET"
-          else
-              TARGET=""
+          set -euo pipefail
+          FEATURES_ARG=""
+          TARGET_ARG=""
+          if [ -n "${FEATURE_FLAGS}" ]; then
+            FEATURES_ARG="--features=${FEATURE_FLAGS}"
           fi
-          
-          cargo fmt --check  
-          cargo ${{ matrix.channel }} check    $FLAGS  $TARGET
-          cargo ${{ matrix.channel }} clippy --no-deps $FLAGS  $TARGET
-          cargo ${{ matrix.channel }} doc      $FLAGS  $TARGET
-          cargo ${{ matrix.channel }} test     $FLAGS $TARGET
+          if [ -n "${TARGET}" ]; then
+            TARGET_ARG="--target=${TARGET}"
+          fi
+          echo "features=${FEATURES_ARG}" >> "$GITHUB_OUTPUT"
+          echo "target=${TARGET_ARG}"   >> "$GITHUB_OUTPUT"
+
+      - name: rustfmt
+        run: cargo ${{ matrix.channel }} fmt --check
+
+      - name: cargo check
+        run: cargo ${{ matrix.channel }} check ${{ steps.args.outputs.features }} ${{ steps.args.outputs.target }}
+
+      - name: clippy
+        run: cargo ${{ matrix.channel }} clippy --no-deps ${{ steps.args.outputs.features }} ${{ steps.args.outputs.target }}
+
+      - name: docs
+        run: cargo ${{ matrix.channel }} doc ${{ steps.args.outputs.features }} ${{ steps.args.outputs.target }}
+
+      - name: tests
+        run: cargo ${{ matrix.channel }} test ${{ steps.args.outputs.features }} ${{ steps.args.outputs.target }}
