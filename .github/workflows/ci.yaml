@@ -54,12 +54,14 @@ jobs:
           fi
           echo "features=${FEATURES_ARG}" >> "$GITHUB_OUTPUT"
           echo "target=${TARGET_ARG}"   >> "$GITHUB_OUTPUT"
-      - name: Github deps
+
+      - name: Github rust fix
         if: runner.os == 'Linux' && !(env.GITEA_ACTIONS == 'true')
         run: |
           # at the moment, GitHub is too far behind mainline rust (v1.89.0-v1.91.0-nightly)
           rustup update
           rustup +nightly component add rustfmt
+          rustup +nightly target add wasm32-unknown-unknown
 
       - name: rustfmt
         run: cargo ${{ matrix.channel }} fmt --check
