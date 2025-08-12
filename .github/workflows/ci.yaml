@@ -13,7 +13,7 @@ jobs:
         channel: [""]
         features: [""]
         target: [""]
-        host_os: ['ubuntu-latest']
+        host_os: [ubuntu-latest]
         
         include:
           # only linux build contains wasm32 build
