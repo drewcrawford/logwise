@@ -62,7 +62,7 @@ impl Drop for Task {
             let mut record = crate::log_record::LogRecord::new(Level::Info);
             record.log_owned(format!("{} ", self.task_id.0));
             record.log("Finished task `");
-            record.log(self.label);
+            record.log(&self.label);
             record.log("`");
             let global_loggers = crate::global_logger::global_loggers();
             for logger in global_loggers {
@@ -79,11 +79,11 @@ struct TaskMutable {
 pub struct Task {
     task_id: TaskID,
     mutable: Mutex<TaskMutable>,
-    label: &'static str,
+    label: String,
 }
 
 impl Task {
-    fn new(label: &'static str) -> Task {
+    fn new(label: String) -> Task {
         Task {
             task_id: TaskID(TASK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
             mutable: Mutex::new(TaskMutable {
@@ -148,7 +148,7 @@ impl AsRef<Task> for Context {
 
 
 thread_local! {
-    static CONTEXT: Cell<Context> = Cell::new(Context::new_task_internal(None,"Default task",0));
+    static CONTEXT: Cell<Context> = Cell::new(Context::new_task_internal(None,"Default task".to_string(),0));
 }
 
 impl Context {
@@ -183,12 +183,11 @@ impl Context {
     * `label` - a debug label for the context.
     */
     #[inline]
-    pub fn new_task(parent: Option<Context>, label: &'static str) -> Context {
+    pub fn new_task(parent: Option<Context>, label: String) -> Context {
         let context_id = CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        debuginternal_sync!("Creating task {id} `{label}`",id=context_id, label=label);
         Self::new_task_internal(parent, label,context_id)
     }
-    #[inline] fn new_task_internal(parent: Option<Context>, label: &'static str,context_id: u64) -> Context {
+    #[inline] fn new_task_internal(parent: Option<Context>, label: String,context_id: u64) -> Context {
         Context {
             inner: Arc::new(ContextInner {
                 parent,
@@ -204,7 +203,7 @@ impl Context {
     Sets a blank context
     */
     #[inline]
-    pub fn reset(label: &'static str) {
+    pub fn reset(label: String) {
         let new_context = Context::new_task(None,label);
         new_context.set_current();
     }
@@ -263,7 +262,7 @@ impl Context {
     Sets the current context to this one.
     */
     pub fn set_current(self) {
-        let new_label = self.task().label;
+        let new_label = &self.task().label;
         //find the parent task
         let new_task_id = self.task_id();
         let old = CONTEXT.replace(self);
@@ -415,7 +414,7 @@ impl<F> Future for ApplyContext<F> where F: Future {
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
     fn test_new_context() {
-        Context::reset("test_new_context");
+        Context::reset("test_new_context".to_string());
         let port_context = Context::current();
         let next_context = Context::from_parent(port_context);
         let next_context_id = next_context.context_id();
@@ -427,10 +426,10 @@ impl<F> Future for ApplyContext<F> where F: Future {
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
     fn test_context_equality() {
-        Context::reset("test_context_equality");
+        Context::reset("test_context_equality".to_string());
         let context1 = Context::current();
         let context2 = context1.clone();
-        let context3 = Context::new_task(None, "different_task");
+        let context3 = Context::new_task(None, "different_task".to_string());
 
         // Same Arc pointer should be equal
         assert_eq!(context1, context2);
@@ -447,10 +446,10 @@ impl<F> Future for ApplyContext<F> where F: Future {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
 
-        Context::reset("test_context_hash");
+        Context::reset("test_context_hash".to_string());
         let context1 = Context::current();
         let context2 = context1.clone();
-        let context3 = Context::new_task(None, "different_task");
+        let context3 = Context::new_task(None, "different_task".to_string());
 
         // Same Arc pointer should have same hash
         let mut hasher1 = DefaultHasher::new();
@@ -478,7 +477,7 @@ impl<F> Future for ApplyContext<F> where F: Future {
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
     fn test_context_display() {
-        Context::reset("root_task");
+        Context::reset("root_task".to_string());
         let root_context = Context::current();
         
         // Root context should have no indentation (nesting level 0)
@@ -496,7 +495,7 @@ impl<F> Future for ApplyContext<F> where F: Future {
         assert!(child_display.contains(&format!("{} (root_task)", root_context.task_id())));
         
         // Create a new task context as child
-        let task_context = Context::new_task(Some(child_context.clone()), "child_task");
+        let task_context = Context::new_task(Some(child_context.clone()), "child_task".to_string());
         task_context.clone().set_current();
         let task_display = format!("{}", task_context);
         
@@ -517,7 +516,7 @@ impl<F> Future for ApplyContext<F> where F: Future {
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
     fn test_context_as_ref_task() {
-        Context::reset("test_as_ref");
+        Context::reset("test_as_ref".to_string());
         let context = Context::current();
         
         // Test that AsRef<Task> works
@@ -552,7 +551,7 @@ impl<F> Future for ApplyContext<F> where F: Future {
         assert_eq!(child_task_ref.task_id, context.task_id());
         assert_eq!(child_task_ref.label, "test_as_ref");
         
-        let new_task_context = Context::new_task(Some(context.clone()), "new_task");
+        let new_task_context = Context::new_task(Some(context.clone()), "new_task".to_string());
         let new_task_ref: &Task = new_task_context.as_ref();
         
         // New task should have different ID and label

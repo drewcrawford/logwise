@@ -259,7 +259,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     fn test_warn_sync() {
-        crate::context::Context::reset("test_warn_sync");
+        crate::context::Context::reset("test_warn_sync".to_string());
         info_sync!("test_warn_sync");
         warn_sync!("test_warn_sync Hello {world}!",world=23);
     }
@@ -271,7 +271,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     fn perfwarn() {
         use logwise::perfwarn;
-        Context::reset("test_perfwarn");
+        Context::reset("test_perfwarn".to_string());
         info_sync!("test_perfwarn");
         let _: i32 = perfwarn!("test_perfwarn interval name", {
          //code to profile
@@ -282,14 +282,14 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     fn test_debuginternal_sync() {
-        crate::context::Context::reset("test_debuginternal_sync");
+        crate::context::Context::reset("test_debuginternal_sync".to_string());
         debuginternal_sync!("test_debuginternal_sync");
     }
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     fn test_log_rich() {
         let val = false;
-        crate::context::Context::reset("test_log_rich");
+        crate::context::Context::reset("test_log_rich".to_string());
 
         debuginternal_sync!("Hello {world}!",world=val);
 
@@ -298,7 +298,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     fn test_log_custom() {
-        crate::context::Context::reset("test_log_custom");
+        crate::context::Context::reset("test_log_custom".to_string());
         #[derive(Debug)]
         #[allow(dead_code)]
         struct S(i32);
@@ -309,7 +309,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     fn test_log_info_async() {
-        crate::context::Context::reset("test_log_info_async");
+        crate::context::Context::reset("test_log_info_async".to_string());
         let _ = async {
             logwise::info_async!("test_log_info_async");
         };
@@ -319,7 +319,7 @@ pub fn perfwarn_begin_post(record: LogRecord,name: &'static str) -> crate::inter
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     fn test_trace() {
-        crate::context::Context::reset("test_trace");
+        crate::context::Context::reset("test_trace".to_string());
         logwise::trace_sync!("test_trace");
     }
 }
