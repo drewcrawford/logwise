@@ -63,14 +63,13 @@ jobs:
           # if nightly
             if [ "${{ matrix.channel }}" == "+nightly" ]; then
                 rustup +nightly component add rustfmt clippy
-            else
+                # if nightly and wasm32 target
+                if [ "${{ matrix.target }}" == "wasm32-unknown-unknown" ];
+                then
+                  rustup +nightly target add wasm32-unknown-unknown
+                fi
             fi
-          # if nightly and wasm32 target
-            if [ "${{ matrix.target }}" == "wasm32-unknown-unknown" ];
-            then
-                rustup +nightly target add wasm32-unknown-unknown
-            else
-            fi
+
           
 
       - name: rustfmt
