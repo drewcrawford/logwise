@@ -127,6 +127,22 @@ pub struct InMemoryLogger {
     logs: Mutex<Vec<String>>,
 }
 
+// ============================================================================
+// BOILERPLATE TRAIT IMPLEMENTATIONS
+// ============================================================================
+//
+// Design decisions for InMemoryLogger trait implementations:
+//
+// - Debug: Derived for diagnostic purposes and required by Logger trait
+// - Default: Implemented with obvious zero-value (empty log buffer)
+// - Clone: NOT implemented - expensive due to Mutex<Vec<String>>, and loggers
+//   typically hold unique resources that shouldn't be duplicated
+// - PartialEq/Eq: NOT implemented - equality semantics unclear for loggers,
+//   and mutex state comparison is problematic
+// - Hash: NOT implemented - requires Eq, and loggers shouldn't be hash keys
+// - Display: NOT implemented - no meaningful display representation
+// - Send/Sync: Automatically implemented due to Mutex usage (required for Logger trait)
+
 impl Default for InMemoryLogger {
     fn default() -> Self {
         Self::new()

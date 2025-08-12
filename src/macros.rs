@@ -105,6 +105,53 @@ impl LoggingDomain {
     }
 }
 
+// ============================================================================
+// Boilerplate trait implementations for LoggingDomain
+// ============================================================================
+
+impl std::fmt::Debug for LoggingDomain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoggingDomain")
+            .field("is_internal", &self.is_internal())
+            .finish()
+    }
+}
+
+impl Default for LoggingDomain {
+    /// Creates a new `LoggingDomain` with internal logging disabled.
+    /// 
+    /// This is the safe default for most use cases where internal logging
+    /// should be explicitly enabled rather than accidentally left on.
+    fn default() -> Self {
+        Self::new(false)
+    }
+}
+
+impl std::fmt::Display for LoggingDomain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "LoggingDomain(internal={})", self.is_internal())
+    }
+}
+
+impl From<bool> for LoggingDomain {
+    /// Creates a `LoggingDomain` from a boolean value.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `enabled` - Whether internal logging should be enabled
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// # use logwise::LoggingDomain;
+    /// let domain: LoggingDomain = true.into();
+    /// assert!(domain.is_internal());
+    /// ```
+    fn from(enabled: bool) -> Self {
+        Self::new(enabled)
+    }
+}
+
 /// Declares the logging domain for the current crate.
 ///
 /// This macro sets up the internal logging configuration for a crate.
@@ -813,5 +860,35 @@ mod tests {
     fn test_trace() {
         crate::context::Context::reset("test_trace".to_string());
         logwise::trace_sync!("test_trace");
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_logging_domain_trait_implementations() {
+        use crate::LoggingDomain;
+
+        // Test Debug implementation
+        let domain_enabled = LoggingDomain::new(true);
+        let domain_disabled = LoggingDomain::new(false);
+        let debug_enabled = format!("{:?}", domain_enabled);
+        let debug_disabled = format!("{:?}", domain_disabled);
+        assert!(debug_enabled.contains("LoggingDomain"));
+        assert!(debug_disabled.contains("LoggingDomain"));
+
+        // Test Display implementation
+        let display_enabled = format!("{}", domain_enabled);
+        let display_disabled = format!("{}", domain_disabled);
+        assert_eq!(display_enabled, "LoggingDomain(internal=true)");
+        assert_eq!(display_disabled, "LoggingDomain(internal=false)");
+
+        // Test Default implementation
+        let default_domain = LoggingDomain::default();
+        assert!(!default_domain.is_internal());
+
+        // Test From<bool> implementation
+        let domain_from_true: LoggingDomain = true.into();
+        let domain_from_false: LoggingDomain = false.into();
+        assert!(domain_from_true.is_internal());
+        assert!(!domain_from_false.is_internal());
     }
 }

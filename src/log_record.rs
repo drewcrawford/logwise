@@ -24,7 +24,7 @@ Instead, the design is as follows:
 3.  Finish the [LogRecord] and submit it to the [logwise::logger::Logger].
 
 */
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LogRecord {
     pub(crate) parts: Vec<String>,
     level: Level,
@@ -90,17 +90,25 @@ impl Display for LogRecord {
     }
 }
 /*
-Boilerplate notes
-# LogRecord
+Boilerplate notes for LogRecord:
 
-I think Clone probably makes sense although I'm not sure how much use it would get necessarily.
-PartialEq and Eq make sense
-Ord makes no sense
-Hash
-Default
-Display is probably sensible; we can display the log record.
-From/Into - not very sensible
-AsRef/AsMut - not necessarily a great implementation.
-Defef - must deref to a pointer type, which we don't necessarily have
-Send - yes, Sync - no
- */
+IMPLEMENTED:
+- Debug: Derived - essential for diagnostics
+- Clone: Derived - useful for record duplication/forwarding  
+- PartialEq/Eq: Derived - enables record comparison and deduplication
+- Hash: Derived - consistent with Eq, enables use in hash collections
+- Default: Implemented - provides sensible zero-value (Info level, empty parts)
+- Display: Implemented - formats record parts for output
+
+NOT IMPLEMENTED:
+- Copy: Vec<String> contains heap-allocated data, not suitable for Copy
+- Ord/PartialOrd: No meaningful ordering for log records
+- From/Into: No obvious conversions to/from other types
+- AsRef/AsMut: No clear underlying type to reference
+- Deref: Must deref to a pointer type, which LogRecord doesn't naturally provide
+
+AUTOMATIC:
+- Send: Automatically implemented - Vec<String> and Level are Send
+- Sync: NOT automatically implemented - Vec<String> is not Sync (but records
+  are typically owned by single threads during construction anyway)
+*/

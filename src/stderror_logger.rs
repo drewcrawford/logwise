@@ -8,6 +8,44 @@ A reference logger that logs to stderr.
 #[derive(Debug, Clone)]
 pub struct StdErrorLogger {}
 
+// ============================================================================
+// BOILERPLATE TRAIT IMPLEMENTATIONS
+// ============================================================================
+//
+// Design decisions for StdErrorLogger trait implementations:
+//
+// - Debug/Clone: Already derived - appropriate for zero-sized struct
+// - Copy: Implemented - safe for zero-sized struct with no heap allocation
+// - PartialEq/Eq: Implemented - all instances are equivalent (zero-sized)
+// - Hash: Implemented - consistent with Eq, enables use as hash map keys
+// - Default: Implemented - provides convenient zero-argument constructor
+// - Display: NOT implemented - no meaningful string representation for stderr logger
+// - From/Into: NOT implemented - no obvious conversions
+// - Send/Sync: Automatically implemented - zero-sized struct is always thread-safe
+
+impl Copy for StdErrorLogger {}
+
+impl PartialEq for StdErrorLogger {
+    fn eq(&self, _other: &Self) -> bool {
+        // All instances of a zero-sized struct are equal
+        true
+    }
+}
+
+impl Eq for StdErrorLogger {}
+
+impl std::hash::Hash for StdErrorLogger {
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
+        // Zero-sized struct has no data to hash - this is consistent with Eq
+    }
+}
+
+impl Default for StdErrorLogger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StdErrorLogger {
     pub const fn new() -> Self {
         Self {}
