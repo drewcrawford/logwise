@@ -26,9 +26,9 @@ macro_rules! declare_logging_domain {
     () => {
         #[doc(hidden)]
         #[cfg(feature="logwise_internal")]
-        pub static __LOGWISE_DOMAIN: $crate::LoggingDomain = $crate::LoggingDomain::new(true);
+        pub(crate) static __LOGWISE_DOMAIN: $crate::LoggingDomain = $crate::LoggingDomain::new(true);
         #[cfg(not(feature="logwise_internal"))]
-        pub static __LOGWISE_DOMAIN: $crate::LoggingDomain = $crate::LoggingDomain::new(false);
+        pub(crate) static __LOGWISE_DOMAIN: $crate::LoggingDomain = $crate::LoggingDomain::new(false);
     };
     ($enabled:expr) => {
         #[doc(hidden)]
