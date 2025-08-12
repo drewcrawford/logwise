@@ -94,7 +94,7 @@ Boilerplate notes for LogRecord:
 
 IMPLEMENTED:
 - Debug: Derived - essential for diagnostics
-- Clone: Derived - useful for record duplication/forwarding  
+- Clone: Derived - useful for record duplication/forwarding
 - PartialEq/Eq: Derived - enables record comparison and deduplication
 - Hash: Derived - consistent with Eq, enables use in hash collections
 - Default: Implemented - provides sensible zero-value (Info level, empty parts)

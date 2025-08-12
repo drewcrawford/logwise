@@ -287,54 +287,60 @@ mod tests {
     use super::*;
     use crate::inmemory_logger::InMemoryLogger;
 
-    
     #[test]
     fn test_add_logger() {
         let initial_count = global_loggers().len();
-        
+
         // Add a new logger
         let logger = Arc::new(InMemoryLogger::new());
         add_global_logger(logger.clone());
-        
+
         // Verify it was added
         let loggers = global_loggers();
-        assert_eq!(loggers.len(), initial_count + 1, "Logger count should increase by 1");
+        assert_eq!(
+            loggers.len(),
+            initial_count + 1,
+            "Logger count should increase by 1"
+        );
     }
-    
+
     #[test]
     fn test_set_loggers() {
         // Create some test loggers
         let logger1 = Arc::new(InMemoryLogger::new());
         let logger2 = Arc::new(InMemoryLogger::new());
-        
+
         // Set them as the global loggers
         set_global_loggers(vec![logger1.clone(), logger2.clone()]);
-        
+
         // Verify they were set
         let loggers = global_loggers();
         assert_eq!(loggers.len(), 2, "Should have exactly 2 loggers");
     }
-    
+
     #[test]
     fn test_thread_safety() {
         use std::thread;
-        
+
         let logger = Arc::new(InMemoryLogger::new());
         let logger_clone = logger.clone();
-        
+
         // Spawn a thread that adds a logger
         let handle = thread::spawn(move || {
             add_global_logger(logger_clone);
         });
-        
+
         // Meanwhile, get loggers from the main thread
         let _ = global_loggers();
-        
+
         // Wait for the thread to complete
         handle.join().expect("Thread should complete successfully");
-        
+
         // Verify the logger was added despite concurrent access
         let loggers = global_loggers();
-        assert!(loggers.len() >= 2, "Should have at least 2 loggers after thread operation");
+        assert!(
+            loggers.len() >= 2,
+            "Should have at least 2 loggers after thread operation"
+        );
     }
 }

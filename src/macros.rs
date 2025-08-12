@@ -119,7 +119,7 @@ impl std::fmt::Debug for LoggingDomain {
 
 impl Default for LoggingDomain {
     /// Creates a new `LoggingDomain` with internal logging disabled.
-    /// 
+    ///
     /// This is the safe default for most use cases where internal logging
     /// should be explicitly enabled rather than accidentally left on.
     fn default() -> Self {
@@ -135,13 +135,13 @@ impl std::fmt::Display for LoggingDomain {
 
 impl From<bool> for LoggingDomain {
     /// Creates a `LoggingDomain` from a boolean value.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `enabled` - Whether internal logging should be enabled
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// # use logwise::LoggingDomain;
     /// let domain: LoggingDomain = true.into();

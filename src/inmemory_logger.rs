@@ -61,7 +61,7 @@ use std::time::Duration;
 ///
 /// // Now logging will be captured in memory
 /// logwise::info_sync!("Test message {value}", value=42);
-/// 
+///
 /// // Retrieve the logs
 /// let logs = logger.drain_logs();
 /// assert!(logs.contains("Test message 42"));
@@ -106,18 +106,18 @@ use std::time::Duration;
 /// # fn test_with_isolation() {
 /// // Save the current global loggers
 /// let original_loggers = global_loggers();
-/// 
+///
 /// // Set up test-specific logging
 /// let test_logger = Arc::new(InMemoryLogger::new());
 /// set_global_loggers(vec![test_logger.clone()]);
-/// 
+///
 /// // Run test code
 /// logwise::info_sync!("Test-specific log message");
-/// 
+///
 /// // Verify logs
 /// let logs = test_logger.drain_logs();
 /// assert!(logs.contains("Test-specific log message"));
-/// 
+///
 /// // Restore original loggers
 /// set_global_loggers(original_loggers);
 /// # }
@@ -233,7 +233,7 @@ impl InMemoryLogger {
     /// set_global_loggers(vec![logger.clone()]);
     ///
     /// logwise::error_sync!("Critical error occurred!");
-    /// 
+    ///
     /// // Output logs to console for immediate debugging
     /// logger.drain_to_console();
     /// // The error message is now printed to stderr/console
@@ -291,10 +291,10 @@ impl InMemoryLogger {
     /// // The drain task can be combined with other async work using
     /// // your async runtime's combinators (e.g., select!, join!, etc.)
     /// // Here's a conceptual example:
-    /// 
+    ///
     /// // Run the drain task - it will periodically output logs to console
     /// // drain_task.await;
-    /// 
+    ///
     /// // In practice, you'd run this alongside your actual async work:
     /// // futures::select! {
     /// //     _ = drain_task => println!("Draining completed"),

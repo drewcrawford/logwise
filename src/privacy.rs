@@ -37,7 +37,7 @@
 //! // Numeric types have built-in privacy awareness
 //! let count: u8 = 5;  // Safe to log
 //! let user_id: u64 = 12345;  // Will be redacted
-//! 
+//!
 //! count.log_redacting_private_info(&mut record);  // Logs "5"
 //! user_id.log_redacting_private_info(&mut record); // Logs "<u64>"
 //! ```
@@ -50,7 +50,7 @@
 //! # use logwise::privacy::{LogIt, IPromiseItsNotPrivate};
 //! // Force private logging (never sent to remote servers)
 //! let sensitive = LogIt("credit_card_number");
-//! 
+//!
 //! // Promise data is safe for remote logging
 //! let safe = IPromiseItsNotPrivate("public_event_name");
 //! ```
@@ -62,9 +62,9 @@
 //! # let request_id = 42u32;
 //! // The macros automatically use the Loggable trait
 //! logwise::info_sync!("Processing request {id}", id=request_id);
-//! 
+//!
 //! // Use wrappers for explicit control
-//! logwise::info_sync!("User {user} logged in", 
+//! logwise::info_sync!("User {user} logged in",
 //!                     user=logwise::privacy::LogIt(user_id));
 //! ```
 
@@ -425,7 +425,7 @@ impl Loggable for &str {
 /// # let mut record = LogRecord::new(Level::Info);
 /// let safe_values: &[u8] = &[1, 2, 3];
 /// let private_values: &[u32] = &[100, 200, 300];
-/// 
+///
 /// safe_values.log_redacting_private_info(&mut record);    // Logs "<[1, 2, 3, ]>"
 /// private_values.log_redacting_private_info(&mut record); // Logs "<[<u32>, <u32>, <u32>, ]>"
 /// ```
@@ -463,7 +463,7 @@ impl<T: Loggable> Loggable for &[T] {
 /// # let mut record = LogRecord::new(Level::Info);
 /// let maybe_id: Option<u64> = Some(12345);
 /// let nothing: Option<String> = None;
-/// 
+///
 /// maybe_id.log_redacting_private_info(&mut record); // Logs "Some(<u64>)"
 /// nothing.log_redacting_private_info(&mut record);  // Logs "None"
 /// ```
@@ -509,20 +509,20 @@ impl<T: Loggable> Loggable for Option<T> {
 ///
 /// ```
 /// use logwise::privacy::LogIt;
-/// 
+///
 /// #[derive(Debug)]
 /// struct CreditCard {
 ///     number: String,
 ///     cvv: String,
 /// }
-/// 
+///
 /// let card = CreditCard {
 ///     number: "1234-5678-9012-3456".to_string(),
 ///     cvv: "123".to_string(),
 /// };
-/// 
+///
 /// // This will log the full credit card locally but "<LogIt>" remotely
-/// logwise::info_sync!("Processing payment with {card}", 
+/// logwise::info_sync!("Processing payment with {card}",
 ///                     card=LogIt(card));
 /// ```
 ///
@@ -532,11 +532,11 @@ impl<T: Loggable> Loggable for Option<T> {
 ///
 /// use logwise::privacy::LogIt;
 /// use std::collections::HashMap;
-/// 
+///
 /// let mut sensitive_data = HashMap::new();
 /// sensitive_data.insert("ssn", "123-45-6789");
 /// sensitive_data.insert("dob", "1990-01-01");
-/// 
+///
 /// // Wrap the entire HashMap to protect all contents
 /// logwise::info_sync!("User data: {data}",
 ///                              data=LogIt(&sensitive_data));
@@ -577,11 +577,11 @@ impl<T: Debug> Loggable for LogIt<T> {
 ///
 /// ```
 /// use logwise::privacy::IPromiseItsNotPrivate;
-/// 
+///
 /// // These would normally be redacted as strings
 /// let event_type = "user_login";
 /// let server_name = "api-server-01";
-/// 
+///
 /// // But we know these are safe metadata, not user data
 /// logwise::info_sync!("Event {event} on {server}",
 ///                     event=IPromiseItsNotPrivate(event_type),
@@ -592,10 +592,10 @@ impl<T: Debug> Loggable for LogIt<T> {
 ///
 /// ```
 /// use logwise::privacy::IPromiseItsNotPrivate;
-/// 
+///
 /// // This would normally be redacted as a u64
 /// let public_product_id: u64 = 789456;
-/// 
+///
 /// // But we know product IDs are public information
 /// logwise::warn_sync!("Product {id} is out of stock",
 ///                     id=IPromiseItsNotPrivate(public_product_id));
@@ -605,15 +605,15 @@ impl<T: Debug> Loggable for LogIt<T> {
 ///
 /// ```
 /// use logwise::privacy::{IPromiseItsNotPrivate, LogIt};
-/// 
+///
 /// let public_error_code = "ERR_404";  // Safe to log
 /// let user_email = "user@example.com"; // Private data
-/// 
+///
 /// // Correct usage:
 /// logwise::error_sync!("Error {code} for user {user}",
 ///                      code=IPromiseItsNotPrivate(public_error_code),
 ///                      user=LogIt(user_email));
-/// 
+///
 /// // WRONG - Don't do this! User email is private:
 /// // code=IPromiseItsNotPrivate(user_email)  // DON'T DO THIS!
 /// ```

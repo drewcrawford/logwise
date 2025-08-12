@@ -326,7 +326,6 @@ impl AsRef<Task> for Context {
     }
 }
 
-
 thread_local! {
     static CONTEXT: Cell<Context> = Cell::new(Context::new_task_internal(None,"Default task".to_string(),0));
 }
