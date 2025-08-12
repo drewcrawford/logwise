@@ -5,7 +5,8 @@ env:
 
 jobs:
   ci:
-    name: Build on ${{ matrix.os }}
+    name: Build (${{ matrix.os }} ${{ matrix.channel }} ${{ matrix.target }} ${{ matrix.features }})
+
     runs-on: ${{matrix.os}}
 
     strategy:
