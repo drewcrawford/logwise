@@ -2,7 +2,7 @@
 /*!
 # logwise
 
-An opinionated logging library for Rust with structured logging, privacy-aware data handling, 
+An opinionated logging library for Rust with structured logging, privacy-aware data handling,
 and hierarchical task-based context management.
 
 # Development Status
@@ -11,13 +11,13 @@ logwise is experimental and the API may change.
 
 # The Problem
 
-Traditional logging crates like [`log`](https://crates.io/crates/log) offer generic log levels 
-(`error`, `warn`, `info`, `debug`, `trace`) that are often too vague for real-world use cases. 
+Traditional logging crates like [`log`](https://crates.io/crates/log) offer generic log levels
+(`error`, `warn`, `info`, `debug`, `trace`) that are often too vague for real-world use cases.
 This leads to several problems:
 
-* **Ambiguous levels**: Is `debug` for print-style debugging in your library, or for users 
+* **Ambiguous levels**: Is `debug` for print-style debugging in your library, or for users
   debugging their own code?
-* **Build control**: How do you compile out expensive logs by default but enable them when 
+* **Build control**: How do you compile out expensive logs by default but enable them when
   debugging user-reported issues?
 * **Missing use cases**: What level is appropriate for "this is slow and should be optimized"?
 
@@ -25,7 +25,7 @@ logwise solves these problems with opinionated, use-case-specific log levels.
 
 # Core Philosophy
 
-Think of log levels like module visibility. You have `pub`, `pub(crate)`, `pub(super)`, and 
+Think of log levels like module visibility. You have `pub`, `pub(crate)`, `pub(super)`, and
 private visibility for different use cases. logwise provides similar granular control for logging.
 
 # Log Levels
@@ -51,8 +51,8 @@ logwise provides specific log levels for defined use cases:
 logwise::info_sync!("User logged in", user_id=42);
 
 // With multiple parameters
-logwise::warn_sync!("Request failed", 
-    status=404, 
+logwise::warn_sync!("Request failed",
+    status=404,
     path="/api/users"
 );
 ```
@@ -60,8 +60,8 @@ logwise::warn_sync!("Request failed",
 ```rust
 // Async logging for better performance
 async fn handle_request() {
-    logwise::info_async!("Processing request", 
-        method="GET", 
+    logwise::info_async!("Processing request",
+        method="GET",
         endpoint="/health"
     );
 }
@@ -82,10 +82,10 @@ struct User {
 }
 
 // Complex types require explicit privacy handling
-let user = User { 
-    id: 123, 
-    name: "Alice".into(), 
-    email: "alice@example.com".into() 
+let user = User {
+    id: 123,
+    name: "Alice".into(),
+    email: "alice@example.com".into()
 };
 
 // Use LogIt wrapper for complex types
@@ -93,7 +93,7 @@ logwise::info_sync!("User created", user=LogIt(&user));
 
 // Mark explicitly non-private data when it's safe
 let public_id = "PUBLIC-123";
-logwise::info_sync!("Processing {id}", 
+logwise::info_sync!("Processing {id}",
     id=IPromiseItsNotPrivate(public_id)
 );
 ```
@@ -108,7 +108,7 @@ use logwise::context::Context;
 
 // Create a new task
 let ctx = Context::new_task(
-    Some(Context::current()), 
+    Some(Context::current()),
     "data_processing".to_string()
 );
 ctx.clone().set_current();
@@ -175,33 +175,33 @@ struct Config {
 fn main() {
     // Initialize root context
     Context::reset("application".to_string());
-    
+
     // Log application startup
     logwise::info_sync!("Starting application", version="1.0.0");
-    
+
     // Create task for initialization
     let init_ctx = Context::new_task(
         Some(Context::current()),
         "initialization".to_string()
     );
     init_ctx.clone().set_current();
-    
+
     // Load configuration
     let config = Config {
         database_url: "postgres://localhost/myapp".into(),
         port: 8080,
     };
-    
+
     // Use LogIt for complex types
-    logwise::info_sync!("Configuration loaded", 
+    logwise::info_sync!("Configuration loaded",
         config=LogIt(&config)
     );
-    
+
     // Track performance-critical operations
     logwise::perfwarn!("database_connection", {
         // connect_to_database(&config.database_url)
     });
-    
+
     logwise::info_sync!("Application ready", port=config.port);
 }
 ```
@@ -223,14 +223,14 @@ impl Logger for CustomLogger {
         // Custom logging logic
         eprintln!("[CUSTOM] {}", record);
     }
-    
+
     fn finish_log_record_async<'s>(&'s self, record: LogRecord) -> Pin<Box<dyn Future<Output = ()> + Send + 's>> {
         Box::pin(async move {
             // Async logging logic
             eprintln!("[CUSTOM ASYNC] {}", record);
         })
     }
-    
+
     fn prepare_to_die(&self) {
         // Cleanup logic
     }
