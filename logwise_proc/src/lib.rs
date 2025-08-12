@@ -293,6 +293,9 @@ pub fn trace_async(input: TokenStream) -> TokenStream {
 
 /**
 Logs a message at debug_internal level
+
+For this function to work, you must use the `declare_logging_domain` macro to declare a logging domain
+at crate root.
 */
 #[proc_macro]
 pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
@@ -300,7 +303,8 @@ pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
         #[cfg(debug_assertions)] {{
-            if module_path!().starts_with(env!("CARGO_PKG_NAME")) || logwise::context::Context::currently_tracing() {{
+        let use_declare_logging_domain_macro_at_crate_root = crate::__LOGWISE_DOMAIN.is_internal();
+            if use_declare_logging_domain_macro_at_crate_root || logwise::context::Context::currently_tracing() {{
                     let mut record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
                     let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
                     {LFORMAT_EXPAND}
@@ -318,7 +322,8 @@ pub fn debuginternal_async(input: TokenStream) -> TokenStream {
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
     let src = format!(r#"
         #[cfg(debug_assertions)] {{
-            if module_path!().starts_with(env!("CARGO_PKG_NAME")) || logwise::context::Context::currently_tracing() {{
+        let use_declare_logging_domain_macro_at_crate_root = crate::__LOGWISE_DOMAIN.is_internal();
+            if use_declare_logging_domain_macro_at_crate_root || logwise::context::Context::currently_tracing() {{
                let mut record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
                 let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
 

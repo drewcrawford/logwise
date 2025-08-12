@@ -1,8 +1,42 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
 
+use std::sync::atomic::AtomicBool;
 use crate::Level;
 use crate::log_record::LogRecord;
 use crate::privacy::Loggable;
+
+pub struct LoggingDomain {
+    is_internal: AtomicBool,
+}
+
+impl LoggingDomain {
+    #[inline] pub const fn new(enabled: bool) -> Self {
+        Self {
+            is_internal: AtomicBool::new(enabled),
+        }
+    }
+
+    #[inline] pub fn is_internal(&self) -> bool {
+        self.is_internal.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
+#[macro_export]
+macro_rules! declare_logging_domain {
+    () => {
+        #[doc(hidden)]
+        #[cfg(feature="logwise_internal")]
+        pub static __LOGWISE_DOMAIN: $crate::LoggingDomain = $crate::LoggingDomain::new(true);
+        #[cfg(not(feature="logwise_internal"))]
+        pub static __LOGWISE_DOMAIN: $crate::LoggingDomain = $crate::LoggingDomain::new(false);
+    };
+    ($enabled:expr) => {
+        #[doc(hidden)]
+        pub static __LOGWISE_DOMAIN: $crate::LoggingDomain = $crate::LoggingDomain::new($enabled);
+    };
+}
+
+
 
 
 
@@ -84,6 +118,8 @@ pub fn info_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
 pub fn info_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
+        //can't call eprintln in wasm32!
+        // eprintln!("Sending to logger: {:?}", logger);
         logger.finish_log_record(record.clone());
     }
 }

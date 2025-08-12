@@ -51,7 +51,7 @@ For example,
 
 ```rust
 # let val = false;
-        logwise::debuginternal_sync!("Hello {world}!",world=val);
+  logwise::info_sync!("Hello {world}!",world=val);
 ```
 
 See the docs for more information.  Each log level has a synchronous and asynchronous version.  The synchronous version
@@ -107,6 +107,8 @@ mod local_logger;
 mod sys;
 mod spinlock;
 
+declare_logging_domain!();
+
 pub use level::Level;
 pub use logger::Logger;
 pub use log_record::LogRecord;
@@ -114,6 +116,10 @@ pub use inmemory_logger::InMemoryLogger;
 pub use global_logger::{add_global_logger, set_global_loggers, global_loggers};
 
 pub use logwise_proc::{info_sync, perfwarn, debuginternal_async, debuginternal_sync, warn_sync,perfwarn_begin,info_async, trace_sync, trace_async,error_sync, error_async};
+
+pub use macros::LoggingDomain;
+
+
 
 #[doc(hidden)]
 pub mod hidden {
