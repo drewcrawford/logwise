@@ -149,7 +149,6 @@ fn parse_value(input: &mut VecDeque<TokenTree>) -> String {
     }
 }
 
-
 /// Builds a HashMap of key-value pairs from the remaining token stream.
 ///
 /// This function processes the parameter list portion of logging macros, extracting
@@ -263,19 +262,34 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LFormatRes
     let some_input = match collect.remove(0) {
         Some(i) => i,
         None => {
-            return LFormatResult { output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string() }
+            return LFormatResult {
+                output: r#"compile_error!("lformat!() must be called with a string literal")"#
+                    .parse()
+                    .unwrap(),
+                name: "".to_string(),
+            }
         }
     };
     let format_string = match some_input {
         TokenTree::Literal(l) => {
             let out = l.to_string();
             if !out.starts_with('"') || !out.ends_with('"') {
-                return LFormatResult { output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string() };
+                return LFormatResult {
+                    output: r#"compile_error!("lformat!() must be called with a string literal")"#
+                        .parse()
+                        .unwrap(),
+                    name: "".to_string(),
+                };
             }
             out[1..out.len() - 1].to_string()
         }
         _ => {
-            return LFormatResult { output: r#"compile_error!("lformat!() must be called with a string literal")"#.parse().unwrap(), name: "".to_string() };
+            return LFormatResult {
+                output: r#"compile_error!("lformat!() must be called with a string literal")"#
+                    .parse()
+                    .unwrap(),
+                name: "".to_string(),
+            };
         }
     };
 
@@ -283,7 +297,10 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LFormatRes
     let k = match build_kvs(collect) {
         Ok(kvs) => kvs,
         Err(e) => {
-            return LFormatResult { output: e, name: "".to_string() };
+            return LFormatResult {
+                output: e,
+                name: "".to_string(),
+            };
         }
     };
     //parse format string
@@ -326,7 +343,12 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LFormatRes
                     let value = match k.get(&key) {
                         Some(l) => l.to_string(),
                         None => {
-                            return LFormatResult { output: format!(r#"compile_error!("Key {} not found")"#, key).parse().unwrap(), name: "".to_string() };
+                            return LFormatResult {
+                                output: format!(r#"compile_error!("Key {} not found")"#, key)
+                                    .parse()
+                                    .unwrap(),
+                                name: "".to_string(),
+                            };
                         }
                     };
                     source.push_str(&value);
@@ -350,10 +372,16 @@ fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LFormatRes
             }
         }
         Mode::Key(_) => {
-            return LFormatResult { output: r#"compile_error!("Expected '}'")"#.parse().unwrap(), name: "".to_string() };
+            return LFormatResult {
+                output: r#"compile_error!("Expected '}'")"#.parse().unwrap(),
+                name: "".to_string(),
+            };
         }
     }
-    return LFormatResult { output: source.parse().unwrap(), name: format_string };
+    return LFormatResult {
+        output: source.parse().unwrap(),
+        name: format_string,
+    };
 }
 
 /// Low-level macro for generating formatter calls from format strings.
@@ -448,7 +476,9 @@ pub fn lformat(input: TokenStream) -> TokenStream {
     let logger_ident = match collect.pop_front() {
         Some(TokenTree::Ident(i)) => i,
         _ => {
-            return r#"compile_error!("lformat!() must be called with a logger ident")"#.parse().unwrap();
+            return r#"compile_error!("lformat!() must be called with a logger ident")"#
+                .parse()
+                .unwrap();
         }
     };
     //eat comma
@@ -511,7 +541,8 @@ pub fn lformat(input: TokenStream) -> TokenStream {
 pub fn trace_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
-    let src = format!(r#"
+    let src = format!(
+        r#"
         #[cfg(debug_assertions)]
         {{
             if logwise::context::Context::currently_tracing() {{
@@ -523,7 +554,9 @@ pub fn trace_sync(input: TokenStream) -> TokenStream {
                 logwise::hidden::trace_sync_post(record);
             }}
         }}
-    "#, LFORMAT_EXPAND = lformat_result.output);
+    "#,
+        LFORMAT_EXPAND = lformat_result.output
+    );
 
     src.parse().unwrap()
 }
@@ -570,7 +603,8 @@ pub fn trace_sync(input: TokenStream) -> TokenStream {
 pub fn trace_async(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
-    let src = format!(r#"
+    let src = format!(
+        r#"
         #[cfg(debug_assertions)]
         {{
             if logwise::context::Context::currently_tracing() {{
@@ -582,7 +616,9 @@ pub fn trace_async(input: TokenStream) -> TokenStream {
                 logwise::hidden::trace_async_post(record).await;
             }}
         }}
-    "#, LFORMAT_EXPAND = lformat_result.output);
+    "#,
+        LFORMAT_EXPAND = lformat_result.output
+    );
 
     src.parse().unwrap()
 }
@@ -649,7 +685,8 @@ pub fn trace_async(input: TokenStream) -> TokenStream {
 pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
-    let src = format!(r#"
+    let src = format!(
+        r#"
         #[cfg(debug_assertions)] {{
         let use_declare_logging_domain_macro_at_crate_root = crate::__LOGWISE_DOMAIN.is_internal();
             if use_declare_logging_domain_macro_at_crate_root || logwise::context::Context::currently_tracing() {{
@@ -659,7 +696,9 @@ pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
                     logwise::hidden::debuginternal_sync_post(record);
            }}
         }}
-    "#, LFORMAT_EXPAND = lformat_result.output);
+    "#,
+        LFORMAT_EXPAND = lformat_result.output
+    );
     // todo!("{}", src);
     src.parse().unwrap()
 }
@@ -706,7 +745,8 @@ pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
 pub fn debuginternal_async(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
-    let src = format!(r#"
+    let src = format!(
+        r#"
         #[cfg(debug_assertions)] {{
         let use_declare_logging_domain_macro_at_crate_root = crate::__LOGWISE_DOMAIN.is_internal();
             if use_declare_logging_domain_macro_at_crate_root || logwise::context::Context::currently_tracing() {{
@@ -717,7 +757,9 @@ pub fn debuginternal_async(input: TokenStream) -> TokenStream {
                 logwise::hidden::debuginternal_async_post(record).await;
             }}
         }}
-    "#, LFORMAT_EXPAND = lformat_result.output);
+    "#,
+        LFORMAT_EXPAND = lformat_result.output
+    );
 
     src.parse().unwrap()
 }
@@ -768,7 +810,8 @@ pub fn debuginternal_async(input: TokenStream) -> TokenStream {
 pub fn info_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
-    let src = format!(r#"
+    let src = format!(
+        r#"
         #[cfg(debug_assertions)]
         {{
             let mut record = logwise::hidden::info_sync_pre(file!(),line!(),column!());
@@ -778,7 +821,9 @@ pub fn info_sync(input: TokenStream) -> TokenStream {
             {LFORMAT_EXPAND}
             logwise::hidden::info_sync_post(record);
         }}
-    "#, LFORMAT_EXPAND = lformat_result.output);
+    "#,
+        LFORMAT_EXPAND = lformat_result.output
+    );
 
     src.parse().unwrap()
 }
@@ -804,7 +849,7 @@ pub fn info_sync(input: TokenStream) -> TokenStream {
 /// # Examples
 /// ```
 /// struct DbConfig { host: String }
-/// 
+///
 /// async fn example() {
 ///     let db_config = DbConfig { host: "localhost".to_string() };
 ///     logwise::info_async!("Attempting database connection to {host}", host=db_config.host);
@@ -820,14 +865,17 @@ pub fn info_sync(input: TokenStream) -> TokenStream {
 pub fn info_async(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
-    let src = format!(r#"
+    let src = format!(
+        r#"
         #[cfg(debug_assertions)] {{
             let mut record = logwise::hidden::info_sync_pre(file!(),line!(),column!());
             let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
             {LFORMAT_EXPAND}
             logwise::hidden::info_async_post(record).await;
         }}
-    "#, LFORMAT_EXPAND = lformat_result.output);
+    "#,
+        LFORMAT_EXPAND = lformat_result.output
+    );
 
     src.parse().unwrap()
 }
@@ -868,7 +916,7 @@ pub fn info_async(input: TokenStream) -> TokenStream {
 /// // Configuration warnings
 /// # let old_key = "old_setting";
 /// # let new_key = "new_setting";
-/// logwise::warn_sync!("Using deprecated config {key}, consider {alternative}", 
+/// logwise::warn_sync!("Using deprecated config {key}, consider {alternative}",
 ///                     key=old_key, alternative=new_key);
 ///
 /// // Performance warnings
@@ -876,14 +924,15 @@ pub fn info_async(input: TokenStream) -> TokenStream {
 /// logwise::warn_sync!("Large payload detected: {size} bytes", size=size);
 ///
 /// // Security warnings with privacy
-/// logwise::warn_sync!("Failed login attempt from {ip}", 
+/// logwise::warn_sync!("Failed login attempt from {ip}",
 ///                     ip=logwise::privacy::IPromiseItsNotPrivate("127.0.0.1"));
 /// ```
 #[proc_macro]
 pub fn warn_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
-    let src = format!(r#"
+    let src = format!(
+        r#"
         {{
             let mut record = logwise::hidden::warn_sync_pre(file!(),line!(),column!());
 
@@ -892,7 +941,9 @@ pub fn warn_sync(input: TokenStream) -> TokenStream {
             {LFORMAT_EXPAND}
             logwise::hidden::warn_sync_post(record);
         }}
-    "#, LFORMAT_EXPAND = lformat_result.output);
+    "#,
+        LFORMAT_EXPAND = lformat_result.output
+    );
 
     src.parse().unwrap()
 }
@@ -946,14 +997,18 @@ pub fn warn_sync(input: TokenStream) -> TokenStream {
 pub fn perfwarn_begin(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
-    let src = format!(r#"
+    let src = format!(
+        r#"
         {{
             let mut record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
             let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
             {LFORMAT_EXPAND}
             logwise::hidden::perfwarn_begin_post(record,"{NAME}")
         }}
-    "#, LFORMAT_EXPAND = lformat_result.output, NAME = lformat_result.name);
+    "#,
+        LFORMAT_EXPAND = lformat_result.output,
+        NAME = lformat_result.name
+    );
     src.parse().unwrap()
 }
 
@@ -1023,18 +1078,15 @@ pub fn perfwarn(input: TokenStream) -> TokenStream {
     let lformat_expand = lformat_impl(&mut input, "formatter".to_string());
 
     let group = match last_token {
-        TokenTree::Group(g) => {
-            g
-        }
-        _ => {
-            return r#"compile_error!("Expected block")"#.parse().unwrap()
-        }
+        TokenTree::Group(g) => g,
+        _ => return r#"compile_error!("Expected block")"#.parse().unwrap(),
     };
     if group.delimiter() != proc_macro::Delimiter::Brace {
         return r#"compile_error!("Expected block")"#.parse().unwrap();
     }
 
-    let src = format!(r#"
+    let src = format!(
+        r#"
         {{
             let mut record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
             let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
@@ -1044,7 +1096,11 @@ pub fn perfwarn(input: TokenStream) -> TokenStream {
             drop(interval);
             result
         }}
-    "#, LFORMAT_EXPAND = lformat_expand.output, BLOCK = group.to_string(), NAME = lformat_expand.name);
+    "#,
+        LFORMAT_EXPAND = lformat_expand.output,
+        BLOCK = group.to_string(),
+        NAME = lformat_expand.name
+    );
     src.parse().unwrap()
 }
 
@@ -1089,7 +1145,7 @@ pub fn perfwarn(input: TokenStream) -> TokenStream {
 /// let content = match std::fs::read(&path) {
 ///     Ok(content) => content,
 ///     Err(e) => {
-///         logwise::error_sync!("Failed to read file {path}: {error}", 
+///         logwise::error_sync!("Failed to read file {path}: {error}",
 ///                              path=path.to_string_lossy().to_string(), error=e.to_string());
 ///         return Err(e);
 ///     }
@@ -1100,20 +1156,21 @@ pub fn perfwarn(input: TokenStream) -> TokenStream {
 /// // Database error with privacy
 /// # let user_id = "user123";
 /// # let db_error = "Connection timeout";
-/// logwise::error_sync!("Database query failed for user {id}: {error}", 
+/// logwise::error_sync!("Database query failed for user {id}: {error}",
 ///                      id=logwise::privacy::LogIt(user_id), error=db_error);
 ///
 /// // Network error
 /// # let response_status = 500;
 /// # let request_url = "https://api.example.com";
-/// logwise::error_sync!("HTTP request failed: {status} {url}", 
+/// logwise::error_sync!("HTTP request failed: {status} {url}",
 ///                      status=response_status, url=request_url);
 /// ```
 #[proc_macro]
 pub fn error_sync(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
-    let src = format!(r#"
+    let src = format!(
+        r#"
         {{
             let mut record = logwise::hidden::error_sync_pre(file!(),line!(),column!());
 
@@ -1122,7 +1179,9 @@ pub fn error_sync(input: TokenStream) -> TokenStream {
             {LFORMAT_EXPAND}
             logwise::hidden::error_sync_post(record);
         }}
-    "#, LFORMAT_EXPAND = lformat_result.output);
+    "#,
+        LFORMAT_EXPAND = lformat_result.output
+    );
 
     src.parse().unwrap()
 }
@@ -1154,7 +1213,7 @@ pub fn error_sync(input: TokenStream) -> TokenStream {
 ///     match std::fs::read_to_string(config_path) {
 ///         Ok(content) => Ok(content),
 ///         Err(e) => {
-///             logwise::error_async!("Config read failed {path}: {error}", 
+///             logwise::error_async!("Config read failed {path}: {error}",
 ///                                   path=config_path, error=logwise::privacy::LogIt(&e));
 ///             Err(e)
 ///         }
@@ -1166,7 +1225,7 @@ pub fn error_sync(input: TokenStream) -> TokenStream {
 /// async fn example() {
 ///     let retry_count = 3;
 ///     let last_error = "Timeout";
-///     logwise::error_async!("API request failed after {attempts} attempts: {error}", 
+///     logwise::error_async!("API request failed after {attempts} attempts: {error}",
 ///                           attempts=retry_count, error=last_error);
 /// }
 /// ```
@@ -1174,7 +1233,8 @@ pub fn error_sync(input: TokenStream) -> TokenStream {
 pub fn error_async(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
     let lformat_result = lformat_impl(&mut input, "formatter".to_string());
-    let src = format!(r#"
+    let src = format!(
+        r#"
         {{
             let mut record = logwise::hidden::error_sync_pre(file!(),line!(),column!());
 
@@ -1183,7 +1243,9 @@ pub fn error_async(input: TokenStream) -> TokenStream {
             {LFORMAT_EXPAND}
             logwise::hidden::error_async_post(record).await;
         }}
-    "#, LFORMAT_EXPAND = lformat_result.output);
+    "#,
+        LFORMAT_EXPAND = lformat_result.output
+    );
 
     src.parse().unwrap()
 }
