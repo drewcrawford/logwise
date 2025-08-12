@@ -61,15 +61,15 @@ jobs:
           # at the moment, GitHub is too far behind mainline rust (v1.89.0-v1.91.0-nightly)
           rustup update
       - name: Install wasm target
-        if: matrix.target == 'wasm32-unknown-unknown'
+        if: matrix.target == 'wasm32-unknown-unknown' && !(env.GITEA_ACTIONS == 'true')
         run: rustup ${{ matrix.channel}} target add wasm32-unknown-unknown
-        
-      - name: Install wasm-bindgen-test-runner
-        if: matrix.target == 'wasm32-unknown-unknown'
-        run: cargo ${{ matrix.channel }} install wasm-bindgen-test-runner
+
+      - name: Install wasm-bindgen-cli
+        if: matrix.target == 'wasm32-unknown-unknown' && !(env.GITEA_ACTIONS == 'true')
+        run: cargo ${{ matrix.channel }} install wasm-bindgen-cli
 
       - name: Install nightly components
-        if: matrix.channel == '+nightly'
+        if: matrix.channel == '+nightly' && !(env.GITEA_ACTIONS == 'true')
         run: rustup ${{ matrix.channel }} component add rustfmt clippy
 
       - name: rustfmt
