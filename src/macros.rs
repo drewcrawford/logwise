@@ -1,15 +1,85 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! Core logging implementation functions for the logwise logging library.
+//!
+//! This module provides the low-level implementation functions that are called by the
+//! procedural macros in `logwise_proc`. These functions handle the creation, formatting,
+//! and dispatching of log records to global loggers.
+//!
+//! # Architecture
+//!
+//! The logging flow follows this pattern:
+//! 1. A `*_pre` function creates a [`LogRecord`] with appropriate metadata
+//! 2. The procedural macro uses [`PrivateFormatter`] to add the formatted message
+//! 3. A `*_post` function dispatches the record to all global loggers
+//!
+//! # Log Levels
+//!
+//! Each log level has its own set of implementation functions:
+//! - `trace`: Detailed debugging (debug builds only, per-thread activation)
+//! - `debuginternal`: Print-style debugging (debug builds only)
+//! - `info`: Supporting downstream crates (debug builds only)
+//! - `perfwarn`: Performance problem logging (all builds)
+//! - `warn`: Suspicious conditions (all builds)
+//! - `error`: Error logging in Results (all builds)
+//!
+//! # Privacy
+//!
+//! The [`PrivateFormatter`] ensures that all logged values respect privacy constraints
+//! by calling the [`Loggable::log_all`](crate::privacy::Loggable::log_all) method, which
+//! includes all private information for local logging.
+//!
+//! # Example
+//!
+//! These functions are not intended to be called directly. Instead, use the macros:
+//!
+//! ```rust
+//! # use logwise::context::Context;
+//! # Context::reset("example".to_string());
+//! // Use the macro, not the implementation functions
+//! logwise::info_sync!("Operation completed", count=42);
+//! ```
+
 use crate::Level;
 use crate::log_record::LogRecord;
 use crate::privacy::Loggable;
 use std::sync::atomic::AtomicBool;
 
+/// Controls whether internal logging is enabled for a crate.
+///
+/// This struct manages the internal logging domain for a crate, determining
+/// whether `debuginternal` log messages are displayed. The domain is typically
+/// configured at compile time based on the `logwise_internal` feature flag.
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::LoggingDomain;
+/// // Create a domain that's enabled
+/// let domain = LoggingDomain::new(true);
+/// assert!(domain.is_internal());
+///
+/// // Create a domain that's disabled
+/// let domain = LoggingDomain::new(false);
+/// assert!(!domain.is_internal());
+/// ```
 pub struct LoggingDomain {
     is_internal: AtomicBool,
 }
 
 impl LoggingDomain {
+    /// Creates a new `LoggingDomain` with the specified internal logging state.
+    ///
+    /// # Arguments
+    ///
+    /// * `enabled` - Whether internal logging should be enabled for this domain
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use logwise::LoggingDomain;
+    /// let domain = LoggingDomain::new(true);
+    /// ```
     #[inline]
     pub const fn new(enabled: bool) -> Self {
         Self {
@@ -17,12 +87,43 @@ impl LoggingDomain {
         }
     }
 
+    /// Returns whether internal logging is enabled for this domain.
+    ///
+    /// This determines whether `debuginternal` log messages will be displayed
+    /// when logging from this crate.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use logwise::LoggingDomain;
+    /// let domain = LoggingDomain::new(true);
+    /// assert!(domain.is_internal());
+    /// ```
     #[inline]
     pub fn is_internal(&self) -> bool {
         self.is_internal.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
+/// Declares the logging domain for the current crate.
+///
+/// This macro sets up the internal logging configuration for a crate.
+/// When called without arguments, it automatically enables internal logging
+/// if the `logwise_internal` feature is enabled, otherwise disables it.
+///
+/// # Examples
+///
+/// ```rust
+/// # #[macro_use] extern crate logwise;
+/// // Automatic configuration based on features
+/// declare_logging_domain!();
+/// ```
+///
+/// ```rust
+/// # #[macro_use] extern crate logwise;
+/// // Explicitly enable internal logging
+/// declare_logging_domain!(true);
+/// ```
 #[macro_export]
 macro_rules! declare_logging_domain {
     () => {
@@ -40,25 +141,92 @@ macro_rules! declare_logging_domain {
     };
 }
 
+/// Formatter for writing log messages with full private information.
+///
+/// This formatter is used by the procedural macros to write both literal strings
+/// and formatted values to a log record. It ensures that all values are logged
+/// with their complete information (including private data) by calling
+/// [`Loggable::log_all`](crate::privacy::Loggable::log_all).
+///
+/// # Example
+///
+/// This is typically used internally by the procedural macros:
+///
+/// ```rust
+/// # use logwise::{LogRecord, Level};
+/// # use logwise::hidden::PrivateFormatter;
+/// # use logwise::privacy::Loggable;
+/// let mut record = LogRecord::new(Level::Info);
+/// let mut formatter = PrivateFormatter::new(&mut record);
+/// formatter.write_literal("Count: ");
+/// formatter.write_val(42u8);
+/// ```
 pub struct PrivateFormatter<'a> {
     record: &'a mut LogRecord,
 }
 
 impl<'a> PrivateFormatter<'a> {
+    /// Creates a new `PrivateFormatter` for the given log record.
+    ///
+    /// # Arguments
+    ///
+    /// * `record` - The log record to write to
     #[inline]
     pub fn new(record: &'a mut LogRecord) -> Self {
         Self { record }
     }
+    /// Writes a literal string to the log record.
+    ///
+    /// This is used for the static parts of log messages that don't contain
+    /// any variable data.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The literal string to write
     #[inline]
     pub fn write_literal(&mut self, s: &str) {
         self.record.log(s);
     }
+    /// Writes a loggable value to the log record.
+    ///
+    /// This method calls [`Loggable::log_all`](crate::privacy::Loggable::log_all)
+    /// to ensure the value is logged with all its information, including any
+    /// private data. This is appropriate for local logging but not for remote
+    /// telemetry.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The value to log (must implement [`Loggable`](crate::privacy::Loggable))
     #[inline]
     pub fn write_val<Val: Loggable>(&mut self, s: Val) {
         s.log_all(self.record);
     }
 }
 
+/// Creates a log record for a `debuginternal` log message.
+///
+/// This function is called by the `debuginternal_sync!` and `debuginternal_async!`
+/// macros to create the initial log record with metadata.
+///
+/// # Arguments
+///
+/// * `file` - The source file where the log was generated
+/// * `line` - The line number in the source file
+/// * `column` - The column number in the source file
+///
+/// # Returns
+///
+/// A [`LogRecord`] initialized with the current context and location information.
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::hidden::{debuginternal_pre, debuginternal_sync_post};
+/// // This is typically called by the macro, not directly
+/// let record = debuginternal_pre(file!(), line!(), column!());
+/// // ... formatter writes the message ...
+/// debuginternal_sync_post(record);
+/// ```
 pub fn debuginternal_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
     let mut record = crate::log_record::LogRecord::new(Level::DebugInternal);
@@ -78,6 +246,25 @@ pub fn debuginternal_pre(file: &'static str, line: u32, column: u32) -> LogRecor
     record
 }
 
+/// Completes and dispatches a synchronous `debuginternal` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// synchronously. It's called by the `debuginternal_sync!` macro after the
+/// message has been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::{LogRecord, Level};
+/// # use logwise::hidden::debuginternal_sync_post;
+/// let record = LogRecord::new(Level::DebugInternal);
+/// // ... add message content ...
+/// debuginternal_sync_post(record);
+/// ```
 pub fn debuginternal_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
@@ -85,6 +272,27 @@ pub fn debuginternal_sync_post(record: LogRecord) {
     }
 }
 
+/// Completes and dispatches an asynchronous `debuginternal` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// asynchronously. It's called by the `debuginternal_async!` macro after the
+/// message has been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::{LogRecord, Level};
+/// # use logwise::hidden::debuginternal_async_post;
+/// # async fn example() {
+/// let record = LogRecord::new(Level::DebugInternal);
+/// // ... add message content ...
+/// debuginternal_async_post(record).await;
+/// # }
+/// ```
 pub async fn debuginternal_async_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
@@ -92,6 +300,31 @@ pub async fn debuginternal_async_post(record: LogRecord) {
     }
 }
 
+/// Creates a log record for an `info` log message.
+///
+/// This function is called by the `info_sync!` and `info_async!` macros to create
+/// the initial log record with metadata. Info logs are intended for supporting
+/// downstream crates and are only available in debug builds.
+///
+/// # Arguments
+///
+/// * `file` - The source file where the log was generated
+/// * `line` - The line number in the source file
+/// * `column` - The column number in the source file
+///
+/// # Returns
+///
+/// A [`LogRecord`] initialized with the current context, location, and timestamp.
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::hidden::{info_sync_pre, info_sync_post};
+/// // This is typically called by the macro, not directly
+/// let record = info_sync_pre(file!(), line!(), column!());
+/// // ... formatter writes the message ...
+/// info_sync_post(record);
+/// ```
 pub fn info_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
     let mut record = crate::log_record::LogRecord::new(Level::Info);
@@ -110,6 +343,25 @@ pub fn info_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     record
 }
 
+/// Completes and dispatches a synchronous `info` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// synchronously. It's called by the `info_sync!` macro after the message has
+/// been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::{LogRecord, Level};
+/// # use logwise::hidden::info_sync_post;
+/// let record = LogRecord::new(Level::Info);
+/// // ... add message content ...
+/// info_sync_post(record);
+/// ```
 pub fn info_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
@@ -119,6 +371,27 @@ pub fn info_sync_post(record: LogRecord) {
     }
 }
 
+/// Completes and dispatches an asynchronous `info` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// asynchronously. It's called by the `info_async!` macro after the message has
+/// been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::{LogRecord, Level};
+/// # use logwise::hidden::info_async_post;
+/// # async fn example() {
+/// let record = LogRecord::new(Level::Info);
+/// // ... add message content ...
+/// info_async_post(record).await;
+/// # }
+/// ```
 pub async fn info_async_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
@@ -126,6 +399,31 @@ pub async fn info_async_post(record: LogRecord) {
     }
 }
 
+/// Creates a log record for a `warning` log message.
+///
+/// This function is called by the `warn_sync!` macro to create the initial log
+/// record with metadata. Warning logs are for suspicious conditions and are
+/// available in all build types.
+///
+/// # Arguments
+///
+/// * `file` - The source file where the log was generated
+/// * `line` - The line number in the source file
+/// * `column` - The column number in the source file
+///
+/// # Returns
+///
+/// A [`LogRecord`] initialized with the current context, location, and timestamp.
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::hidden::{warn_sync_pre, warn_sync_post};
+/// // This is typically called by the macro, not directly
+/// let record = warn_sync_pre(file!(), line!(), column!());
+/// // ... formatter writes the message ...
+/// warn_sync_post(record);
+/// ```
 pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
     let mut record = crate::log_record::LogRecord::new(Level::Warning);
@@ -144,6 +442,25 @@ pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     record
 }
 
+/// Completes and dispatches a synchronous `warning` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// synchronously. It's called by the `warn_sync!` macro after the message has
+/// been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::{LogRecord, Level};
+/// # use logwise::hidden::warn_sync_post;
+/// let record = LogRecord::new(Level::Warning);
+/// // ... add message content ...
+/// warn_sync_post(record);
+/// ```
 pub fn warn_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
@@ -151,6 +468,31 @@ pub fn warn_sync_post(record: LogRecord) {
     }
 }
 
+/// Creates a log record for a `trace` log message.
+///
+/// This function is called by the `trace_sync!` and `trace_async!` macros to create
+/// the initial log record with metadata. Trace logs are for detailed debugging and
+/// are only available in debug builds with per-thread activation.
+///
+/// # Arguments
+///
+/// * `file` - The source file where the log was generated
+/// * `line` - The line number in the source file
+/// * `column` - The column number in the source file
+///
+/// # Returns
+///
+/// A [`LogRecord`] initialized with the current context, location, and timestamp.
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::hidden::{trace_sync_pre, trace_sync_post};
+/// // This is typically called by the macro, not directly
+/// let record = trace_sync_pre(file!(), line!(), column!());
+/// // ... formatter writes the message ...
+/// trace_sync_post(record);
+/// ```
 pub fn trace_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
     let mut record = crate::log_record::LogRecord::new(Level::Trace);
@@ -169,6 +511,25 @@ pub fn trace_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     record
 }
 
+/// Completes and dispatches a synchronous `trace` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// synchronously. It's called by the `trace_sync!` macro after the message has
+/// been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::{LogRecord, Level};
+/// # use logwise::hidden::trace_sync_post;
+/// let record = LogRecord::new(Level::Trace);
+/// // ... add message content ...
+/// trace_sync_post(record);
+/// ```
 pub fn trace_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
@@ -176,6 +537,27 @@ pub fn trace_sync_post(record: LogRecord) {
     }
 }
 
+/// Completes and dispatches an asynchronous `trace` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// asynchronously. It's called by the `trace_async!` macro after the message has
+/// been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::{LogRecord, Level};
+/// # use logwise::hidden::trace_async_post;
+/// # async fn example() {
+/// let record = LogRecord::new(Level::Trace);
+/// // ... add message content ...
+/// trace_async_post(record).await;
+/// # }
+/// ```
 pub async fn trace_async_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
@@ -183,6 +565,31 @@ pub async fn trace_async_post(record: LogRecord) {
     }
 }
 
+/// Creates a log record for an `error` log message.
+///
+/// This function is called by the `error_sync!` and `error_async!` macros to create
+/// the initial log record with metadata. Error logs are for logging errors in Results
+/// and are available in all build types.
+///
+/// # Arguments
+///
+/// * `file` - The source file where the log was generated
+/// * `line` - The line number in the source file
+/// * `column` - The column number in the source file
+///
+/// # Returns
+///
+/// A [`LogRecord`] initialized with the current context, location, and timestamp.
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::hidden::{error_sync_pre, error_sync_post};
+/// // This is typically called by the macro, not directly
+/// let record = error_sync_pre(file!(), line!(), column!());
+/// // ... formatter writes the message ...
+/// error_sync_post(record);
+/// ```
 pub fn error_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     //safety: guarantee context won't change
     let mut record = crate::log_record::LogRecord::new(Level::Error);
@@ -201,6 +608,25 @@ pub fn error_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     record
 }
 
+/// Completes and dispatches a synchronous `error` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// synchronously. It's called by the `error_sync!` macro after the message has
+/// been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::{LogRecord, Level};
+/// # use logwise::hidden::error_sync_post;
+/// let record = LogRecord::new(Level::Error);
+/// // ... add message content ...
+/// error_sync_post(record);
+/// ```
 pub fn error_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
@@ -208,6 +634,27 @@ pub fn error_sync_post(record: LogRecord) {
     }
 }
 
+/// Completes and dispatches an asynchronous `error` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// asynchronously. It's called by the `error_async!` macro after the message has
+/// been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::{LogRecord, Level};
+/// # use logwise::hidden::error_async_post;
+/// # async fn example() {
+/// let record = LogRecord::new(Level::Error);
+/// // ... add message content ...
+/// error_async_post(record).await;
+/// # }
+/// ```
 pub async fn error_async_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
@@ -215,6 +662,34 @@ pub async fn error_async_post(record: LogRecord) {
     }
 }
 
+/// Creates a log record for the beginning of a performance warning interval.
+///
+/// This function is called by the `perfwarn!` and `perfwarn_begin!` macros to
+/// create the initial log record that marks the start of a performance measurement.
+/// The corresponding end of the interval is logged when the [`PerfwarnInterval`](crate::interval::PerfwarnInterval)
+/// is dropped.
+///
+/// # Arguments
+///
+/// * `file` - The source file where the log was generated
+/// * `line` - The line number in the source file
+/// * `column` - The column number in the source file
+///
+/// # Returns
+///
+/// A [`LogRecord`] initialized with the current context and the start time.
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::hidden::{perfwarn_begin_pre, perfwarn_begin_post};
+/// // This is typically called by the macro, not directly
+/// let record = perfwarn_begin_pre(file!(), line!(), column!());
+/// // ... formatter writes the message ...
+/// let interval = perfwarn_begin_post(record, "operation_name");
+/// // ... code to measure ...
+/// drop(interval); // Logs the end of the interval
+/// ```
 pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
     let start = crate::sys::Instant::now();
 
@@ -234,6 +709,33 @@ pub fn perfwarn_begin_pre(file: &'static str, line: u32, column: u32) -> LogReco
     record
 }
 
+/// Completes the beginning log record and creates a performance warning interval.
+///
+/// This function sends the initial log record to all registered global loggers and
+/// returns a [`PerfwarnInterval`](crate::interval::PerfwarnInterval) that will log
+/// the completion when dropped.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record for the interval start
+/// * `name` - The name of the operation being measured
+///
+/// # Returns
+///
+/// A [`PerfwarnInterval`](crate::interval::PerfwarnInterval) that tracks the duration
+/// and logs completion when dropped.
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise::{LogRecord, Level};
+/// # use logwise::hidden::perfwarn_begin_post;
+/// let record = LogRecord::new(Level::PerfWarn);
+/// // ... add message content ...
+/// let interval = perfwarn_begin_post(record, "database_query");
+/// // ... perform operation ...
+/// drop(interval); // Automatically logs the end
+/// ```
 pub fn perfwarn_begin_post(
     record: LogRecord,
     name: &'static str,

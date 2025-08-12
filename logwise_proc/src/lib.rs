@@ -677,13 +677,13 @@ pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// # Syntax
-/// ```ignore
-/// // This example is ignored because it requires special async setup
-/// logwise::declare_logging_domain!();
-/// 
-/// async fn example() {
-///     let key = "example_value";
-///     logwise::debuginternal_async!("format string with {placeholders}", placeholders=key).await;
+/// ```
+/// logwise::declare_logging_domain!(true);
+/// fn main() {
+///     async fn ex() {
+///         let key = "example_value";
+///         logwise::debuginternal_async!("format string with {placeholders}", placeholders=key);
+///     }
 /// }
 /// ```
 ///
@@ -790,11 +790,10 @@ pub fn info_sync(input: TokenStream) -> TokenStream {
 /// information but only active in debug builds.
 ///
 /// # Syntax
-/// ```ignore
-/// // This example is ignored because it requires special async setup
+/// ```
 /// async fn example() {
 ///     let key = "example_value";
-///     logwise::info_async!("format string with {placeholders}", placeholders=key).await;
+///     logwise::info_async!("format string with {placeholders}", placeholders=key);
 /// }
 /// ```
 ///
@@ -803,19 +802,18 @@ pub fn info_sync(input: TokenStream) -> TokenStream {
 /// - **Release builds**: Completely compiled out (no runtime cost)
 ///
 /// # Examples
-/// ```ignore
-/// // This example is ignored because it requires special async setup
+/// ```
 /// struct DbConfig { host: String }
 /// 
 /// async fn example() {
 ///     let db_config = DbConfig { host: "localhost".to_string() };
-///     logwise::info_async!("Attempting database connection to {host}", host=db_config.host).await;
+///     logwise::info_async!("Attempting database connection to {host}", host=db_config.host);
 ///     // ... connection logic ...
 ///
 ///     // Progress reporting in async contexts
 ///     let current = 5;
 ///     let total_batches = 10;
-///     logwise::info_async!("Processed batch {batch} of {total}", batch=current, total=total_batches).await;
+///     logwise::info_async!("Processed batch {batch} of {total}", batch=current, total=total_batches);
 /// }
 /// ```
 #[proc_macro]
@@ -1136,11 +1134,10 @@ pub fn error_sync(input: TokenStream) -> TokenStream {
 /// is active in both debug and release builds.
 ///
 /// # Syntax
-/// ```ignore
-/// // This example is ignored because it requires special async setup
+/// ```
 /// async fn example() {
 ///     let key = "example_value";
-///     logwise::error_async!("format string with {placeholders}", placeholders=key).await;
+///     logwise::error_async!("format string with {placeholders}", placeholders=key);
 /// }
 /// ```
 ///
@@ -1149,30 +1146,28 @@ pub fn error_sync(input: TokenStream) -> TokenStream {
 /// - **Release builds**: Always active (runtime cost incurred)
 ///
 /// # Examples
-/// ```ignore
-/// // This example is ignored because it requires tokio and special async setup
+/// ```
 /// async fn read_config() -> Result<String, std::io::Error> {
 ///     let config_path = "/config.toml";
-///     fn parse_config(_data: Vec<u8>) -> Result<String, std::io::Error> { Ok("config".to_string()) }
 ///     
-///     let config = match tokio::fs::read(&config_path).await {
-///         Ok(data) => parse_config(data)?,
+///     // Simulate config reading with error handling
+///     match std::fs::read_to_string(config_path) {
+///         Ok(content) => Ok(content),
 ///         Err(e) => {
 ///             logwise::error_async!("Config read failed {path}: {error}", 
-///                                   path=config_path, error=e).await;
-///             return Err(e);
+///                                   path=config_path, error=logwise::privacy::LogIt(&e));
+///             Err(e)
 ///         }
-///     };
-///     Ok(config)
+///     }
 /// }
+/// ```
 ///
-/// ```ignore
-/// // This example is ignored because it requires special async setup
+/// ```
 /// async fn example() {
 ///     let retry_count = 3;
 ///     let last_error = "Timeout";
 ///     logwise::error_async!("API request failed after {attempts} attempts: {error}", 
-///                           attempts=retry_count, error=last_error).await;
+///                           attempts=retry_count, error=last_error);
 /// }
 /// ```
 #[proc_macro]

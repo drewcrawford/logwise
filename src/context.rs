@@ -1,4 +1,109 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Thread-local context management for hierarchical, task-based logging.
+//!
+//! This module provides the core context system that enables logwise to track tasks,
+//! manage hierarchical logging contexts, and collect performance statistics. Contexts
+//! are thread-local and form a parent-child hierarchy that allows for structured logging
+//! with automatic indentation and task tracking.
+//!
+//! # Overview
+//!
+//! The context system consists of three main components:
+//!
+//! - [`Context`]: A hierarchical logging context that can represent either a new task or
+//!   inherit from a parent context
+//! - [`Task`]: Represents a logical unit of work with performance tracking capabilities
+//! - [`ApplyContext`]: A [`Future`] wrapper that preserves context across executor boundaries
+//!
+//! # Thread-Local Context Management
+//!
+//! Each thread maintains its own current context via thread-local storage. The context
+//! forms a linked list from child to parent, enabling hierarchical task tracking:
+//!
+//! ```rust
+//! use logwise::context::Context;
+//!
+//! // Set a new root context for this thread
+//! Context::reset("root_task".to_string());
+//!
+//! // Get the current context
+//! let current = Context::current();
+//!
+//! // Create a child context that inherits from the current one
+//! let child = Context::from_parent(current.clone());
+//! child.set_current();
+//! ```
+//!
+//! # Task-Based Logging
+//!
+//! Tasks represent logical units of work and automatically log their lifecycle:
+//!
+//! ```rust
+//! use logwise::context::Context;
+//!
+//! // Create a new task context
+//! let task_ctx = Context::new_task(
+//!     Some(Context::current()),
+//!     "data_processing".to_string()
+//! );
+//! task_ctx.clone().set_current();
+//!
+//! // The task automatically logs when it's created and dropped
+//! // Any performance statistics collected during the task are logged on drop
+//! ```
+//!
+//! # Performance Tracking
+//!
+//! The context system integrates with logwise's performance tracking to collect
+//! statistics about task execution:
+//!
+//! ```rust
+//! # use logwise::context::Context;
+//! # Context::reset("test".to_string());
+//! // Performance intervals are automatically added to the current task
+//! // When using the perfwarn! macro:
+//! logwise::perfwarn!("expensive_operation", {
+//!     // This duration is automatically tracked in the current context's task
+//!     std::thread::sleep(std::time::Duration::from_millis(100));
+//! });
+//! // Statistics are logged when the task is dropped
+//! ```
+//!
+//! # Async Context Preservation
+//!
+//! The [`ApplyContext`] wrapper ensures contexts are preserved across async boundaries,
+//! particularly useful with executors that don't preserve thread-local state:
+//!
+//! ```rust
+//! use logwise::context::{Context, ApplyContext};
+//! # async fn async_operation() {}
+//!
+//! # async fn example() {
+//! let ctx = Context::new_task(None, "async_task".to_string());
+//!
+//! // Wrap the future to preserve context during polling
+//! let future = ApplyContext::new(ctx, async_operation());
+//! future.await;
+//! # }
+//! ```
+//!
+//! # Tracing Support
+//!
+//! Contexts support selective tracing for detailed debugging:
+//!
+//! ```rust
+//! use logwise::context::Context;
+//!
+//! // Enable tracing for the current context and its children
+//! Context::begin_trace();
+//!
+//! // Check if currently tracing
+//! if Context::currently_tracing() {
+//!     // Trace-level logs will be enabled
+//! }
+//! ```
+
 use crate::Level;
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -14,14 +119,23 @@ static TASK_ID: AtomicU64 = AtomicU64::new(0);
 
 static CONTEXT_ID: AtomicU64 = AtomicU64::new(0);
 
+/// Unique identifier for a task.
+///
+/// Each task gets a monotonically increasing ID that is unique across the entire
+/// process lifetime. This ID is used in log output to correlate related log messages.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TaskID(u64);
+
 impl Display for TaskID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
+/// Unique identifier for a context.
+///
+/// Each context gets a unique ID that can be used to identify and pop specific
+/// contexts from the context stack.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ContextID(u64);
 
@@ -74,6 +188,22 @@ impl Drop for Task {
 struct TaskMutable {
     interval_statistics: HashMap<&'static str, crate::sys::Duration>,
 }
+
+/// Represents a logical unit of work with performance tracking.
+///
+/// Tasks automatically log their lifecycle (creation and completion) and collect
+/// performance statistics from perfwarn intervals. When a task is dropped, it logs
+/// any accumulated performance statistics.
+///
+/// Tasks are typically created indirectly through [`Context::new_task`]:
+///
+/// ```rust
+/// use logwise::context::Context;
+///
+/// let ctx = Context::new_task(None, "data_processing".to_string());
+/// ctx.set_current();
+/// // Task lifecycle is automatically logged
+/// ```
 #[derive(Debug)]
 pub struct Task {
     task_id: TaskID,
@@ -82,6 +212,9 @@ pub struct Task {
 }
 
 impl Task {
+    /// Creates a new task with the given label.
+    ///
+    /// This is an internal method; tasks are typically created through [`Context::new_task`].
     fn new(label: String) -> Task {
         Task {
             task_id: TaskID(TASK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
@@ -93,22 +226,68 @@ impl Task {
     }
 }
 
-/**
-Internal context data.
-*/
+/// Internal context data.
+///
+/// This structure holds the actual context state, wrapped in an Arc for cheap cloning.
 #[derive(Debug)]
 struct ContextInner {
     parent: Option<Context>,
     context_id: u64,
-    //if some, we define a new task ID for this context.
+    /// If Some, this context defines a new task. If None, inherits task from parent.
     define_task: Option<Task>,
-    ///whether this context is currently tracing
+    /// Whether this context is currently tracing.
     is_tracing: AtomicBool,
 }
 
-/**
-Provides a set of info that can be used by multiple logs.
-*/
+/// Hierarchical logging context for task-based structured logging.
+///
+/// A `Context` represents a point in a hierarchical tree of logging contexts.
+/// Each context can either define a new task or inherit its parent's task.
+/// Contexts are cheap to clone (Arc-based) and thread-safe.
+///
+/// # Context Hierarchy
+///
+/// Contexts form a parent-child hierarchy that enables:
+/// - Automatic log indentation based on nesting level
+/// - Task inheritance (child contexts can share parent's task)
+/// - Tracing propagation (trace settings flow to children)
+///
+/// # Examples
+///
+/// ## Basic Context Creation
+///
+/// ```rust
+/// use logwise::context::Context;
+///
+/// // Create a root context (no parent)
+/// let root = Context::new_task(None, "root_operation".to_string());
+/// root.clone().set_current();
+///
+/// // Create a child context with a new task
+/// let child = Context::new_task(
+///     Some(Context::current()),
+///     "child_operation".to_string()
+/// );
+/// child.clone().set_current();
+///
+/// // Create a context that inherits the parent's task
+/// let sibling = Context::from_parent(Context::current());
+/// sibling.set_current();
+/// ```
+///
+/// ## Context Popping
+///
+/// ```rust
+/// use logwise::context::Context;
+///
+/// Context::reset("root".to_string());
+/// let ctx = Context::from_parent(Context::current());
+/// let ctx_id = ctx.context_id();
+/// ctx.set_current();
+///
+/// // Later, pop back to the parent
+/// Context::pop(ctx_id);
+/// ```
 #[derive(Debug, Clone)]
 pub struct Context {
     inner: Arc<ContextInner>,
@@ -147,14 +326,26 @@ impl AsRef<Task> for Context {
     }
 }
 
+
 thread_local! {
     static CONTEXT: Cell<Context> = Cell::new(Context::new_task_internal(None,"Default task".to_string(),0));
 }
 
 impl Context {
-    /**
-    Returns the current context.
-    */
+    /// Returns the current context for this thread.
+    ///
+    /// This retrieves the thread-local context that will be used for logging.
+    /// Every thread starts with a default context that can be replaced using
+    /// [`set_current`](Context::set_current) or [`reset`](Context::reset).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// let current = Context::current();
+    /// println!("Current task: {}", current.task_id());
+    /// ```
     #[inline]
     pub fn current() -> Context {
         CONTEXT.with(|c|
@@ -162,6 +353,24 @@ impl Context {
             unsafe{&*c.as_ptr()}.clone())
     }
 
+    /// Returns the task associated with this context.
+    ///
+    /// If this context defines its own task, returns it. Otherwise, recursively
+    /// searches parent contexts until a task is found.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// let ctx = Context::new_task(None, "my_task".to_string());
+    /// // Access task properties through the context
+    /// let task = ctx.task();
+    ///
+    /// // Child context inherits parent's task
+    /// let child = Context::from_parent(ctx.clone());
+    /// // child.task() returns the same task as parent
+    /// ```
     pub fn task(&self) -> &Task {
         if let Some(task) = &self.inner.define_task {
             task
@@ -174,13 +383,30 @@ impl Context {
         }
     }
 
-    /**
-    Creates a new context.
-
-    # Parameters
-    * `parent` - the parent context.  If None, this context will be orphaned.
-    * `label` - a debug label for the context.
-    */
+    /// Creates a new context with its own task.
+    ///
+    /// This creates a new context that defines a new task. The task will automatically
+    /// log its creation and completion (when dropped), and collect performance statistics.
+    ///
+    /// # Arguments
+    ///
+    /// * `parent` - Optional parent context. If `None`, creates a root context.
+    /// * `label` - Human-readable label for the task.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// // Create a root task
+    /// let root = Context::new_task(None, "main_process".to_string());
+    ///
+    /// // Create a child task
+    /// let child = Context::new_task(
+    ///     Some(root.clone()),
+    ///     "subprocess".to_string()
+    /// );
+    /// ```
     #[inline]
     pub fn new_task(parent: Option<Context>, label: String) -> Context {
         let context_id = CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -198,20 +424,51 @@ impl Context {
         }
     }
 
-    /**
-    Sets a blank context
-    */
+    /// Resets the thread's context to a new root context.
+    ///
+    /// This is useful for starting fresh in a thread, discarding any existing
+    /// context hierarchy. The new context becomes the current context for the thread.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// // Start fresh with a new root context
+    /// Context::reset("new_session".to_string());
+    ///
+    /// // All subsequent logs will use this new context
+    /// logwise::info_sync!("Starting new session");
+    /// ```
     #[inline]
     pub fn reset(label: String) {
         let new_context = Context::new_task(None, label);
         new_context.set_current();
     }
 
-    /**
-    Creates a new context with the current context as the parent.
-
-    This preserves the parent's task.
-    */
+    /// Creates a new context that inherits from a parent context.
+    ///
+    /// Unlike [`new_task`](Context::new_task), this does not create a new task.
+    /// Instead, it inherits the task from the parent context. This is useful for
+    /// creating logical scopes within the same task.
+    ///
+    /// The new context also inherits the parent's tracing state.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// let task_ctx = Context::new_task(None, "operation".to_string());
+    /// task_ctx.clone().set_current();
+    ///
+    /// // Create a sub-context within the same task
+    /// let sub_ctx = Context::from_parent(Context::current());
+    /// sub_ctx.clone().set_current();
+    ///
+    /// // Both contexts share the same task
+    /// assert_eq!(task_ctx.task_id(), sub_ctx.task_id());
+    /// ```
     pub fn from_parent(context: Context) -> Context {
         let is_tracing = context.inner.is_tracing.load(Ordering::Relaxed);
         Context {
@@ -224,22 +481,60 @@ impl Context {
         }
     }
 
+    /// Returns the task ID associated with this context.
+    ///
+    /// This ID uniquely identifies the task and appears in all log messages
+    /// generated within this context.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// let ctx = Context::new_task(None, "my_task".to_string());
+    /// let task_id = ctx.task_id();
+    /// println!("Task ID: {}", task_id);
+    /// ```
     #[inline]
     pub fn task_id(&self) -> TaskID {
         self.task().task_id
     }
 
-    /**
-    Determines whether this context is currently tracing.
-    */
+    /// Checks if this specific context has tracing enabled.
+    ///
+    /// When tracing is enabled, trace-level log messages will be output.
+    /// Tracing state is inherited by child contexts created with [`from_parent`](Context::from_parent).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// let ctx = Context::current();
+    /// if ctx.is_tracing() {
+    ///     // Trace logging is enabled for this context
+    /// }
+    /// ```
     #[inline]
     pub fn is_tracing(&self) -> bool {
         self.inner.is_tracing.load(Ordering::Relaxed)
     }
 
-    /**
-        Returns true if we are currently tracing.
-    */
+    /// Checks if the current thread's context has tracing enabled.
+    ///
+    /// This is a convenience method that checks the tracing state of the
+    /// current thread-local context without needing to call [`Context::current`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// if Context::currently_tracing() {
+    ///     // Trace logging is enabled
+    ///     logwise::trace_sync!("Detailed debug information");
+    /// }
+    /// ```
     #[inline]
     pub fn currently_tracing() -> bool {
         CONTEXT.with(|c| {
@@ -251,10 +546,27 @@ impl Context {
         })
     }
 
-    /**
-    Begins tracing for the current context.
-
-    */
+    /// Enables tracing for the current context and its future children.
+    ///
+    /// Once tracing is enabled, trace-level log messages will be output.
+    /// This setting is inherited by child contexts created with [`from_parent`](Context::from_parent)
+    /// after tracing is enabled.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// // Enable detailed tracing
+    /// Context::begin_trace();
+    ///
+    /// // Now trace messages will be visible
+    /// logwise::trace_sync!("This will be logged");
+    ///
+    /// // Child contexts inherit the tracing state
+    /// let child = Context::from_parent(Context::current());
+    /// assert!(child.is_tracing());
+    /// ```
     pub fn begin_trace() {
         Context::current()
             .inner
@@ -263,16 +575,45 @@ impl Context {
         logwise::trace_sync!("Begin trace");
     }
 
-    /**
-    Sets the current context to this one.
-    */
+    /// Sets this context as the current thread-local context.
+    ///
+    /// This replaces the thread's current context with this one. All subsequent
+    /// logging operations on this thread will use this context until it's changed.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// let new_ctx = Context::new_task(None, "new_task".to_string());
+    /// new_ctx.set_current();
+    ///
+    /// // All logs now use the new context
+    /// logwise::info_sync!("Using new context");
+    /// ```
     pub fn set_current(self) {
         CONTEXT.replace(self);
     }
 
-    /**
-    Finds the number of nesting contexts.
-    */
+    /// Returns the nesting level of this context in the hierarchy.
+    ///
+    /// The root context has a nesting level of 0, its children have level 1, etc.
+    /// This is used internally to determine log indentation.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// let root = Context::new_task(None, "root".to_string());
+    /// assert_eq!(root.nesting_level(), 0);
+    ///
+    /// let child = Context::from_parent(root.clone());
+    /// assert_eq!(child.nesting_level(), 1);
+    ///
+    /// let grandchild = Context::from_parent(child.clone());
+    /// assert_eq!(grandchild.nesting_level(), 2);
+    /// ```
     pub fn nesting_level(&self) -> usize {
         let mut level = 0;
         let mut current = self;
@@ -283,19 +624,50 @@ impl Context {
         level
     }
 
-    /**
-    Returns the ID of the current context.
-    */
+    /// Returns the unique ID of this context.
+    ///
+    /// Context IDs can be used with [`Context::pop`] to restore a previous context.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// let ctx = Context::from_parent(Context::current());
+    /// let id = ctx.context_id();
+    /// ctx.clone().set_current();
+    ///
+    /// // Later, pop back to the parent
+    /// Context::pop(id);
+    /// ```
     #[inline]
     pub fn context_id(&self) -> ContextID {
         ContextID(self.inner.context_id)
     }
 
-    /**
-    Pops the context with specified ID.
-
-    If the context cannot be found, logs a warning.
-    */
+    /// Pops contexts from the current thread's stack until reaching the specified context.
+    ///
+    /// This searches up the context hierarchy for a context with the given ID.
+    /// When found, sets the current context to that context's parent.
+    /// If the ID is not found in the current hierarchy, logs a warning.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::Context;
+    ///
+    /// Context::reset("root".to_string());
+    ///
+    /// let child = Context::from_parent(Context::current());
+    /// let child_id = child.context_id();
+    /// child.clone().set_current();
+    ///
+    /// let grandchild = Context::from_parent(Context::current());
+    /// grandchild.set_current();
+    ///
+    /// // Pop back to root (child's parent)
+    /// Context::pop(child_id);
+    /// ```
     pub fn pop(id: ContextID) {
         let mut current = Context::current();
         loop {
@@ -317,11 +689,16 @@ impl Context {
         }
     }
 
-    /**
-    Internal implementation detail of the logging system.
-
-    Logs the start of logs that typically use Context.
-    */
+    /// Internal: Writes the context prelude to a log record.
+    ///
+    /// This method is used internally by the logging macros to add context
+    /// information (tracing marker, indentation, task ID) to log messages.
+    ///
+    /// # Note
+    ///
+    /// This is an implementation detail of the logging system and should not
+    /// be called directly by users.
+    #[doc(hidden)]
     #[inline]
     pub fn _log_prelude(&self, record: &mut crate::log_record::LogRecord) {
         let prefix = if self.is_tracing() { "T" } else { " " };
@@ -332,23 +709,93 @@ impl Context {
         record.log_owned(format!("{} ", self.task_id()));
     }
 
+    /// Internal: Adds a performance interval to the current task's statistics.
+    ///
+    /// This method is used internally by the perfwarn system to accumulate
+    /// performance statistics that are logged when the task completes.
+    ///
+    /// # Note
+    ///
+    /// This is an implementation detail of the logging system and should not
+    /// be called directly by users.
+    #[doc(hidden)]
     #[inline]
     pub fn _add_task_interval(&self, key: &'static str, duration: crate::sys::Duration) {
         self.task().add_task_interval(key, duration);
     }
 }
 
-/**
-Applies the context to the given future for the duration of a poll event.
-
-This can be used to inject a future with "plausible context" to hostile executors.
-*/
+/// A [`Future`] wrapper that preserves context across async executor boundaries.
+///
+/// Many async executors don't preserve thread-local state between poll calls,
+/// which can cause context loss in async code. `ApplyContext` solves this by
+/// saving and restoring the context around each poll.
+///
+/// # Use Cases
+///
+/// - Working with executors that use thread pools
+/// - Spawning tasks that need to maintain parent context
+/// - Ensuring consistent logging context in async code
+///
+/// # Examples
+///
+/// ```rust
+/// use logwise::context::{Context, ApplyContext};
+///
+/// async fn process_data() {
+///     logwise::info_sync!("Processing data");
+/// }
+///
+/// # async fn example() {
+/// // Create a context for this operation
+/// let ctx = Context::new_task(None, "data_processor".to_string());
+///
+/// // Wrap the future to preserve context
+/// let future = ApplyContext::new(ctx, process_data());
+///
+/// // The context will be active during all poll calls
+/// future.await;
+/// # }
+/// ```
+///
+/// # Implementation Details
+///
+/// `ApplyContext` implements [`Future`] by:
+/// 1. Saving the current thread-local context
+/// 2. Setting its wrapped context as current
+/// 3. Polling the inner future
+/// 4. Restoring the original context
+///
+/// This ensures the wrapped future always sees the correct context, regardless
+/// of which thread or executor polls it.
 pub struct ApplyContext<F>(Context, F);
 
 impl<F> ApplyContext<F> {
-    /**
-        Creates a new type given the context to apply and the future to poll
-    */
+    /// Creates a new `ApplyContext` wrapper.
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The context to apply during polling
+    /// * `f` - The future to wrap
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use logwise::context::{Context, ApplyContext};
+    /// use std::future::Future;
+    ///
+    /// async fn my_task() -> i32 {
+    ///     logwise::info_sync!("Running task");
+    ///     42
+    /// }
+    ///
+    /// # async fn example() {
+    /// let ctx = Context::new_task(None, "wrapped_task".to_string());
+    /// let wrapped = ApplyContext::new(ctx, my_task());
+    /// let result = wrapped.await;
+    /// assert_eq!(result, 42);
+    /// # }
+    /// ```
     pub fn new(context: Context, f: F) -> Self {
         Self(context, f)
     }
