@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: MIT OR Apache-2.0
 use crate::Level;
 use std::fmt::{Debug, Display};
 use std::sync::OnceLock;

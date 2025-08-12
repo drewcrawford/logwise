@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Core logging implementation functions for the logwise logging library.
 //!
@@ -154,22 +154,110 @@ impl From<bool> for LoggingDomain {
 
 /// Declares the logging domain for the current crate.
 ///
-/// This macro sets up the internal logging configuration for a crate.
-/// When called without arguments, it automatically enables internal logging
-/// if the `logwise_internal` feature is enabled, otherwise disables it.
+/// This macro sets up the internal logging configuration for a crate, determining
+/// whether `debuginternal` log messages will be displayed. It must be declared at
+/// the crate root (typically in `lib.rs` or `main.rs`) to enable the use of
+/// `debuginternal_sync!` and `debuginternal_async!` macros.
 ///
-/// # Examples
+/// # Two Invocation Patterns
+///
+/// ## 1. Default Invocation (Feature-Based)
+///
+/// When called without arguments, the macro automatically enables internal logging
+/// based on the presence of the `logwise_internal` feature flag:
 ///
 /// ```rust
 /// # #[macro_use] extern crate logwise;
-/// // Automatic configuration based on features
+/// // At crate root (lib.rs or main.rs)
 /// declare_logging_domain!();
 /// ```
 ///
+/// With this pattern, you should declare a `logwise_internal` feature in your
+/// `Cargo.toml`:
+///
+/// ```toml
+/// [features]
+/// logwise_internal = []
+/// ```
+///
+/// Then enable internal logging by running:
+/// ```bash
+/// cargo build --features logwise_internal
+/// ```
+///
+/// ## 2. Explicit Invocation
+///
+/// You can explicitly control internal logging by passing a boolean value:
+///
 /// ```rust
 /// # #[macro_use] extern crate logwise;
-/// // Explicitly enable internal logging
+/// // Always enable internal logging for this crate
 /// declare_logging_domain!(true);
+/// ```
+///
+/// Or conditionally based on other criteria:
+///
+/// ```rust
+/// # #[macro_use] extern crate logwise;
+/// // Enable based on custom logic or configuration
+/// declare_logging_domain!(cfg!(debug_assertions));
+/// ```
+///
+/// # Important Notes
+///
+/// - **Required for debuginternal macros**: Without this macro at the crate root,
+///   attempting to use `debuginternal_sync!` or `debuginternal_async!` will result
+///   in a compile error about `__LOGWISE_DOMAIN` not being found.
+///
+/// - **Crate-level scope**: This affects only the current crate. Each crate using
+///   logwise must declare its own logging domain.
+///
+/// - **Performance**: When internal logging is disabled, `debuginternal` macros
+///   have minimal runtime overhead as they check the domain state early.
+///
+/// # Examples
+///
+/// ## Basic Setup with Feature Flag
+///
+/// `Cargo.toml`:
+/// ```toml
+/// [dependencies]
+/// logwise = "0.1"
+///
+/// [features]
+/// logwise_internal = []
+/// ```
+///
+/// `src/lib.rs`:
+/// ```rust
+/// # #[macro_use] extern crate logwise;
+/// declare_logging_domain!();
+///
+/// pub fn my_function() {
+///     // This will only log when built with --features logwise_internal
+///     logwise::debuginternal_sync!("Debug output: {value}", value=42);
+/// }
+/// ```
+///
+/// ## Always-Enabled Internal Logging
+///
+/// ```rust
+/// # #[macro_use] extern crate logwise;
+/// // Enable internal logging for all builds of this crate
+/// declare_logging_domain!(true);
+///
+/// fn main() {
+///     // This will always log in debug builds
+///     logwise::debuginternal_sync!("Application starting");
+/// }
+/// ```
+///
+/// ## Conditional Based on Environment
+///
+/// ```rust
+/// # #[macro_use] extern crate logwise;
+/// // Enable internal logging based on an environment variable
+/// declare_logging_domain!(option_env!("ENABLE_INTERNAL_LOGS").is_some());
 /// ```
 #[macro_export]
 macro_rules! declare_logging_domain {

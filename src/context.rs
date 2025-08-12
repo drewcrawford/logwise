@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Thread-local context management for hierarchical, task-based logging.
 //!
