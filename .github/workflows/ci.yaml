@@ -60,8 +60,18 @@ jobs:
         run: |
           # at the moment, GitHub is too far behind mainline rust (v1.89.0-v1.91.0-nightly)
           rustup update
-          rustup +nightly component add rustfmt
-          rustup +nightly target add wasm32-unknown-unknown
+          # if nightly
+            if [ "${{ matrix.channel }}" == "+nightly" ]; then
+                rustup +nightly component add rustfmt clippy
+            else
+            fi
+          # if nightly and wasm32 target
+            if [ "${{ matrix.target }}" == "wasm32-unknown-unknown" ];
+            then
+                rustup +nightly target add wasm32-unknown-unknown
+            else
+            fi
+          
 
       - name: rustfmt
         run: cargo ${{ matrix.channel }} fmt --check
