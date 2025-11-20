@@ -172,7 +172,7 @@ impl Drop for Task {
             }
         }
 
-        if self.label != "Default task" {
+        if self.label != "Default task" && crate::log_enabled!(self.completion_level) {
             let mut record = crate::log_record::LogRecord::new(self.completion_level);
             record.log_owned(format!("{} ", self.task_id.0));
             record.log("Finished task `");
