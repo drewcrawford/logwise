@@ -2,6 +2,9 @@
 /*!
 # logwise
 
+![logo](../../art/logo.png)
+
+
 An opinionated logging library for Rust with structured logging, privacy-aware data handling,
 and hierarchical task-based context management.
 
