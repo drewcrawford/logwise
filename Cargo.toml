@@ -22,11 +22,11 @@ logwise_proc = { path = "logwise_proc", version = "0.3.0" }
 logwise_internal = []
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
-wasm-bindgen = "0.2"
+wasm-bindgen = "0.2.105"
 web-time = "1.1"
 web-sys = {version = "0.3",features=["console"]}
 # PeriodicDrainToConsole
-wasm_thread = "0.3"
+wasm_thread = "0.3.3"
 
 
 [target.'cfg(target_arch="wasm32")'.dev-dependencies]

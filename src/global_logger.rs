@@ -286,9 +286,15 @@ pub fn set_global_loggers(new_loggers: Vec<Arc<dyn Logger>>) {
 mod tests {
     use super::*;
     use crate::inmemory_logger::InMemoryLogger;
+    use crate::stderror_logger::StdErrorLogger;
+    use std::sync::Mutex;
+
+    static TEST_LOGGER_GUARD: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_add_logger() {
+        let _guard = TEST_LOGGER_GUARD.lock().unwrap();
+        set_global_loggers(vec![Arc::new(StdErrorLogger::new())]);
         let initial_count = global_loggers().len();
 
         // Add a new logger
@@ -306,6 +312,7 @@ mod tests {
 
     #[test]
     fn test_set_loggers() {
+        let _guard = TEST_LOGGER_GUARD.lock().unwrap();
         // Create some test loggers
         let logger1 = Arc::new(InMemoryLogger::new());
         let logger2 = Arc::new(InMemoryLogger::new());
@@ -321,6 +328,9 @@ mod tests {
     #[test]
     fn test_thread_safety() {
         use std::thread;
+
+        let _guard = TEST_LOGGER_GUARD.lock().unwrap();
+        set_global_loggers(vec![Arc::new(StdErrorLogger::new())]);
 
         let logger = Arc::new(InMemoryLogger::new());
         let logger_clone = logger.clone();

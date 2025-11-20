@@ -7,6 +7,7 @@
 //! be used. Unlike traditional logging systems, logwise uses opinionated levels
 //! that correspond to specific use cases rather than generic severity indicators.
 
+use crate::log_enabled;
 use std::fmt::Display;
 
 #[non_exhaustive]
@@ -65,6 +66,42 @@ impl Display for Level {
             Level::Warning => write!(f, "WARN"),
             Level::Error => write!(f, "ERROR"),
             Level::Panic => write!(f, "PANIC"),
+        }
+    }
+}
+
+impl Level {
+    /// Logs a simple message at this level if logging is enabled.
+    pub fn log(self, message: &'static str) {
+        let enabled = match self {
+            Level::DebugInternal => log_enabled!(Level::DebugInternal, || crate::__LOGWISE_DOMAIN.is_internal()),
+            other => log_enabled!(other),
+        };
+
+        if !enabled {
+            return;
+        }
+
+        match self {
+            Level::Trace => {
+                crate::trace_sync!("{message}", message = message);
+            }
+            Level::DebugInternal => {
+                crate::debuginternal_sync!("{message}", message = message);
+            }
+            Level::Info => {
+                crate::info_sync!("{message}", message = message);
+            }
+            Level::PerfWarn => {
+                let _ = crate::perfwarn!("{message}", message = message, { () });
+            }
+            Level::Warning => {
+                crate::warn_sync!("{message}", message = message);
+            }
+            Level::Error => {
+                crate::error_sync!("{message}", message = message);
+            }
+            Level::Analytics | Level::Panic => {}
         }
     }
 }

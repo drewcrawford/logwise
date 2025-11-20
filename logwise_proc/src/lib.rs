@@ -545,7 +545,7 @@ pub fn trace_sync(input: TokenStream) -> TokenStream {
         r#"
         #[cfg(debug_assertions)]
         {{
-            if logwise::context::Context::currently_tracing() {{
+            if logwise::log_enabled!(logwise::Level::Trace) {{
                 let mut record = logwise::hidden::trace_sync_pre(file!(),line!(),column!());
 
                 let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
@@ -607,7 +607,7 @@ pub fn trace_async(input: TokenStream) -> TokenStream {
         r#"
         #[cfg(debug_assertions)]
         {{
-            if logwise::context::Context::currently_tracing() {{
+            if logwise::log_enabled!(logwise::Level::Trace) {{
                 let mut record = logwise::hidden::trace_sync_pre(file!(),line!(),column!());
 
                 let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
@@ -688,8 +688,7 @@ pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
     let src = format!(
         r#"
         #[cfg(debug_assertions)] {{
-        let use_declare_logging_domain_macro_at_crate_root = crate::__LOGWISE_DOMAIN.is_internal();
-            if use_declare_logging_domain_macro_at_crate_root || logwise::context::Context::currently_tracing() {{
+            if logwise::log_enabled!(logwise::Level::DebugInternal, || crate::__LOGWISE_DOMAIN.is_internal()) {{
                     let mut record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
                     let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
                     {LFORMAT_EXPAND}
@@ -748,8 +747,7 @@ pub fn debuginternal_async(input: TokenStream) -> TokenStream {
     let src = format!(
         r#"
         #[cfg(debug_assertions)] {{
-        let use_declare_logging_domain_macro_at_crate_root = crate::__LOGWISE_DOMAIN.is_internal();
-            if use_declare_logging_domain_macro_at_crate_root || logwise::context::Context::currently_tracing() {{
+            if logwise::log_enabled!(logwise::Level::DebugInternal, || crate::__LOGWISE_DOMAIN.is_internal()) {{
                let mut record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
                 let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
 
@@ -814,12 +812,14 @@ pub fn info_sync(input: TokenStream) -> TokenStream {
         r#"
         #[cfg(debug_assertions)]
         {{
-            let mut record = logwise::hidden::info_sync_pre(file!(),line!(),column!());
+            if logwise::log_enabled!(logwise::Level::Info) {{
+                let mut record = logwise::hidden::info_sync_pre(file!(),line!(),column!());
 
-            let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
 
-            {LFORMAT_EXPAND}
-            logwise::hidden::info_sync_post(record);
+                {LFORMAT_EXPAND}
+                logwise::hidden::info_sync_post(record);
+            }}
         }}
     "#,
         LFORMAT_EXPAND = lformat_result.output
@@ -868,10 +868,12 @@ pub fn info_async(input: TokenStream) -> TokenStream {
     let src = format!(
         r#"
         #[cfg(debug_assertions)] {{
-            let mut record = logwise::hidden::info_sync_pre(file!(),line!(),column!());
-            let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
-            {LFORMAT_EXPAND}
-            logwise::hidden::info_async_post(record).await;
+            if logwise::log_enabled!(logwise::Level::Info) {{
+                let mut record = logwise::hidden::info_sync_pre(file!(),line!(),column!());
+                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                {LFORMAT_EXPAND}
+                logwise::hidden::info_async_post(record).await;
+            }}
         }}
     "#,
         LFORMAT_EXPAND = lformat_result.output
@@ -934,12 +936,14 @@ pub fn warn_sync(input: TokenStream) -> TokenStream {
     let src = format!(
         r#"
         {{
-            let mut record = logwise::hidden::warn_sync_pre(file!(),line!(),column!());
+            if logwise::log_enabled!(logwise::Level::Warning) {{
+                let mut record = logwise::hidden::warn_sync_pre(file!(),line!(),column!());
 
-            let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
 
-            {LFORMAT_EXPAND}
-            logwise::hidden::warn_sync_post(record);
+                {LFORMAT_EXPAND}
+                logwise::hidden::warn_sync_post(record);
+            }}
         }}
     "#,
         LFORMAT_EXPAND = lformat_result.output
@@ -1000,10 +1004,17 @@ pub fn perfwarn_begin(input: TokenStream) -> TokenStream {
     let src = format!(
         r#"
         {{
-            let mut record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
-            let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
-            {LFORMAT_EXPAND}
-            logwise::hidden::perfwarn_begin_post(record,"{NAME}")
+            if logwise::log_enabled!(logwise::Level::PerfWarn) {{
+                let mut record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
+                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                {LFORMAT_EXPAND}
+                logwise::hidden::perfwarn_begin_post(record,"{NAME}")
+            }} else {{
+                logwise::hidden::perfwarn_begin_post(
+                    logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!()),
+                    "{NAME}",
+                )
+            }}
         }}
     "#,
         LFORMAT_EXPAND = lformat_result.output,
@@ -1088,13 +1099,17 @@ pub fn perfwarn(input: TokenStream) -> TokenStream {
     let src = format!(
         r#"
         {{
-            let mut record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
-            let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
-            {LFORMAT_EXPAND}
-            let interval = logwise::hidden::perfwarn_begin_post(record,"{NAME}");
-            let result = {BLOCK};
-            drop(interval);
-            result
+            if logwise::log_enabled!(logwise::Level::PerfWarn) {{
+                let mut record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
+                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                {LFORMAT_EXPAND}
+                let interval = logwise::hidden::perfwarn_begin_post(record,"{NAME}");
+                let result = {BLOCK};
+                drop(interval);
+                result
+            }} else {{
+                {BLOCK}
+            }}
         }}
     "#,
         LFORMAT_EXPAND = lformat_expand.output,
@@ -1172,12 +1187,14 @@ pub fn error_sync(input: TokenStream) -> TokenStream {
     let src = format!(
         r#"
         {{
-            let mut record = logwise::hidden::error_sync_pre(file!(),line!(),column!());
+            if logwise::log_enabled!(logwise::Level::Error) {{
+                let mut record = logwise::hidden::error_sync_pre(file!(),line!(),column!());
 
-            let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
 
-            {LFORMAT_EXPAND}
-            logwise::hidden::error_sync_post(record);
+                {LFORMAT_EXPAND}
+                logwise::hidden::error_sync_post(record);
+            }}
         }}
     "#,
         LFORMAT_EXPAND = lformat_result.output
@@ -1236,12 +1253,14 @@ pub fn error_async(input: TokenStream) -> TokenStream {
     let src = format!(
         r#"
         {{
-            let mut record = logwise::hidden::error_sync_pre(file!(),line!(),column!());
+            if logwise::log_enabled!(logwise::Level::Error) {{
+                let mut record = logwise::hidden::error_sync_pre(file!(),line!(),column!());
 
-            let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
 
-            {LFORMAT_EXPAND}
-            logwise::hidden::error_async_post(record).await;
+                {LFORMAT_EXPAND}
+                logwise::hidden::error_async_post(record).await;
+            }}
         }}
     "#,
         LFORMAT_EXPAND = lformat_result.output

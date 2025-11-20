@@ -277,6 +277,58 @@ macro_rules! declare_logging_domain {
     };
 }
 
+/// Returns whether logging is enabled for a given [`Level`](crate::Level).
+///
+/// This macro centralizes the enablement logic used by the logging macros so the
+/// same checks are available both inside and outside of the macros themselves.
+#[macro_export]
+macro_rules! log_enabled {
+    ($level:expr) => {
+        $crate::log_enabled!($level, || false)
+    };
+    ($level:expr, $domain:expr) => {{
+        #[allow(unreachable_patterns)]
+        match $level {
+            $crate::Level::Trace => {
+                #[cfg(debug_assertions)]
+                {
+                    $crate::context::Context::currently_tracing()
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    false
+                }
+            }
+            $crate::Level::DebugInternal => {
+                #[cfg(debug_assertions)]
+                {
+                    ($domain)() || $crate::context::Context::currently_tracing()
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    false
+                }
+            }
+            $crate::Level::Info => {
+                #[cfg(debug_assertions)]
+                {
+                    true
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    false
+                }
+            }
+            $crate::Level::PerfWarn
+            | $crate::Level::Warning
+            | $crate::Level::Error
+            | $crate::Level::Panic
+            | $crate::Level::Analytics => true,
+            _ => true,
+        }
+    }};
+}
+
 /// Formatter for writing log messages with full private information.
 ///
 /// This formatter is used by the procedural macros to write both literal strings
