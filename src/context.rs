@@ -45,7 +45,8 @@
 //! // Create a new task context
 //! let task_ctx = Context::new_task(
 //!     Some(Context::current()),
-//!     "data_processing".to_string()
+//!     "data_processing".to_string(),
+//!     logwise::Level::Info,
 //! );
 //! task_ctx.clone().set_current();
 //!
@@ -80,7 +81,7 @@
 //! # async fn async_operation() {}
 //!
 //! # async fn example() {
-//! let ctx = Context::new_task(None, "async_task".to_string());
+//! let ctx = Context::new_task(None, "async_task".to_string(), logwise::Level::Info);
 //!
 //! // Wrap the future to preserve context during polling
 //! let future = ApplyContext::new(ctx, async_operation());
@@ -172,7 +173,7 @@ impl Drop for Task {
         }
 
         if self.label != "Default task" {
-            let mut record = crate::log_record::LogRecord::new(Level::Info);
+            let mut record = crate::log_record::LogRecord::new(self.completion_level);
             record.log_owned(format!("{} ", self.task_id.0));
             record.log("Finished task `");
             record.log(&self.label);
@@ -200,7 +201,7 @@ struct TaskMutable {
 /// ```rust
 /// use logwise::context::Context;
 ///
-/// let ctx = Context::new_task(None, "data_processing".to_string());
+/// let ctx = Context::new_task(None, "data_processing".to_string(), logwise::Level::Info);
 /// ctx.set_current();
 /// // Task lifecycle is automatically logged
 /// ```
@@ -209,19 +210,21 @@ pub struct Task {
     task_id: TaskID,
     mutable: Mutex<TaskMutable>,
     label: String,
+    completion_level: Level,
 }
 
 impl Task {
     /// Creates a new task with the given label.
     ///
     /// This is an internal method; tasks are typically created through [`Context::new_task`].
-    fn new(label: String) -> Task {
+    fn new(label: String, completion_level: Level) -> Task {
         Task {
             task_id: TaskID(TASK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
             mutable: Mutex::new(TaskMutable {
                 interval_statistics: HashMap::new(),
             }),
             label,
+            completion_level,
         }
     }
 }
@@ -260,13 +263,14 @@ struct ContextInner {
 /// use logwise::context::Context;
 ///
 /// // Create a root context (no parent)
-/// let root = Context::new_task(None, "root_operation".to_string());
+/// let root = Context::new_task(None, "root_operation".to_string(), logwise::Level::Info);
 /// root.clone().set_current();
 ///
 /// // Create a child context with a new task
 /// let child = Context::new_task(
 ///     Some(Context::current()),
-///     "child_operation".to_string()
+///     "child_operation".to_string(),
+///     logwise::Level::Info,
 /// );
 /// child.clone().set_current();
 ///
@@ -327,7 +331,12 @@ impl AsRef<Task> for Context {
 }
 
 thread_local! {
-    static CONTEXT: Cell<Context> = Cell::new(Context::new_task_internal(None,"Default task".to_string(),0));
+    static CONTEXT: Cell<Context> = Cell::new(Context::new_task_internal(
+        None,
+        "Default task".to_string(),
+        Level::DebugInternal,
+        0,
+    ));
 }
 
 impl Context {
@@ -362,7 +371,7 @@ impl Context {
     /// ```rust
     /// use logwise::context::Context;
     ///
-    /// let ctx = Context::new_task(None, "my_task".to_string());
+    /// let ctx = Context::new_task(None, "my_task".to_string(), logwise::Level::Info);
     /// // Access task properties through the context
     /// let task = ctx.task();
     ///
@@ -391,6 +400,7 @@ impl Context {
     ///
     /// * `parent` - Optional parent context. If `None`, creates a root context.
     /// * `label` - Human-readable label for the task.
+    /// * `completion_level` - Log level used when the task finishes.
     ///
     /// # Examples
     ///
@@ -398,26 +408,32 @@ impl Context {
     /// use logwise::context::Context;
     ///
     /// // Create a root task
-    /// let root = Context::new_task(None, "main_process".to_string());
+    /// let root = Context::new_task(None, "main_process".to_string(), logwise::Level::Info);
     ///
     /// // Create a child task
     /// let child = Context::new_task(
     ///     Some(root.clone()),
-    ///     "subprocess".to_string()
+    ///     "subprocess".to_string(),
+    ///     logwise::Level::Info,
     /// );
     /// ```
     #[inline]
-    pub fn new_task(parent: Option<Context>, label: String) -> Context {
+    pub fn new_task(parent: Option<Context>, label: String, completion_level: Level) -> Context {
         let context_id = CONTEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        Self::new_task_internal(parent, label, context_id)
+        Self::new_task_internal(parent, label, completion_level, context_id)
     }
     #[inline]
-    fn new_task_internal(parent: Option<Context>, label: String, context_id: u64) -> Context {
+    fn new_task_internal(
+        parent: Option<Context>,
+        label: String,
+        completion_level: Level,
+        context_id: u64,
+    ) -> Context {
         Context {
             inner: Arc::new(ContextInner {
                 parent,
                 context_id,
-                define_task: Some(Task::new(label)),
+                define_task: Some(Task::new(label, completion_level)),
                 is_tracing: AtomicBool::new(false),
             }),
         }
@@ -441,7 +457,7 @@ impl Context {
     /// ```
     #[inline]
     pub fn reset(label: String) {
-        let new_context = Context::new_task(None, label);
+        let new_context = Context::new_task(None, label, Level::DebugInternal);
         new_context.set_current();
     }
 
@@ -458,7 +474,7 @@ impl Context {
     /// ```rust
     /// use logwise::context::Context;
     ///
-    /// let task_ctx = Context::new_task(None, "operation".to_string());
+    /// let task_ctx = Context::new_task(None, "operation".to_string(), logwise::Level::Info);
     /// task_ctx.clone().set_current();
     ///
     /// // Create a sub-context within the same task
@@ -490,7 +506,7 @@ impl Context {
     /// ```rust
     /// use logwise::context::Context;
     ///
-    /// let ctx = Context::new_task(None, "my_task".to_string());
+    /// let ctx = Context::new_task(None, "my_task".to_string(), logwise::Level::Info);
     /// let task_id = ctx.task_id();
     /// println!("Task ID: {}", task_id);
     /// ```
@@ -584,7 +600,7 @@ impl Context {
     /// ```rust
     /// use logwise::context::Context;
     ///
-    /// let new_ctx = Context::new_task(None, "new_task".to_string());
+    /// let new_ctx = Context::new_task(None, "new_task".to_string(), logwise::Level::Info);
     /// new_ctx.set_current();
     ///
     /// // All logs now use the new context
@@ -604,7 +620,7 @@ impl Context {
     /// ```rust
     /// use logwise::context::Context;
     ///
-    /// let root = Context::new_task(None, "root".to_string());
+    /// let root = Context::new_task(None, "root".to_string(), logwise::Level::Info);
     /// assert_eq!(root.nesting_level(), 0);
     ///
     /// let child = Context::from_parent(root.clone());
@@ -747,7 +763,7 @@ impl Context {
 ///
 /// # async fn example() {
 /// // Create a context for this operation
-/// let ctx = Context::new_task(None, "data_processor".to_string());
+/// let ctx = Context::new_task(None, "data_processor".to_string(), logwise::Level::Info);
 ///
 /// // Wrap the future to preserve context
 /// let future = ApplyContext::new(ctx, process_data());
@@ -789,7 +805,7 @@ impl<F> ApplyContext<F> {
     /// }
     ///
     /// # async fn example() {
-    /// let ctx = Context::new_task(None, "wrapped_task".to_string());
+    /// let ctx = Context::new_task(None, "wrapped_task".to_string(), logwise::Level::Info);
     /// let wrapped = ApplyContext::new(ctx, my_task());
     /// let result = wrapped.await;
     /// assert_eq!(result, 42);
@@ -821,6 +837,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::Level;
     use super::{Context, Task, TaskID};
     #[cfg(target_arch = "wasm32")]
     use wasm_bindgen_test::*;
@@ -845,7 +862,7 @@ mod tests {
         Context::reset("test_context_equality".to_string());
         let context1 = Context::current();
         let context2 = context1.clone();
-        let context3 = Context::new_task(None, "different_task".to_string());
+        let context3 = Context::new_task(None, "different_task".to_string(), Level::Info);
 
         // Same Arc pointer should be equal
         assert_eq!(context1, context2);
@@ -865,7 +882,7 @@ mod tests {
         Context::reset("test_context_hash".to_string());
         let context1 = Context::current();
         let context2 = context1.clone();
-        let context3 = Context::new_task(None, "different_task".to_string());
+        let context3 = Context::new_task(None, "different_task".to_string(), Level::Info);
 
         // Same Arc pointer should have same hash
         let mut hasher1 = DefaultHasher::new();
@@ -911,7 +928,11 @@ mod tests {
         assert!(child_display.contains(&format!("{} (root_task)", root_context.task_id())));
 
         // Create a new task context as child
-        let task_context = Context::new_task(Some(child_context.clone()), "child_task".to_string());
+        let task_context = Context::new_task(
+            Some(child_context.clone()),
+            "child_task".to_string(),
+            Level::Info,
+        );
         task_context.clone().set_current();
         let task_display = format!("{}", task_context);
 
@@ -967,7 +988,8 @@ mod tests {
         assert_eq!(child_task_ref.task_id, context.task_id());
         assert_eq!(child_task_ref.label, "test_as_ref");
 
-        let new_task_context = Context::new_task(Some(context.clone()), "new_task".to_string());
+        let new_task_context =
+            Context::new_task(Some(context.clone()), "new_task".to_string(), Level::Info);
         let new_task_ref: &Task = new_task_context.as_ref();
 
         // New task should have different ID and label
