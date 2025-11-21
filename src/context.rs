@@ -552,13 +552,15 @@ impl Context {
     /// ```
     #[inline]
     pub fn currently_tracing() -> bool {
-        CONTEXT.with(|c| {
-            //safety: we don't let anyone get a mutable reference to this
-            unsafe { &*c.as_ptr() }
-                .inner
-                .is_tracing
-                .load(Ordering::Relaxed)
-        })
+        CONTEXT
+            .try_with(|c| {
+                //safety: we don't let anyone get a mutable reference to this
+                unsafe { &*c.as_ptr() }
+                    .inner
+                    .is_tracing
+                    .load(Ordering::Relaxed)
+            })
+            .unwrap_or(false)
     }
 
     /// Enables tracing for the current context and its future children.
