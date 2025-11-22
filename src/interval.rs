@@ -97,5 +97,53 @@ mod tests {
     fn assert_send_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<super::PerfwarnInterval>();
+        assert_send_sync::<super::PerfwarnIntervalIf>();
+    }
+}
+
+#[derive(Debug)]
+pub struct PerfwarnIntervalIf {
+    label: &'static str,
+    start: crate::sys::Instant,
+    threshold: crate::sys::Duration,
+}
+
+impl PerfwarnIntervalIf {
+    #[inline]
+    pub fn new(
+        label: &'static str,
+        time: crate::sys::Instant,
+        threshold: crate::sys::Duration,
+    ) -> Self {
+        Self {
+            label,
+            start: time,
+            threshold,
+        }
+    }
+}
+
+impl Drop for PerfwarnIntervalIf {
+    fn drop(&mut self) {
+        let end_time = crate::sys::Instant::now();
+        let duration = end_time.duration_since(self.start);
+        let ctx = Context::current();
+        ctx._add_task_interval_if(self.label, duration, self.threshold);
+
+        if duration > self.threshold {
+            let mut record = LogRecord::new(Level::PerfWarn);
+            let ctx = Context::current();
+            ctx._log_prelude(&mut record);
+            record.log("PERFWARN: END ");
+            record.log_time_since(end_time);
+
+            record.log(self.label);
+            record.log(" ");
+            record.log_owned(format!("[interval took {:?}] ", duration));
+            let global_loggers = global_loggers();
+            for logger in global_loggers {
+                logger.finish_log_record(record.clone());
+            }
+        }
     }
 }

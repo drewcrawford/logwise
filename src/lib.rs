@@ -289,8 +289,8 @@ declare_logging_domain!();
 
 // Re-export core types and functions for public API
 pub use global_logger::{add_global_logger, global_loggers, set_global_loggers};
+pub use heartbeat::{HeartbeatGuard, heartbeat};
 pub use inmemory_logger::InMemoryLogger;
-pub use heartbeat::{heartbeat, HeartbeatGuard};
 pub use level::Level;
 pub use log_record::LogRecord;
 pub use logger::Logger;
@@ -299,7 +299,7 @@ pub use logger::Logger;
 // See individual macro documentation for usage details.
 pub use logwise_proc::{
     debuginternal_async, debuginternal_sync, error_async, error_sync, info_async, info_sync,
-    perfwarn, perfwarn_begin, trace_async, trace_sync, warn_sync,
+    perfwarn, perfwarn_begin, perfwarn_begin_if, trace_async, trace_sync, warn_sync,
 };
 
 pub use macros::LoggingDomain;
@@ -311,8 +311,8 @@ pub mod hidden {
     pub use crate::macros::{
         debuginternal_async_post, debuginternal_pre, debuginternal_sync_post, error_async_post,
         error_sync_post, error_sync_pre, info_async_post, info_sync_post, info_sync_pre,
-        perfwarn_begin_post, perfwarn_begin_pre, trace_async_post, trace_sync_post, trace_sync_pre,
-        warn_sync_post, warn_sync_pre,
+        perfwarn_begin_if_post, perfwarn_begin_post, perfwarn_begin_pre, trace_async_post,
+        trace_sync_post, trace_sync_pre, warn_sync_post, warn_sync_pre,
     };
 }
 extern crate self as logwise;

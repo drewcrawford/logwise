@@ -152,23 +152,65 @@ impl Task {
                 borrow.interval_statistics.insert(key, duration);
             });
     }
+
+    #[inline]
+    fn add_task_interval_if(
+        &self,
+        key: &'static str,
+        duration: crate::sys::Duration,
+        threshold: crate::sys::Duration,
+    ) {
+        let mut borrow = self.mutable.lock().unwrap();
+        borrow
+            .interval_statistics
+            .get_mut(key)
+            .map(|v| *v += duration)
+            .unwrap_or_else(|| {
+                borrow.interval_statistics.insert(key, duration);
+            });
+
+        borrow
+            .interval_thresholds
+            .get_mut(key)
+            .map(|v| *v += threshold)
+            .unwrap_or_else(|| {
+                borrow.interval_thresholds.insert(key, threshold);
+            });
+    }
 }
 
 impl Drop for Task {
     fn drop(&mut self) {
-        if !self.mutable.lock().unwrap().interval_statistics.is_empty() {
+        let borrow = self.mutable.lock().unwrap();
+        if !borrow.interval_statistics.is_empty() {
             let mut record = crate::log_record::LogRecord::new(Level::PerfWarn);
             //log task ID
             record.log_owned(format!("{} ", self.task_id.0));
             record.log("PERFWARN: statistics[");
-            for (key, duration) in &self.mutable.lock().unwrap().interval_statistics {
+            let mut first = true;
+            for (key, duration) in &borrow.interval_statistics {
+                // Check if we should log this statistic
+                if let Some(threshold) = borrow.interval_thresholds.get(key) {
+                    if duration <= threshold {
+                        continue;
+                    }
+                }
+
+                if !first {
+                    record.log(", ");
+                }
+                first = false;
                 record.log(key);
-                record.log_owned(format!(": {:?},", duration));
+                record.log_owned(format!(": {:?}", duration));
             }
             record.log("]");
-            let global_loggers = crate::global_logger::global_loggers();
-            for logger in global_loggers {
-                logger.finish_log_record(record.clone());
+
+            // Only log if we actually added any statistics
+            if !first {
+                let global_loggers = crate::global_logger::global_loggers();
+                for logger in global_loggers {
+                    logger.finish_log_record(record.clone());
+                }
             }
         }
 
@@ -188,6 +230,7 @@ impl Drop for Task {
 #[derive(Clone, Debug)]
 struct TaskMutable {
     interval_statistics: HashMap<&'static str, crate::sys::Duration>,
+    interval_thresholds: HashMap<&'static str, crate::sys::Duration>,
 }
 
 /// Represents a logical unit of work with performance tracking.
@@ -222,6 +265,7 @@ impl Task {
             task_id: TaskID(TASK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)),
             mutable: Mutex::new(TaskMutable {
                 interval_statistics: HashMap::new(),
+                interval_thresholds: HashMap::new(),
             }),
             label,
             completion_level,
@@ -739,6 +783,18 @@ impl Context {
     #[inline]
     pub fn _add_task_interval(&self, key: &'static str, duration: crate::sys::Duration) {
         self.task().add_task_interval(key, duration);
+    }
+
+    /// Internal: Adds a conditional performance interval to the current task's statistics.
+    #[doc(hidden)]
+    #[inline]
+    pub fn _add_task_interval_if(
+        &self,
+        key: &'static str,
+        duration: crate::sys::Duration,
+        threshold: crate::sys::Duration,
+    ) {
+        self.task().add_task_interval_if(key, duration, threshold);
     }
 }
 

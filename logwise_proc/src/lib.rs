@@ -1119,6 +1119,60 @@ pub fn perfwarn(input: TokenStream) -> TokenStream {
     src.parse().unwrap()
 }
 
+/// Generates code for a conditional performance warning interval.
+///
+/// This macro creates a performance interval that only logs if the duration exceeds
+/// the specified threshold. It also contributes to task statistics, but only logs
+/// the statistics if the total duration exceeds the total threshold.
+///
+/// # Syntax
+/// ```
+/// # use std::time::Duration;
+/// let threshold = Duration::from_millis(100);
+/// let interval = logwise::perfwarn_begin_if!(threshold, "operation name {param}", param=42);
+/// // ... operation ...
+/// drop(interval);
+/// ```
+#[proc_macro]
+pub fn perfwarn_begin_if(input: TokenStream) -> TokenStream {
+    let mut input: VecDeque<_> = input.into_iter().collect();
+
+    // Parse threshold expression (first argument)
+    // We need to consume tokens until the first comma
+    let mut threshold_tokens = TokenStream::new();
+    loop {
+        match input.pop_front() {
+            Some(TokenTree::Punct(p)) if p.as_char() == ',' => break,
+            Some(t) => threshold_tokens.extend(std::iter::once(t)),
+            None => return r#"compile_error!("Expected threshold argument")"#.parse().unwrap(),
+        }
+    }
+
+    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let src = format!(
+        r#"
+        {{
+            if logwise::log_enabled!(logwise::Level::PerfWarn) {{
+                let mut record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
+                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                {LFORMAT_EXPAND}
+                logwise::hidden::perfwarn_begin_if_post(record, "{NAME}", {THRESHOLD})
+            }} else {{
+                logwise::hidden::perfwarn_begin_if_post(
+                    logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!()),
+                    "{NAME}",
+                    {THRESHOLD}
+                )
+            }}
+        }}
+    "#,
+        LFORMAT_EXPAND = lformat_result.output,
+        NAME = lformat_result.name,
+        THRESHOLD = threshold_tokens.to_string()
+    );
+    src.parse().unwrap()
+}
+
 /// Generates synchronous error-level logging code (all builds).
 ///
 /// This macro creates error-level log entries for actual error conditions that should
