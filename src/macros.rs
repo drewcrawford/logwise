@@ -938,13 +938,12 @@ pub fn perfwarn_begin_post(
 
 /// Completes the beginning log record and creates a conditional performance warning interval.
 ///
-/// This function sends the initial log record to all registered global loggers and
-/// returns a [`PerfwarnIntervalIf`](crate::interval::PerfwarnIntervalIf) that will log
+/// This function returns a [`PerfwarnIntervalIf`](crate::interval::PerfwarnIntervalIf) that will log
 /// the completion when dropped, but only if the duration exceeds the threshold.
 ///
 /// # Arguments
 ///
-/// * `record` - The completed log record for the interval start
+/// * `record` - The prepared log record for the interval
 /// * `name` - The name of the operation being measured
 /// * `threshold` - The duration threshold for logging
 ///
@@ -957,12 +956,39 @@ pub fn perfwarn_begin_if_post(
     name: &'static str,
     threshold: crate::sys::Duration,
 ) -> crate::interval::PerfwarnIntervalIf {
-    let global_loggers = crate::hidden::global_loggers();
-    for logger in global_loggers {
-        logger.finish_log_record(record.clone());
-    }
+    // We do NOT log the record here. It is deferred until drop.
+    crate::interval::PerfwarnIntervalIf::new(name, crate::sys::Instant::now(), threshold, record)
+}
 
-    crate::interval::PerfwarnIntervalIf::new(name, crate::sys::Instant::now(), threshold)
+/// Creates a log record for a conditional performance warning interval.
+///
+/// This function is called by the `perfwarn_begin_if!` macro to create the initial
+/// log record. Unlike `perfwarn_begin_pre`, this does not log "BEGIN" or a timestamp
+/// immediately, as logging is deferred until the interval completes.
+///
+/// # Arguments
+///
+/// * `file` - The source file where the log was generated
+/// * `line` - The line number in the source file
+/// * `column` - The column number in the source file
+///
+/// # Returns
+///
+/// A [`LogRecord`] initialized with the current context and location information.
+pub fn perfwarn_begin_if_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
+    //safety: guarantee context won't change
+    let mut record = crate::log_record::LogRecord::new(Level::PerfWarn);
+
+    let read_ctx = crate::context::Context::current();
+    read_ctx._log_prelude(&mut record);
+
+    record.log("PERFWARN: ");
+
+    //file, line
+    record.log(file);
+    record.log_owned(format!(":{}:{} ", line, column));
+
+    record
 }
 
 #[cfg(test)]

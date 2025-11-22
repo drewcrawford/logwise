@@ -1153,13 +1153,13 @@ pub fn perfwarn_begin_if(input: TokenStream) -> TokenStream {
         r#"
         {{
             if logwise::log_enabled!(logwise::Level::PerfWarn) {{
-                let mut record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
+                let mut record = logwise::hidden::perfwarn_begin_if_pre(file!(),line!(),column!());
                 let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
                 {LFORMAT_EXPAND}
                 logwise::hidden::perfwarn_begin_if_post(record, "{NAME}", {THRESHOLD})
             }} else {{
                 logwise::hidden::perfwarn_begin_if_post(
-                    logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!()),
+                    logwise::hidden::perfwarn_begin_if_pre(file!(),line!(),column!()),
                     "{NAME}",
                     {THRESHOLD}
                 )

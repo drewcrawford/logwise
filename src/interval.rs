@@ -106,6 +106,7 @@ pub struct PerfwarnIntervalIf {
     label: &'static str,
     start: crate::sys::Instant,
     threshold: crate::sys::Duration,
+    record: crate::log_record::LogRecord,
 }
 
 impl PerfwarnIntervalIf {
@@ -114,11 +115,13 @@ impl PerfwarnIntervalIf {
         label: &'static str,
         time: crate::sys::Instant,
         threshold: crate::sys::Duration,
+        record: crate::log_record::LogRecord,
     ) -> Self {
         Self {
             label,
             start: time,
             threshold,
+            record,
         }
     }
 }
@@ -131,18 +134,38 @@ impl Drop for PerfwarnIntervalIf {
         ctx._add_task_interval_if(self.label, duration, self.threshold);
 
         if duration > self.threshold {
-            let mut record = LogRecord::new(Level::PerfWarn);
-            let ctx = Context::current();
-            ctx._log_prelude(&mut record);
-            record.log("PERFWARN: END ");
-            record.log_time_since(end_time);
+            // We need to insert the timestamp before the label (which is already in the record).
+            // The record parts structure is: [Prelude] "PERFWARN: " File ":line:col " [Label]
+            // We want: ... ":line:col " [Timestamp] [Label] " is SLOW: " [Duration]
 
-            record.log(self.label);
-            record.log(" ");
-            record.log_owned(format!("[interval took {:?}] ", duration));
+            let mut insert_idx = 0;
+            let mut found = false;
+            for (i, part) in self.record.parts.iter().enumerate() {
+                if part == "PERFWARN: " {
+                    // Found the marker. The next two parts are File and LineCol.
+                    // So we want to insert at i + 3.
+                    insert_idx = i + 3;
+                    found = true;
+                    break;
+                }
+            }
+
+            if found && insert_idx <= self.record.parts.len() {
+                // Generate timestamp string
+                let mut temp_record = crate::log_record::LogRecord::new(Level::PerfWarn);
+                temp_record.log_time_since(end_time);
+                let timestamp = temp_record.parts.pop().unwrap();
+
+                self.record.parts.insert(insert_idx, timestamp);
+            }
+
+            self.record.log(" is SLOW: ");
+            self.record
+                .log_owned(format!("[interval took {:?}] ", duration));
+
             let global_loggers = global_loggers();
             for logger in global_loggers {
-                logger.finish_log_record(record.clone());
+                logger.finish_log_record(self.record.clone());
             }
         }
     }
