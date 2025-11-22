@@ -138,6 +138,14 @@ logwise::perfwarn!("database_query", {
 // Logs warning if operation exceeds threshold
 ```
 
+For deadline-based work (e.g., rendering frames), create a heartbeat guard to detect stalls:
+
+```rust
+let _heartbeat = logwise::heartbeat("frame", std::time::Duration::from_millis(16));
+// ...do frame work...
+// Dropping on time is silent; missing the deadline logs a `perfwarn`.
+```
+
 # Architecture Overview
 
 ## Core Components
@@ -260,7 +268,6 @@ logwise includes WebAssembly support with browser-specific features:
 * Uses `web-time` for time operations
 * Console output via `web-sys`
 * Batched logging with `InMemoryLogger::periodic_drain_to_console`
-
 
 
 

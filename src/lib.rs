@@ -272,6 +272,7 @@ logwise includes WebAssembly support with browser-specific features:
 
 pub mod context;
 pub mod global_logger;
+mod heartbeat;
 mod inmemory_logger;
 pub mod interval;
 mod level;
@@ -289,6 +290,7 @@ declare_logging_domain!();
 // Re-export core types and functions for public API
 pub use global_logger::{add_global_logger, global_loggers, set_global_loggers};
 pub use inmemory_logger::InMemoryLogger;
+pub use heartbeat::{heartbeat, HeartbeatGuard};
 pub use level::Level;
 pub use log_record::LogRecord;
 pub use logger::Logger;
