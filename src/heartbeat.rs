@@ -6,8 +6,8 @@ use crate::sys::{Duration, Instant};
 use crate::{Level, log_enabled};
 use std::collections::HashMap;
 use std::panic::Location;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use wasm_safe_mutex::mpsc;
 
@@ -63,6 +63,7 @@ fn channel() -> mpsc::Sender<Message> {
 /// Create via [`heartbeat`] to register the deadline with the background watcher.
 /// Dropping on time is silent; missing a deadline logs `perfwarn` warnings both
 /// when the deadline is crossed and when the guard is eventually dropped.
+#[derive(Debug)]
 pub struct HeartbeatGuard {
     id: u64,
     name: &'static str,
@@ -126,23 +127,20 @@ impl Drop for HeartbeatGuard {
         let now = Instant::now();
         if now > self.deadline {
             let drop_site = CallSite::new();
-            log_heartbeat(
-                drop_site,
-                |record| {
-                    record.log_owned(format!(
-                        "heartbeat \"{}\" dropped after deadline by {:?} ",
-                        self.name,
-                        now.duration_since(self.deadline)
-                    ));
-                    record.log_owned(format!(
-                        "(created at {}:{}:{}, {:?} ago) ",
-                        self.callsite.file,
-                        self.callsite.line,
-                        self.callsite.column,
-                        now.duration_since(self.created_at)
-                    ));
-                },
-            );
+            log_heartbeat(drop_site, |record| {
+                record.log_owned(format!(
+                    "heartbeat \"{}\" dropped after deadline by {:?} ",
+                    self.name,
+                    now.duration_since(self.deadline)
+                ));
+                record.log_owned(format!(
+                    "(created at {}:{}:{}, {:?} ago) ",
+                    self.callsite.file,
+                    self.callsite.line,
+                    self.callsite.column,
+                    now.duration_since(self.created_at)
+                ));
+            });
         }
 
         let _ = sender.send_sync(Message::Complete(self.id));

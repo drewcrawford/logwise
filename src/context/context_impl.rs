@@ -6,8 +6,8 @@ use crate::Level;
 use std::cell::Cell;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use super::task::{Task, TaskID};
 

@@ -273,6 +273,7 @@ logwise includes WebAssembly support with browser-specific features:
 */
 
 pub mod context;
+mod dispatch;
 pub mod global_logger;
 mod heartbeat;
 mod inmemory_logger;
@@ -282,7 +283,6 @@ mod local_logger;
 mod log_record;
 mod logger;
 mod macros;
-mod dispatch;
 pub mod privacy;
 mod spinlock;
 mod stderror_logger;
@@ -309,14 +309,14 @@ pub use macros::LoggingDomain;
 
 #[doc(hidden)]
 pub mod hidden {
-    pub use crate::global_logger::global_loggers;
-    pub use crate::macros::PrivateFormatter;
     pub use crate::dispatch::{
         debuginternal_async_post, debuginternal_pre, debuginternal_sync_post, error_async_post,
         error_sync_post, error_sync_pre, info_async_post, info_sync_post, info_sync_pre,
         perfwarn_begin_if_post, perfwarn_begin_if_pre, perfwarn_begin_post, perfwarn_begin_pre,
         trace_async_post, trace_sync_post, trace_sync_pre, warn_sync_post, warn_sync_pre,
     };
+    pub use crate::global_logger::global_loggers;
+    pub use crate::macros::PrivateFormatter;
 }
 extern crate self as logwise;
 

@@ -2,10 +2,12 @@ logwise::declare_logging_domain!();
 
 #[cfg(test)]
 mod tests {
-    use logwise::{heartbeat, InMemoryLogger};
     use logwise::global_logger::{global_loggers, set_global_loggers};
+    use logwise::{InMemoryLogger, heartbeat};
     use std::sync::Arc;
     use std::sync::Mutex;
+    #[cfg(not(target_arch = "wasm32"))]
+    use std::thread;
     use std::time::Duration;
     use test_executors::async_test;
     #[cfg(target_arch = "wasm32")]
@@ -14,8 +16,6 @@ mod tests {
     use wasm_bindgen_futures::JsFuture;
     #[cfg(target_arch = "wasm32")]
     use web_time::Instant;
-    #[cfg(not(target_arch = "wasm32"))]
-    use std::{thread};
 
     static TEST_LOGGER_GUARD: Mutex<()> = Mutex::new(());
     #[cfg(target_arch = "wasm32")]

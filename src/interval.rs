@@ -10,6 +10,46 @@ use crate::context::Context;
 use crate::global_logger::global_loggers;
 use crate::log_record::LogRecord;
 
+/// A performance warning interval that tracks execution time.
+///
+/// `PerfwarnInterval` measures the duration between its creation and destruction (drop),
+/// logging the elapsed time as a performance warning. The duration is also accumulated
+/// into the current task's statistics for aggregated reporting.
+///
+/// # Usage
+///
+/// This type is typically not created directly. Instead, use the `perfwarn!` or
+/// `perfwarn_begin!` macros which properly set up the interval with source location
+/// information.
+///
+/// # Example
+///
+/// ```rust
+/// # fn perform_expensive_operation() {}
+/// // Using the perfwarn! macro (recommended)
+/// logwise::perfwarn!("database_query", {
+///     perform_expensive_operation();
+/// });
+///
+/// // Using perfwarn_begin! for more control
+/// let interval = logwise::perfwarn_begin!("network_request");
+/// perform_expensive_operation();
+/// // Duration is logged when interval drops
+/// drop(interval);
+/// ```
+///
+/// # Scaling
+///
+/// Use the [`scale`](PerfwarnInterval::scale) method to adjust the reported duration when
+/// only a portion of the measured time is relevant:
+///
+/// ```rust
+/// # fn perform_expensive_operation() {}
+/// let mut interval = logwise::perfwarn_begin!("partial_operation");
+/// perform_expensive_operation();
+/// // Report only 20% of the actual duration
+/// interval.scale(0.2);
+/// ```
 #[derive(Debug)]
 pub struct PerfwarnInterval {
     label: &'static str,

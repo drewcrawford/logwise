@@ -9,26 +9,117 @@
 
 use std::fmt::Display;
 
+/// Log severity levels with opinionated use-case semantics.
+///
+/// Unlike traditional logging systems with generic severity levels, logwise provides
+/// specific levels for defined use cases. Each level has different availability
+/// depending on build type (debug vs release) and runtime configuration.
+///
+/// # Level Hierarchy
+///
+/// The levels are ordered by severity from lowest to highest:
+/// `Trace` < `DebugInternal` < `Info` < `Analytics` < `PerfWarn` < `Warning` < `Error` < `Panic`
+///
+/// # Build-Time Availability
+///
+/// | Level | Debug Builds | Release Builds |
+/// |-------|--------------|----------------|
+/// | `Trace` | ✓ (with tracing enabled) | ✗ |
+/// | `DebugInternal` | ✓ | ✗ |
+/// | `Info` | ✓ | ✗ |
+/// | `Analytics` | ✓ | ✓ |
+/// | `PerfWarn` | ✓ | ✓ |
+/// | `Warning` | ✓ | ✓ |
+/// | `Error` | ✓ | ✓ |
+/// | `Panic` | ✓ | ✓ |
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Level {
-    /// Only available in trace mode.
+    /// Detailed debugging information, only available when tracing is explicitly enabled.
+    ///
+    /// Use for very verbose output that would be too noisy for normal debugging.
+    /// Only available in debug builds when [`Context::begin_trace()`](crate::context::Context::begin_trace)
+    /// has been called.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use logwise::context::Context;
+    /// Context::begin_trace();
+    /// logwise::trace_sync!("Entering function with arg={}", 42);
+    /// ```
     Trace,
-    /// Available by default within the current crate when compiled in debug mode.  Available to users in their debug builds with tracing enabled.
+
+    /// Print-style debugging for the library author.
+    ///
+    /// On by default in the current crate (when built with `--features logwise_internal`),
+    /// but only available to downstream users in their debug builds with tracing enabled.
+    /// Compiled out entirely in release builds.
+    ///
+    /// # Example
+    /// ```rust
+    /// logwise::debuginternal_sync!("Internal state: count={}", 42);
+    /// ```
     DebugInternal,
-    /// Shipped to users in their debug builds
+
+    /// General information for downstream crate users.
+    ///
+    /// Available in debug builds, compiled out in release builds.
+    /// Use for information that helps users understand what your library is doing.
+    ///
+    /// # Example
+    /// ```rust
+    /// logwise::info_sync!("Starting operation", name="data_sync");
+    /// ```
     Info,
-    /// In debug builds, logs.  In release builds, may be interesting to phone home
+
+    /// Analytics and telemetry data.
+    ///
+    /// In debug builds, logs locally. In release builds, this data may be
+    /// sent to analytics services. Use for metrics and usage data that help
+    /// improve the software.
     Analytics,
-    /**
-    Available in release builds, provides performance-critical warnings.
-    */
+
+    /// Performance warnings with timing analysis.
+    ///
+    /// Available in all builds. Use for operations that are unexpectedly slow
+    /// and may need optimization. Integrates with the perfwarn interval system
+    /// for automatic timing.
+    ///
+    /// # Example
+    /// ```rust
+    /// # fn slow_operation() {}
+    /// logwise::perfwarn!("database_query", {
+    ///     slow_operation();
+    /// });
+    /// ```
     PerfWarn,
-    /// Shipped to users in their release builds
+
+    /// Suspicious conditions that may indicate problems.
+    ///
+    /// Available in all builds. Use when something unexpected happened but
+    /// the operation can still continue.
+    ///
+    /// # Example
+    /// ```rust
+    /// logwise::warn_sync!("Config file not found, using defaults");
+    /// ```
     Warning,
-    /// Shipped to users in their release builds, runtime error
+
+    /// Runtime errors that prevent normal operation.
+    ///
+    /// Available in all builds. Use when an operation failed due to external
+    /// factors (network errors, invalid input, etc.).
+    ///
+    /// # Example
+    /// ```rust
+    /// logwise::error_sync!("Failed to connect: {reason}", reason="timeout");
+    /// ```
     Error,
-    /// Shipped to users in their release builds, programmer error
+
+    /// Programmer errors indicating bugs in the code.
+    ///
+    /// Available in all builds. Use for conditions that should never occur
+    /// if the code is correct (invariant violations, assertion failures).
     Panic,
 }
 

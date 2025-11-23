@@ -5,8 +5,8 @@
 use crate::Level;
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::sync::atomic::AtomicU64;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicU64;
 
 pub(crate) static TASK_ID: AtomicU64 = AtomicU64::new(0);
 
