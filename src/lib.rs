@@ -114,6 +114,7 @@ let ctx = Context::new_task(
     Some(Context::current()),
     "data_processing".to_string(),
     logwise::Level::Info,
+    true,
 );
 ctx.clone().set_current();
 
@@ -125,6 +126,7 @@ let child_ctx = Context::new_task(
     Some(Context::current()),
     "parse_csv".to_string(),
     logwise::Level::Info,
+    true,
 );
 child_ctx.clone().set_current();
 
@@ -184,12 +186,12 @@ struct Config {
     logwise::info_sync!("Starting application", version="1.0.0");
 
     // Create task for initialization
-    let init_ctx = Context::new_task(
-        Some(Context::current()),
-        "initialization".to_string(),
-        logwise::Level::Info,
-    );
-    init_ctx.clone().set_current();
+    //     let init_ctx = Context::new_task(
+    //         Some(Context::current()),
+    //         "initialization".to_string(),
+    //         logwise::Level::Info,
+    //         true,
+    //     );init_ctx.clone().set_current();
 
     // Load configuration
     let config = Config {

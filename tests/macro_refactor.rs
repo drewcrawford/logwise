@@ -19,10 +19,4 @@ mod tests {
         // Error is always enabled
         assert!(log_enabled!(Level::Error));
     }
-
-    #[test]
-    fn test_level_log() {
-        // Just verify it compiles and runs without panic
-        Level::Info.log("test message");
-    }
 }

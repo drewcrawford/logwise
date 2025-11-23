@@ -39,6 +39,7 @@ fn test_perfwarn_if_statistics() {
         Some(Context::current()),
         "stats_task".to_string(),
         Level::Info,
+        true,
     );
     ctx.set_current();
 
