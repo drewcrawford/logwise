@@ -236,6 +236,16 @@ fn spawn_watcher(receiver: mpsc::Receiver<Message>) {
     let _ = wasm_thread::spawn(move || heartbeat_loop(receiver));
 }
 
+#[cfg(test)]
+mod tests {
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn assert_send_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<super::HeartbeatGuard>();
+    }
+}
+
 fn heartbeat_loop(receiver: mpsc::Receiver<Message>) {
     let mut heartbeats: HashMap<u64, Heartbeat> = HashMap::new();
     loop {
