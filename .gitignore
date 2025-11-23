@@ -1,3 +1,4 @@
 /target
 Cargo.lock
 logwise_proc/target
+.claude
