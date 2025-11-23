@@ -1,4 +1,44 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Log record type for the logwise logging system.
+//!
+//! This module defines [`LogRecord`], the core data structure that accumulates log message
+//! parts during the logging process. Log records are built incrementally using the `log`
+//! and `log_owned` methods, then submitted to loggers for output.
+//!
+//! # Design Philosophy
+//!
+//! The `LogRecord` type is designed to minimize allocations during logging. Instead of
+//! concatenating strings, it stores parts separately and only joins them when needed for
+//! final output. This approach:
+//!
+//! - Reduces memory allocation overhead
+//! - Enables efficient pass-by-value to loggers
+//! - Supports thread-safe logging without shared buffers
+//!
+//! # Usage Pattern
+//!
+//! 1. Create a new `LogRecord` with a log level
+//! 2. Progressively add message parts using `log()` or `log_owned()`
+//! 3. Submit the complete record to loggers via `Logger::finish_log_record()`
+//!
+//! # Example
+//!
+//! ```rust
+//! use logwise::{LogRecord, Level};
+//!
+//! // Create a new record
+//! let mut record = LogRecord::new(Level::Info);
+//!
+//! // Add message parts
+//! record.log("Processing request ");
+//! record.log_owned(format!("#{}", 42));
+//! record.log(" completed");
+//!
+//! // The record can now be sent to loggers
+//! // println!("{}", record); // Output: "Processing request #42 completed"
+//! ```
+
 use crate::Level;
 use std::fmt::{Debug, Display};
 use std::sync::OnceLock;

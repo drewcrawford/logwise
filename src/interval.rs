@@ -101,6 +101,35 @@ mod tests {
     }
 }
 
+/// A conditional performance warning interval that logs only if execution exceeds a threshold.
+///
+/// Unlike [`PerfwarnInterval`] which always logs, `PerfwarnIntervalIf` only emits a warning
+/// if the measured duration exceeds the specified threshold. This is useful for operations
+/// that are normally fast but occasionally slow down due to external factors.
+///
+/// # Usage
+///
+/// This type is typically not created directly. Instead, use the `perfwarn_begin_if!` macro
+/// which properly sets up the interval with source location information.
+///
+/// # Example
+///
+/// ```rust
+/// # use std::time::Duration;
+/// # fn perform_database_query() {}
+/// // Create a conditional interval that warns only if execution takes > 100ms
+/// let _interval = logwise::perfwarn_begin_if!("database_query", Duration::from_millis(100));
+/// perform_database_query();
+/// // If the query took longer than 100ms, a warning is logged when _interval drops
+/// ```
+///
+/// # Behavior
+///
+/// - The interval starts when created
+/// - On drop, if the elapsed time exceeds the threshold:
+///   - The duration is logged at the `PerfWarn` level
+///   - The interval is added to the current task's statistics
+/// - If the elapsed time is below the threshold, no log is emitted
 #[derive(Debug)]
 pub struct PerfwarnIntervalIf {
     label: &'static str,
