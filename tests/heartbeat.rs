@@ -14,8 +14,6 @@ mod tests {
     use wasm_bindgen::JsValue;
     #[cfg(target_arch = "wasm32")]
     use wasm_bindgen_futures::JsFuture;
-    #[cfg(target_arch = "wasm32")]
-    use web_time::Instant;
 
     static TEST_LOGGER_GUARD: Mutex<()> = Mutex::new(());
     #[cfg(target_arch = "wasm32")]
@@ -24,6 +22,17 @@ mod tests {
     #[cfg(target_arch = "wasm32")]
     async fn yield_once() {
         let _ = JsFuture::from(js_sys::Promise::resolve(&JsValue::NULL)).await;
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    async fn sleep_ms(ms: i32) {
+        let promise = js_sys::Promise::new(&mut |resolve, _| {
+            let window = web_sys::window().unwrap();
+            window
+                .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms)
+                .unwrap();
+        });
+        let _ = JsFuture::from(promise).await;
     }
 
     #[async_test]
@@ -63,22 +72,14 @@ mod tests {
             #[cfg(not(target_arch = "wasm32"))]
             thread::sleep(Duration::from_millis(60));
             #[cfg(target_arch = "wasm32")]
-            {
-                let start = Instant::now();
-                while start.elapsed() < Duration::from_millis(60) {
-                    yield_once().await;
-                }
-            }
+            sleep_ms(60).await;
         }
 
         // Give the watcher thread time to emit its warning.
         #[cfg(not(target_arch = "wasm32"))]
         thread::sleep(Duration::from_millis(20));
         #[cfg(target_arch = "wasm32")]
-        {
-            yield_once().await;
-            yield_once().await;
-        }
+        sleep_ms(50).await;
         let logs = logger.drain_logs();
         assert!(
             logs.contains("missed deadline"),
