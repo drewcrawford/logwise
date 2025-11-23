@@ -15,7 +15,7 @@ exclude = [".*"]
 
 [dependencies]
 logwise_proc = { path = "logwise_proc", version = "0.3.0" }
-wasm_safe_mutex = { version = "0.1.0", path = "../wasm_safe_mutex" }
+wasm_safe_mutex = {version = "0.1.1"}
 
 [dev-dependencies]
 test_executors = "0.3.5"
@@ -25,7 +25,7 @@ logwise_internal = []
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
 wasm-bindgen = "0.2.105"
-web-time = "1.1"
+web-time = "1.1.0"
 web-sys = {version = "0.3",features=["console"]}
 # PeriodicDrainToConsole
 wasm_thread = "0.3.3"
@@ -33,7 +33,7 @@ wasm_thread = "0.3.3"
 
 [target.'cfg(target_arch="wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3.45"
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
+wasm-bindgen-futures = "0.4.55"
+js-sys = "0.3.82"
 # for print_demo
-wasm_thread = "0.3"
+wasm_thread = "0.3.3"
