@@ -175,6 +175,21 @@ critical_task();
 // Warning logged if guard is dropped after deadline
 ```
 
+## Checking Log Level Enablement
+
+Use [`log_enabled!`] to check if a log level is enabled before doing expensive work:
+
+```rust
+use logwise::{Level, log_enabled};
+
+// Skip expensive computation if the log level is disabled
+if log_enabled!(Level::Trace) {
+    let expensive_data = expensive_debug_computation();
+    logwise::trace_sync!("Debug data: {data}", data=expensive_data);
+}
+# fn expensive_debug_computation() -> i32 { 42 }
+```
+
 # Architecture Overview
 
 ## Core Components

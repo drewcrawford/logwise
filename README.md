@@ -107,8 +107,10 @@ use logwise::context::Context;
 
 // Create a new task
 let ctx = Context::new_task(
-    Some(Context::current()), 
-    "data_processing".to_string()
+    Some(Context::current()),
+    "data_processing".to_string(),
+    logwise::Level::Info,
+    true,
 );
 ctx.clone().set_current();
 
@@ -118,7 +120,9 @@ Context::begin_trace();
 // Nested tasks automatically track hierarchy
 let child_ctx = Context::new_task(
     Some(Context::current()),
-    "parse_csv".to_string()
+    "parse_csv".to_string(),
+    logwise::Level::Info,
+    true,
 );
 child_ctx.clone().set_current();
 
@@ -138,12 +142,45 @@ logwise::perfwarn!("database_query", {
 // Logs warning if operation exceeds threshold
 ```
 
-For deadline-based work (e.g., rendering frames), create a heartbeat guard to detect stalls:
+For conditional performance warnings that only log when a threshold is exceeded:
 
 ```rust
-let _heartbeat = logwise::heartbeat("frame", std::time::Duration::from_millis(16));
-// ...do frame work...
-// Dropping on time is silent; missing the deadline logs a `perfwarn`.
+use std::time::Duration;
+
+// Only logs if operation takes longer than 100ms
+let _interval = logwise::perfwarn_begin_if!(
+    Duration::from_millis(100),
+    "slow_operation"
+);
+fetch_data();
+// Warning logged only if threshold exceeded
+```
+
+## Heartbeat Monitoring
+
+Use `heartbeat` to monitor that operations complete within a deadline:
+
+```rust
+use std::time::Duration;
+
+// Create a heartbeat that warns if not completed within 5 seconds
+let _guard = logwise::heartbeat("critical_task", Duration::from_secs(5));
+critical_task();
+// Warning logged if guard is dropped after deadline
+```
+
+## Checking Log Level Enablement
+
+Use `log_enabled!` to check if a log level is enabled before doing expensive work:
+
+```rust
+use logwise::{Level, log_enabled};
+
+// Skip expensive computation if the log level is disabled
+if log_enabled!(Level::Trace) {
+    let expensive_data = expensive_debug_computation();
+    logwise::trace_sync!("Debug data: {data}", data=expensive_data);
+}
 ```
 
 # Architecture Overview
@@ -156,6 +193,8 @@ let _heartbeat = logwise::heartbeat("frame", std::time::Duration::from_millis(16
 * **`context` module**: Thread-local hierarchical task management
 * **`privacy` module**: Privacy-aware data handling system
 * **`global_logger` module**: Global logger registration and management
+* **`interval` module**: Performance interval tracking (`PerfwarnInterval`, `PerfwarnIntervalIf`)
+* **`HeartbeatGuard`**: Deadline monitoring for operations
 
 ## Logging Flow
 
@@ -180,14 +219,16 @@ struct Config {
 fn main() {
     // Initialize root context
     Context::reset("application".to_string());
-    
+
     // Log application startup
     logwise::info_sync!("Starting application", version="1.0.0");
-    
+
     // Create task for initialization
     let init_ctx = Context::new_task(
         Some(Context::current()),
-        "initialization".to_string()
+        "initialization".to_string(),
+        logwise::Level::Info,
+        true,
     );
     init_ctx.clone().set_current();
     
