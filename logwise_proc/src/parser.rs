@@ -19,6 +19,7 @@ use std::collections::{HashMap, VecDeque};
 ///
 /// # Examples
 /// ```ignore
+/// # // ignore because: This shows pseudo-code for token stream parsing, not actual runnable code
 /// // For input: `name = "value"`
 /// // Returns: Some("name".to_string())
 /// // Consumes: `name`, stops at `=`
@@ -64,6 +65,7 @@ fn parse_key(input: &mut VecDeque<TokenTree>) -> Option<String> {
 ///
 /// # Examples
 /// ```ignore
+/// # // ignore because: This shows pseudo-code for token stream parsing, not actual runnable code
 /// // For input: `user.name.clone(), next_param = value`
 /// // Returns: "user.name.clone()".to_string()
 /// // Consumes everything until the comma
@@ -110,11 +112,13 @@ fn parse_value(input: &mut VecDeque<TokenTree>) -> String {
 ///
 /// # Expected Input Format
 /// ```ignore
+/// # // ignore because: This shows pseudo-code for token stream parsing, not actual runnable code
 /// // After format string: , key1=value1, key2=value2, key3=complex_expr()
 /// ```
 ///
 /// # Examples
 /// ```ignore
+/// # // ignore because: This shows pseudo-code for token stream parsing, not actual runnable code
 /// // Input: `, name="alice", count=42`
 /// // Output: HashMap { "name" => "\"alice\"", "count" => "42" }
 /// ```
@@ -158,6 +162,7 @@ fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<HashMap<String, String>,
 /// # Usage
 /// The `output` field contains code like:
 /// ```ignore
+/// # // ignore because: This illustrates generated code output, not actual runnable code
 /// formatter.write_literal("Hello, ");
 /// formatter.write_val(username);
 /// formatter.write_literal("!");
@@ -198,6 +203,7 @@ pub struct LFormatResult {
 ///
 /// # Examples
 /// ```ignore
+/// # // ignore because: This shows pseudo-code for code generation, not actual runnable code
 /// // Input: "Hello {name}!", name="world"
 /// // Generates:
 /// // formatter.write_literal("Hello ");

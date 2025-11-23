@@ -112,6 +112,7 @@ mod warn;
 ///
 /// This expands to approximately:
 /// ```ignore
+/// # // ignore because: This shows macro expansion output, not actual runnable code
 /// logger.write_literal("Hello, ");
 /// logger.write_val(23);
 /// logger.write_literal("!");
@@ -197,6 +198,7 @@ pub fn lformat(input: TokenStream) -> TokenStream {
 ///
 /// # Generated Code Pattern
 /// ```ignore
+/// # // ignore because: This illustrates macro expansion output, not actual runnable code
 /// #[cfg(debug_assertions)]
 /// {
 ///     if logwise::context::Context::currently_tracing() {
@@ -244,6 +246,7 @@ pub fn trace_sync(input: TokenStream) -> TokenStream {
 ///
 /// # Generated Code Pattern
 /// ```ignore
+/// # // ignore because: This illustrates macro expansion output, not actual runnable code
 /// #[cfg(debug_assertions)]
 /// {
 ///     if logwise::context::Context::currently_tracing() {
@@ -295,6 +298,7 @@ pub fn trace_async(input: TokenStream) -> TokenStream {
 ///
 /// # Generated Code Pattern
 /// ```ignore
+/// # // ignore because: This illustrates macro expansion output, not actual runnable code
 /// #[cfg(debug_assertions)]
 /// {
 ///     let use_declare_logging_domain_macro_at_crate_root = crate::__LOGWISE_DOMAIN.is_internal();
@@ -532,6 +536,7 @@ pub fn warn_sync(input: TokenStream) -> TokenStream {
 ///
 /// # Generated Code Pattern
 /// ```ignore
+/// # // ignore because: This illustrates macro expansion output, not actual runnable code
 /// {
 ///     let mut record = logwise::hidden::perfwarn_begin_pre(file!(), line!(), column!());
 ///     let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);

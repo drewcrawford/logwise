@@ -60,9 +60,44 @@ fn channel() -> mpsc::Sender<Message> {
 
 /// RAII guard that ensures work completes before a specified deadline.
 ///
-/// Create via [`heartbeat`] to register the deadline with the background watcher.
-/// Dropping on time is silent; missing a deadline logs `perfwarn` warnings both
-/// when the deadline is crossed and when the guard is eventually dropped.
+/// `HeartbeatGuard` monitors the duration of an operation and logs a warning if
+/// it exceeds the specified deadline. This is useful for detecting operations that
+/// are taking longer than expected, which might indicate performance issues or
+/// deadlocks.
+///
+/// # Behavior
+///
+/// - When created, the guard registers with a background watcher thread
+/// - If the deadline is exceeded while the guard exists, a warning is logged immediately
+/// - If the guard is dropped after the deadline, another warning is logged at the drop site
+/// - If the guard is dropped before the deadline, no warning is logged
+///
+/// # Usage
+///
+/// Create via the [`heartbeat`] function rather than calling `new` directly:
+///
+/// ```rust
+/// use std::time::Duration;
+///
+/// fn critical_operation() {
+///     // Warn if this operation takes more than 5 seconds
+///     let _guard = logwise::heartbeat("database_sync", Duration::from_secs(5));
+///
+///     // ... perform the operation ...
+///     // If it takes > 5 seconds, a warning is logged
+/// }
+/// ```
+///
+/// # Thread Safety
+///
+/// The guard communicates with a background watcher thread via message passing.
+/// It is safe to create guards from multiple threads simultaneously.
+///
+/// # Performance
+///
+/// Guard creation is cheap (a few atomic operations and a message send).
+/// The background watcher thread handles deadline monitoring efficiently using
+/// timeouts rather than polling.
 #[derive(Debug)]
 pub struct HeartbeatGuard {
     id: u64,
@@ -74,6 +109,33 @@ pub struct HeartbeatGuard {
 }
 
 impl HeartbeatGuard {
+    /// Creates a new `HeartbeatGuard` that will warn if not dropped within the given duration.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - A static string identifying this heartbeat in log messages
+    /// * `duration` - The maximum allowed duration before a warning is logged
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::time::Duration;
+    /// use logwise::HeartbeatGuard;
+    ///
+    /// let guard = HeartbeatGuard::new("network_request", Duration::from_secs(30));
+    /// // ... perform network operation ...
+    /// drop(guard); // Logs warning if > 30 seconds elapsed
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// Prefer using the [`heartbeat`] function for convenience:
+    ///
+    /// ```rust
+    /// use std::time::Duration;
+    ///
+    /// let guard = logwise::heartbeat("operation", Duration::from_secs(5));
+    /// ```
     #[track_caller]
     pub fn new(name: &'static str, duration: Duration) -> Self {
         if !log_enabled!(Level::PerfWarn) {
@@ -232,6 +294,56 @@ fn heartbeat_loop(receiver: mpsc::Receiver<Message>) {
 }
 
 /// Creates a [`HeartbeatGuard`] that will warn if it is not dropped before `duration`.
+///
+/// This function creates a deadline monitor for an operation. If the returned guard
+/// is not dropped before the specified duration elapses, a performance warning is
+/// logged. This is useful for detecting operations that are taking longer than expected.
+///
+/// # Arguments
+///
+/// * `name` - A static string identifying this heartbeat in log messages
+/// * `duration` - The maximum allowed duration before a warning is logged
+///
+/// # Returns
+///
+/// A [`HeartbeatGuard`] that monitors the deadline. Keep this guard alive for the
+/// duration of the operation you want to monitor.
+///
+/// # Example
+///
+/// ```rust
+/// use std::time::Duration;
+///
+/// fn fetch_user_data() {
+///     // Warn if fetching takes more than 2 seconds
+///     let _guard = logwise::heartbeat("fetch_user_data", Duration::from_secs(2));
+///
+///     // ... fetch data from database or network ...
+/// }
+/// // When _guard is dropped, if > 2 seconds elapsed, a warning is logged
+/// ```
+///
+/// # Multiple Heartbeats
+///
+/// You can have multiple heartbeats active simultaneously:
+///
+/// ```rust
+/// use std::time::Duration;
+///
+/// fn complex_operation() {
+///     let _outer = logwise::heartbeat("complex_operation", Duration::from_secs(30));
+///
+///     {
+///         let _phase1 = logwise::heartbeat("phase1", Duration::from_secs(10));
+///         // ... phase 1 work ...
+///     }
+///
+///     {
+///         let _phase2 = logwise::heartbeat("phase2", Duration::from_secs(15));
+///         // ... phase 2 work ...
+///     }
+/// }
+/// ```
 #[track_caller]
 pub fn heartbeat(name: &'static str, duration: Duration) -> HeartbeatGuard {
     HeartbeatGuard::new(name, duration)

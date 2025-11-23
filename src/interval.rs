@@ -179,6 +179,33 @@ pub struct PerfwarnIntervalIf {
 }
 
 impl PerfwarnIntervalIf {
+    /// Creates a new conditional performance warning interval.
+    ///
+    /// This method is used internally by the `perfwarn_begin_if!` macro. You should
+    /// generally use the macro rather than calling this method directly, as the macro
+    /// properly captures source location information.
+    ///
+    /// # Arguments
+    ///
+    /// * `label` - A static string identifying this interval in log messages
+    /// * `time` - The start time of the interval
+    /// * `threshold` - The duration threshold; warnings are only logged if exceeded
+    /// * `record` - A pre-populated log record with source location information
+    ///
+    /// # Example
+    ///
+    /// Use the `perfwarn_begin_if!` macro instead:
+    ///
+    /// ```rust
+    /// use std::time::Duration;
+    ///
+    /// let _interval = logwise::perfwarn_begin_if!(
+    ///     Duration::from_millis(100),
+    ///     "database_query"
+    /// );
+    /// // ... perform operation ...
+    /// // Only logs if operation took > 100ms
+    /// ```
     #[inline]
     pub fn new(
         label: &'static str,
