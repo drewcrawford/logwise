@@ -148,6 +148,33 @@ logwise::perfwarn!("database_query", {
 // Logs warning if operation exceeds threshold
 ```
 
+For conditional performance warnings that only log when a threshold is exceeded:
+
+```rust
+# use std::time::Duration;
+# fn fetch_data() {}
+// Only logs if operation takes longer than 100ms
+let _interval = logwise::perfwarn_begin_if!(
+    Duration::from_millis(100),
+    "slow_operation"
+);
+fetch_data();
+// Warning logged only if threshold exceeded
+```
+
+## Heartbeat Monitoring
+
+Use [`heartbeat`] to monitor that operations complete within a deadline:
+
+```rust
+# use std::time::Duration;
+# fn critical_task() {}
+// Create a heartbeat that warns if not completed within 5 seconds
+let _guard = logwise::heartbeat("critical_task", Duration::from_secs(5));
+critical_task();
+// Warning logged if guard is dropped after deadline
+```
+
 # Architecture Overview
 
 ## Core Components
@@ -158,6 +185,8 @@ logwise::perfwarn!("database_query", {
 * **[`context`] module**: Thread-local hierarchical task management
 * **[`privacy`] module**: Privacy-aware data handling system
 * **[`global_logger`] module**: Global logger registration and management
+* **[`interval`] module**: Performance interval tracking ([`interval::PerfwarnInterval`], [`interval::PerfwarnIntervalIf`])
+* **[`HeartbeatGuard`]**: Deadline monitoring for operations
 
 ## Logging Flow
 
