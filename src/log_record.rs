@@ -89,6 +89,23 @@ impl LogRecord {
         self.parts.push(message);
     }
 
+    /// Creates a new log record with the specified level.
+    ///
+    /// The record is created with an empty message buffer that can be populated
+    /// using [`log`](LogRecord::log) and [`log_owned`](LogRecord::log_owned).
+    ///
+    /// # Arguments
+    ///
+    /// * `level` - The severity level for this log record
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use logwise::{LogRecord, Level};
+    ///
+    /// let mut record = LogRecord::new(Level::Info);
+    /// record.log("Hello, world!");
+    /// ```
     pub fn new(level: Level) -> Self {
         Self {
             parts: Vec::new(),
@@ -106,10 +123,40 @@ impl LogRecord {
         time
     }
 
+    /// Logs the elapsed time since a given instant to the record.
+    ///
+    /// This calculates the duration from the application's initial timestamp to the given
+    /// instant and appends it to the record in the format `[duration] `.
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - The instant from which to calculate the elapsed time
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use logwise::{LogRecord, Level};
+    ///
+    /// let mut record = LogRecord::new(Level::Info);
+    /// let start = record.log_timestamp();
+    /// // ... perform some operation ...
+    /// record.log_time_since(start);
+    /// ```
     pub fn log_time_since(&mut self, start: crate::sys::Instant) {
         let duration = start.duration_since(initial_timestamp());
         self.log_owned(format!("[{:?}] ", duration));
     }
+
+    /// Returns the log level associated with this record.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use logwise::{LogRecord, Level};
+    ///
+    /// let record = LogRecord::new(Level::Warning);
+    /// assert_eq!(record.level(), Level::Warning);
+    /// ```
     pub fn level(&self) -> Level {
         self.level
     }
