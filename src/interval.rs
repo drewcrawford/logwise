@@ -158,7 +158,7 @@ mod tests {
 /// # use std::time::Duration;
 /// # fn perform_database_query() {}
 /// // Create a conditional interval that warns only if execution takes > 100ms
-/// let _interval = logwise::perfwarn_begin_if!("database_query", Duration::from_millis(100));
+/// let _interval = logwise::perfwarn_begin_if!(Duration::from_millis(100), "database_query");
 /// perform_database_query();
 /// // If the query took longer than 100ms, a warning is logged when _interval drops
 /// ```

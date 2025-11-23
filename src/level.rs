@@ -45,7 +45,7 @@ pub enum Level {
     /// ```rust
     /// # use logwise::context::Context;
     /// Context::begin_trace();
-    /// logwise::trace_sync!("Entering function with arg={}", 42);
+    /// logwise::trace_sync!("Entering function with arg={val}", val=42);
     /// ```
     Trace,
 
@@ -57,7 +57,10 @@ pub enum Level {
     ///
     /// # Example
     /// ```rust
-    /// logwise::debuginternal_sync!("Internal state: count={}", 42);
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
+    /// logwise::debuginternal_sync!("Internal state: count={val}", val=42);
+    /// # }
     /// ```
     DebugInternal,
 

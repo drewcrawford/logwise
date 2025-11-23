@@ -41,6 +41,7 @@ fn test_context_equality() {
 
 #[cfg_attr(not(target_arch = "wasm32"), test)]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[allow(clippy::mutable_key_type)] // Context hash is based on Arc pointer, not interior state
 fn test_context_hash() {
     use std::collections::HashMap;
     use std::collections::hash_map::DefaultHasher;

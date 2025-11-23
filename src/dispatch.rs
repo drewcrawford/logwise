@@ -678,6 +678,7 @@ mod tests {
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[allow(clippy::let_underscore_future)] // Just testing macro compiles, not executing
     fn test_log_info_async() {
         crate::context::Context::reset("test_log_info_async".to_string());
         let _ = async {
