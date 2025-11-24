@@ -9,7 +9,7 @@ homepage = "https://sealedabstract.com/code/logwise"
 repository = "https://github.com/drewcrawford/logwise"
 keywords = ["logging"]
 categories = ["development-tools::debugging", "development-tools::profiling"]
-rust-version = "1.85.0"
+rust-version = "1.85.1"
 
 exclude = [".*"]
 
