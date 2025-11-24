@@ -134,6 +134,8 @@ child_ctx.clone().set_current();
 Use the `perfwarn!` macro to track and log slow operations:
 
 ```rust
+fn perform_database_query() {}
+
 // Tracks execution time automatically
 logwise::perfwarn!("database_query", {
     // Your expensive operation here
@@ -146,6 +148,8 @@ For conditional performance warnings that only log when a threshold is exceeded:
 
 ```rust
 use std::time::Duration;
+
+fn fetch_data() {}
 
 // Only logs if operation takes longer than 100ms
 let _interval = logwise::perfwarn_begin_if!(
@@ -163,6 +167,8 @@ Use `heartbeat` to monitor that operations complete within a deadline:
 ```rust
 use std::time::Duration;
 
+fn critical_task() {}
+
 // Create a heartbeat that warns if not completed within 5 seconds
 let _guard = logwise::heartbeat("critical_task", Duration::from_secs(5));
 critical_task();
@@ -175,6 +181,8 @@ Use `log_enabled!` to check if a log level is enabled before doing expensive wor
 
 ```rust
 use logwise::{Level, log_enabled};
+
+fn expensive_debug_computation() -> i32 { 42 }
 
 // Skip expensive computation if the log level is disabled
 if log_enabled!(Level::Trace) {
