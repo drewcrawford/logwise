@@ -19,7 +19,7 @@ jobs:
         additional_test_prefix: [""]
         os: [ ubuntu-latest ]
 
-        # if wasm is needed
+        # only if wasm is needed
         include:
           - os: ubuntu-latest
             channel: "+nightly"
