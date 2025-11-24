@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
 logwise::declare_logging_domain!();
 
 #[cfg(test)]
