@@ -224,40 +224,37 @@ struct Config {
     port: u16,
 }
 
-fn main() {
-    // Initialize root context
+// Initialize root context
     Context::reset("application".to_string());
 
     // Log application startup
     logwise::info_sync!("Starting application", version="1.0.0");
 
     // Create task for initialization
-    let init_ctx = Context::new_task(
-        Some(Context::current()),
-        "initialization".to_string(),
-        logwise::Level::Info,
-        true,
-    );
-    init_ctx.clone().set_current();
-    
+    //     let init_ctx = Context::new_task(
+    //         Some(Context::current()),
+    //         "initialization".to_string(),
+    //         logwise::Level::Info,
+    //         true,
+    //     );init_ctx.clone().set_current();
+
     // Load configuration
     let config = Config {
         database_url: "postgres://localhost/myapp".into(),
         port: 8080,
     };
-    
+
     // Use LogIt for complex types
-    logwise::info_sync!("Configuration loaded", 
+    logwise::info_sync!("Configuration loaded",
         config=LogIt(&config)
     );
-    
+
     // Track performance-critical operations
     logwise::perfwarn!("database_connection", {
         // connect_to_database(&config.database_url)
     });
-    
+
     logwise::info_sync!("Application ready", port=config.port);
-}
 ```
 
 ## Custom Logger Implementation
