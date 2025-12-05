@@ -918,4 +918,46 @@ mod tests {
         }
         drop(outer);
     }
+
+    #[logwise::profile]
+    fn profiled_function() -> i32 {
+        (0..100).sum()
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_profile_attribute() {
+        crate::context::Context::reset("test_profile_attribute".to_string());
+        let result = profiled_function();
+        assert_eq!(result, 4950);
+    }
+
+    #[logwise::profile]
+    fn profiled_with_args(x: i32, y: i32) -> i32 {
+        x + y
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_profile_attribute_with_args() {
+        crate::context::Context::reset("test_profile_attribute_with_args".to_string());
+        let result = profiled_with_args(10, 20);
+        assert_eq!(result, 30);
+    }
+
+    #[logwise::profile]
+    fn profiled_early_return(x: i32) -> i32 {
+        if x < 0 {
+            return -1;
+        }
+        x * 2
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_profile_attribute_early_return() {
+        crate::context::Context::reset("test_profile_attribute_early_return".to_string());
+        assert_eq!(profiled_early_return(-5), -1);
+        assert_eq!(profiled_early_return(10), 20);
+    }
 }

@@ -67,6 +67,7 @@ mod info;
 mod mandatory;
 mod perfwarn;
 mod profile;
+mod profile_attr;
 mod trace;
 mod warn;
 
@@ -938,4 +939,71 @@ pub fn profile_async(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn profile_begin(input: TokenStream) -> TokenStream {
     profile::profile_begin_impl(input)
+}
+
+/// Attribute macro to automatically profile a function's execution time.
+///
+/// This macro wraps the function body with a `ProfileInterval` guard that logs
+/// BEGIN when the function is entered and END with elapsed duration when the
+/// function returns (or panics).
+///
+/// # Usage
+///
+/// ```rust
+/// #[logwise::profile]
+/// fn expensive_operation() {
+///     // ... function body ...
+/// }
+/// ```
+///
+/// # Expansion
+///
+/// The macro transforms the function to:
+/// ```rust,ignore
+/// fn expensive_operation() {
+///     let _logwise_profile_guard = logwise::hidden::profile_fn_begin(
+///         file!(), line!(), column!(),
+///         concat!(module_path!(), "::", "expensive_operation")
+///     );
+///     { /* original body */ }
+/// }
+/// ```
+///
+/// # Log Output
+///
+/// The attribute produces log messages like:
+/// ```text
+/// PROFILE: BEGIN [id=1] src/lib.rs:10:1 [0ns] mymodule::expensive_operation
+/// PROFILE: END [id=1] [elapsed: 150µs] mymodule::expensive_operation
+/// ```
+///
+/// # Build Configuration
+/// - **Debug builds**: Always active
+/// - **Release builds**: Always active
+///
+/// # Examples
+///
+/// ```rust
+/// use logwise::profile;
+///
+/// #[profile]
+/// fn compute_something() -> i32 {
+///     // This function's execution time will be automatically profiled
+///     (0..1000).sum()
+/// }
+///
+/// #[profile]
+/// async fn async_operation() {
+///     // Works with async functions too
+/// }
+/// ```
+///
+/// # Notes
+///
+/// - The profiling guard is dropped when the function returns, even on early returns
+/// - Works with async functions, methods, and generic functions
+/// - The function name in logs includes the full module path
+#[proc_macro_attribute]
+pub fn profile(attr: TokenStream, item: TokenStream) -> TokenStream {
+    profile_attr::profile_attr_impl(attr, item)
 }

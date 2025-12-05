@@ -346,8 +346,8 @@ pub use logger::Logger;
 // See individual macro documentation for usage details.
 pub use logwise_proc::{
     debuginternal_async, debuginternal_sync, error_async, error_sync, info_async, info_sync,
-    mandatory_async, mandatory_sync, perfwarn, perfwarn_begin, perfwarn_begin_if, profile_async,
-    profile_begin, profile_sync, trace_async, trace_sync, warn_sync,
+    mandatory_async, mandatory_sync, perfwarn, perfwarn_begin, perfwarn_begin_if, profile,
+    profile_async, profile_begin, profile_sync, trace_async, trace_sync, warn_sync,
 };
 
 pub use macros::LoggingDomain;
