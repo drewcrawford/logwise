@@ -626,6 +626,130 @@ pub fn perfwarn_begin_if_pre(file: &'static str, line: u32, column: u32) -> LogR
     record
 }
 
+/// Creates a log record for a `mandatory` log message.
+///
+/// This function is called by the `mandatory_sync!` and `mandatory_async!` macros to create
+/// the initial log record with metadata. Mandatory logs are always enabled, even in release
+/// builds, intended for temporary printf-style debugging in hostile environments.
+///
+/// # Arguments
+///
+/// * `file` - The source file where the log was generated
+/// * `line` - The line number in the source file
+/// * `column` - The column number in the source file
+///
+/// # Returns
+///
+/// A [`LogRecord`] initialized with the current context, location, and timestamp.
+pub fn mandatory_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
+    let mut record = crate::log_record::LogRecord::new(Level::Mandatory);
+
+    let read_ctx = crate::context::Context::current();
+    read_ctx._log_prelude(&mut record);
+
+    record.log("MANDATORY: ");
+
+    record.log(file);
+    record.log_owned(format!(":{}:{} ", line, column));
+
+    record.log_timestamp();
+    record
+}
+
+/// Completes and dispatches a synchronous `mandatory` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// synchronously. It's called by the `mandatory_sync!` macro after the message has
+/// been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+pub fn mandatory_sync_post(record: LogRecord) {
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record(record.clone());
+    }
+}
+
+/// Completes and dispatches an asynchronous `mandatory` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// asynchronously. It's called by the `mandatory_async!` macro after the message has
+/// been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+pub async fn mandatory_async_post(record: LogRecord) {
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record_async(record.clone()).await;
+    }
+}
+
+/// Creates a log record for a `profile` log message.
+///
+/// This function is called by the `profile_sync!` and `profile_async!` macros to create
+/// the initial log record with metadata. Profile logs are always enabled, even in release
+/// builds, intended for temporary profiling and performance investigation.
+///
+/// # Arguments
+///
+/// * `file` - The source file where the log was generated
+/// * `line` - The line number in the source file
+/// * `column` - The column number in the source file
+///
+/// # Returns
+///
+/// A [`LogRecord`] initialized with the current context, location, and timestamp.
+pub fn profile_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
+    let mut record = crate::log_record::LogRecord::new(Level::Profile);
+
+    let read_ctx = crate::context::Context::current();
+    read_ctx._log_prelude(&mut record);
+
+    record.log("PROFILE: ");
+
+    record.log(file);
+    record.log_owned(format!(":{}:{} ", line, column));
+
+    record.log_timestamp();
+    record
+}
+
+/// Completes and dispatches a synchronous `profile` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// synchronously. It's called by the `profile_sync!` macro after the message has
+/// been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+pub fn profile_sync_post(record: LogRecord) {
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record(record.clone());
+    }
+}
+
+/// Completes and dispatches an asynchronous `profile` log record.
+///
+/// This function sends the completed log record to all registered global loggers
+/// asynchronously. It's called by the `profile_async!` macro after the message has
+/// been formatted.
+///
+/// # Arguments
+///
+/// * `record` - The completed log record to dispatch
+pub async fn profile_async_post(record: LogRecord) {
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record_async(record.clone()).await;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use logwise::context::Context;

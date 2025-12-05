@@ -18,7 +18,7 @@ use std::fmt::Display;
 /// # Level Hierarchy
 ///
 /// The levels are ordered by severity from lowest to highest:
-/// `Trace` < `DebugInternal` < `Info` < `Analytics` < `PerfWarn` < `Warning` < `Error` < `Panic`
+/// `Trace` < `DebugInternal` < `Info` < `Analytics` < `PerfWarn` < `Warning` < `Error` < `Panic` < `Mandatory` < `Profile`
 ///
 /// # Build-Time Availability
 ///
@@ -32,6 +32,8 @@ use std::fmt::Display;
 /// | `Warning` | ✓ | ✓ |
 /// | `Error` | ✓ | ✓ |
 /// | `Panic` | ✓ | ✓ |
+/// | `Mandatory` | ✓ | ✓ |
+/// | `Profile` | ✓ | ✓ |
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Level {
@@ -124,6 +126,30 @@ pub enum Level {
     /// Available in all builds. Use for conditions that should never occur
     /// if the code is correct (invariant violations, assertion failures).
     Panic,
+
+    /// Printf-style debugging that is always enabled.
+    ///
+    /// Available in all builds including release. Use for temporary debugging
+    /// in hostile environments where other log levels may be compiled out.
+    /// Intended to be removed before committing code.
+    ///
+    /// # Example
+    /// ```rust
+    /// logwise::mandatory_sync!("Debug: value is {val}", val=42);
+    /// ```
+    Mandatory,
+
+    /// Profiling output that is always enabled.
+    ///
+    /// Available in all builds including release. Use for temporary profiling
+    /// and performance investigation. Intended to be removed before committing code.
+    ///
+    /// # Example
+    /// ```rust
+    /// let elapsed_ms = 42u64;
+    /// logwise::profile_sync!("Operation took {ms} ms", ms=elapsed_ms);
+    /// ```
+    Profile,
 }
 
 // ============================================================================
@@ -159,6 +185,8 @@ impl Display for Level {
             Level::Warning => write!(f, "WARN"),
             Level::Error => write!(f, "ERROR"),
             Level::Panic => write!(f, "PANIC"),
+            Level::Mandatory => write!(f, "MANDATORY"),
+            Level::Profile => write!(f, "PROFILE"),
         }
     }
 }

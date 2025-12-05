@@ -346,7 +346,8 @@ pub use logger::Logger;
 // See individual macro documentation for usage details.
 pub use logwise_proc::{
     debuginternal_async, debuginternal_sync, error_async, error_sync, info_async, info_sync,
-    perfwarn, perfwarn_begin, perfwarn_begin_if, trace_async, trace_sync, warn_sync,
+    mandatory_async, mandatory_sync, perfwarn, perfwarn_begin, perfwarn_begin_if, profile_async,
+    profile_sync, trace_async, trace_sync, warn_sync,
 };
 
 pub use macros::LoggingDomain;
@@ -356,8 +357,10 @@ pub mod hidden {
     pub use crate::dispatch::{
         debuginternal_async_post, debuginternal_pre, debuginternal_sync_post, error_async_post,
         error_sync_post, error_sync_pre, info_async_post, info_sync_post, info_sync_pre,
-        perfwarn_begin_if_post, perfwarn_begin_if_pre, perfwarn_begin_post, perfwarn_begin_pre,
-        trace_async_post, trace_sync_post, trace_sync_pre, warn_sync_post, warn_sync_pre,
+        mandatory_async_post, mandatory_sync_post, mandatory_sync_pre, perfwarn_begin_if_post,
+        perfwarn_begin_if_pre, perfwarn_begin_post, perfwarn_begin_pre, profile_async_post,
+        profile_sync_post, profile_sync_pre, trace_async_post, trace_sync_post, trace_sync_pre,
+        warn_sync_post, warn_sync_pre,
     };
     pub use crate::global_logger::global_loggers;
     pub use crate::macros::PrivateFormatter;

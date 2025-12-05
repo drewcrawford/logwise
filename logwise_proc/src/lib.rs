@@ -64,7 +64,9 @@ use parser::lformat_impl;
 mod debug_internal;
 mod error;
 mod info;
+mod mandatory;
 mod perfwarn;
+mod profile;
 mod trace;
 mod warn;
 
@@ -762,4 +764,121 @@ pub fn error_sync(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn error_async(input: TokenStream) -> TokenStream {
     error::error_async_impl(input)
+}
+
+/// Generates synchronous mandatory-level logging code (all builds).
+///
+/// This macro creates mandatory-level log entries that are always enabled, even in
+/// release builds. Use for temporary printf-style debugging in hostile environments
+/// where other log levels may be compiled out. Intended to be removed before committing.
+///
+/// # Syntax
+/// ```
+/// logwise::mandatory_sync!("Debug value: {val}", val=42);
+/// ```
+///
+/// # Build Configuration
+/// - **Debug builds**: Always active
+/// - **Release builds**: Always active
+///
+/// # Examples
+/// ```
+/// // Printf-style debugging
+/// let x = 42;
+/// logwise::mandatory_sync!("x = {val}", val=x);
+///
+/// // With complex expressions
+/// # struct Obj { field: i32 }
+/// # let obj = Obj { field: 123 };
+/// logwise::mandatory_sync!("obj.field = {f}", f=obj.field);
+/// ```
+#[proc_macro]
+pub fn mandatory_sync(input: TokenStream) -> TokenStream {
+    mandatory::mandatory_sync_impl(input)
+}
+
+/// Generates asynchronous mandatory-level logging code (all builds).
+///
+/// This macro creates async mandatory-level log entries that are always enabled,
+/// even in release builds. Use for temporary printf-style debugging in async contexts.
+/// Intended to be removed before committing.
+///
+/// # Syntax
+/// ```
+/// async fn example() {
+///     logwise::mandatory_async!("Debug value: {val}", val=42);
+/// }
+/// ```
+///
+/// # Build Configuration
+/// - **Debug builds**: Always active
+/// - **Release builds**: Always active
+///
+/// # Examples
+/// ```
+/// async fn debug_async() {
+///     let state = "processing";
+///     logwise::mandatory_async!("Current state: {s}", s=state);
+/// }
+/// ```
+#[proc_macro]
+pub fn mandatory_async(input: TokenStream) -> TokenStream {
+    mandatory::mandatory_async_impl(input)
+}
+
+/// Generates synchronous profile-level logging code (all builds).
+///
+/// This macro creates profile-level log entries that are always enabled, even in
+/// release builds. Use for temporary profiling and performance investigation.
+/// Intended to be removed before committing.
+///
+/// # Syntax
+/// ```
+/// logwise::profile_sync!("Operation took {ms} ms", ms=100);
+/// ```
+///
+/// # Build Configuration
+/// - **Debug builds**: Always active
+/// - **Release builds**: Always active
+///
+/// # Examples
+/// ```
+/// # use std::time::Instant;
+/// let start = Instant::now();
+/// // ... operation ...
+/// let elapsed = start.elapsed();
+/// logwise::profile_sync!("Operation completed in {ms} ms", ms=elapsed.as_millis());
+/// ```
+#[proc_macro]
+pub fn profile_sync(input: TokenStream) -> TokenStream {
+    profile::profile_sync_impl(input)
+}
+
+/// Generates asynchronous profile-level logging code (all builds).
+///
+/// This macro creates async profile-level log entries that are always enabled,
+/// even in release builds. Use for temporary profiling in async contexts.
+/// Intended to be removed before committing.
+///
+/// # Syntax
+/// ```
+/// async fn example() {
+///     logwise::profile_async!("Async operation timing: {ms} ms", ms=50);
+/// }
+/// ```
+///
+/// # Build Configuration
+/// - **Debug builds**: Always active
+/// - **Release builds**: Always active
+///
+/// # Examples
+/// ```
+/// async fn profile_async_op() {
+///     let duration_ms = 150;
+///     logwise::profile_async!("Async task completed in {ms} ms", ms=duration_ms);
+/// }
+/// ```
+#[proc_macro]
+pub fn profile_async(input: TokenStream) -> TokenStream {
+    profile::profile_async_impl(input)
 }

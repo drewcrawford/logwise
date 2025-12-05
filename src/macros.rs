@@ -312,7 +312,9 @@ macro_rules! log_enabled {
             | $crate::Level::Warning
             | $crate::Level::Error
             | $crate::Level::Panic
-            | $crate::Level::Analytics => true,
+            | $crate::Level::Analytics
+            | $crate::Level::Mandatory
+            | $crate::Level::Profile => true,
             _ => true,
         }
     }};

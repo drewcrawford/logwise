@@ -96,6 +96,12 @@ impl Logger for StdErrorLogger {
                 Level::Panic => {
                     web_sys::console::error_1(&msg.into());
                 }
+                Level::Mandatory => {
+                    web_sys::console::log_1(&msg.into());
+                }
+                Level::Profile => {
+                    web_sys::console::log_1(&msg.into());
+                }
             }
         }
     }
