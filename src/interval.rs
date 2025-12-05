@@ -9,6 +9,13 @@ use crate::Level;
 use crate::context::Context;
 use crate::global_logger::global_loggers;
 use crate::log_record::LogRecord;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// Global counter for generating unique profile interval IDs.
+///
+/// This counter is used to correlate BEGIN and END log messages for profile
+/// intervals, especially useful when profiling nested operations.
+static PROFILE_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 /// A performance warning interval that tracks execution time.
 ///
@@ -138,6 +145,7 @@ mod tests {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<super::PerfwarnInterval>();
         assert_send_sync::<super::PerfwarnIntervalIf>();
+        assert_send_sync::<super::ProfileInterval>();
     }
 }
 
@@ -263,6 +271,103 @@ impl Drop for PerfwarnIntervalIf {
             for logger in global_loggers {
                 logger.finish_log_record(self.record.clone());
             }
+        }
+    }
+}
+
+/// Generates the next unique profile interval ID.
+///
+/// This function is used internally to assign unique IDs to profile intervals,
+/// allowing BEGIN and END messages to be correlated in log output.
+#[inline]
+pub fn next_profile_id() -> u64 {
+    PROFILE_ID_COUNTER.fetch_add(1, Ordering::Relaxed)
+}
+
+/// A profiling interval that logs when created and dropped.
+///
+/// `ProfileInterval` logs a BEGIN message when created and an END message with
+/// elapsed duration when dropped. Each interval has a unique ID to correlate
+/// BEGIN/END pairs, which is especially useful when profiling nested operations.
+///
+/// Unlike [`PerfwarnInterval`], this type:
+/// - Always logs (no threshold)
+/// - Logs both BEGIN and END messages
+/// - Does not contribute to task statistics
+/// - Is intended for temporary profiling that should be removed before committing
+///
+/// # Usage
+///
+/// This type is typically not created directly. Instead, use the `profile_begin!`
+/// macro which properly sets up the interval with source location information.
+///
+/// # Example
+///
+/// ```rust
+/// # fn perform_operation() {}
+/// // Using profile_begin! for manual interval management
+/// let interval = logwise::profile_begin!("database_query");
+/// perform_operation();
+/// // BEGIN logged when created, END logged when dropped
+/// drop(interval);
+/// ```
+///
+/// # Log Output
+///
+/// The interval produces log messages like:
+/// ```text
+/// PROFILE: BEGIN [id=1] src/main.rs:10:5 [0ns] database_query
+/// PROFILE: END [id=1] [elapsed: 150µs] database_query
+/// ```
+#[derive(Debug)]
+pub struct ProfileInterval {
+    id: u64,
+    label: &'static str,
+    start: crate::sys::Instant,
+}
+
+impl ProfileInterval {
+    /// Creates a new profile interval.
+    ///
+    /// Do not use this manually. Instead use the `profile_begin!` macro which
+    /// properly captures source location information.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique identifier for correlating BEGIN/END messages
+    /// * `label` - A static string identifying this interval in log messages
+    /// * `time` - The start time of the interval
+    #[inline]
+    pub fn new(id: u64, label: &'static str, time: crate::sys::Instant) -> Self {
+        Self {
+            id,
+            label,
+            start: time,
+        }
+    }
+
+    /// Returns the unique ID of this profile interval.
+    #[inline]
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+}
+
+impl Drop for ProfileInterval {
+    fn drop(&mut self) {
+        let end_time = crate::sys::Instant::now();
+        let duration = end_time.duration_since(self.start);
+
+        let mut record = LogRecord::new(Level::Profile);
+        let ctx = Context::current();
+        ctx._log_prelude(&mut record);
+        record.log_owned(format!("PROFILE: END [id={}] ", self.id));
+        record.log_owned(format!("[elapsed: {:?}] ", duration));
+        record.log(self.label);
+
+        let global_loggers = global_loggers();
+        for logger in global_loggers {
+            logger.finish_log_record(record.clone());
         }
     }
 }

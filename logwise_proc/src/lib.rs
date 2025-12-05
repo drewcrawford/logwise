@@ -882,3 +882,60 @@ pub fn profile_sync(input: TokenStream) -> TokenStream {
 pub fn profile_async(input: TokenStream) -> TokenStream {
     profile::profile_async_impl(input)
 }
+
+/// Generates code to begin a profile interval (all builds).
+///
+/// This macro starts a profiling interval that logs BEGIN when created and END
+/// with elapsed duration when dropped. Each interval has a unique ID to correlate
+/// BEGIN/END pairs, which is especially useful when profiling nested operations.
+///
+/// # Syntax
+/// ```
+/// let interval = logwise::profile_begin!("operation description {param}", param=42);
+/// // ... operation to profile ...
+/// drop(interval); // Or let it drop automatically
+/// ```
+///
+/// # Build Configuration
+/// - **Debug builds**: Always active
+/// - **Release builds**: Always active
+///
+/// # Log Output
+/// The macro produces log messages like:
+/// ```text
+/// PROFILE: BEGIN [id=1] src/main.rs:10:5 [0ns] database_query
+/// PROFILE: END [id=1] [elapsed: 150µs] database_query
+/// ```
+///
+/// # Examples
+/// ```
+/// # fn perform_database_query() {}
+/// // Profile a database operation
+/// let interval = logwise::profile_begin!("database_query");
+/// perform_database_query();
+/// drop(interval);
+///
+/// // With parameters
+/// # let table_name = "users";
+/// let _interval = logwise::profile_begin!("query {table}", table=table_name);
+/// // ... operation ...
+/// // Automatically logs END when _interval goes out of scope
+/// ```
+///
+/// # Nested Profiling
+/// ```
+/// # fn outer_work() {}
+/// # fn inner_work() {}
+/// let outer = logwise::profile_begin!("outer_operation");
+/// outer_work();
+/// {
+///     let inner = logwise::profile_begin!("inner_operation");
+///     inner_work();
+///     // inner END logged here
+/// }
+/// // outer END logged here
+/// ```
+#[proc_macro]
+pub fn profile_begin(input: TokenStream) -> TokenStream {
+    profile::profile_begin_impl(input)
+}

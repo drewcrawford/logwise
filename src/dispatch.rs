@@ -750,6 +750,70 @@ pub async fn profile_async_post(record: LogRecord) {
     }
 }
 
+/// Creates a log record for the beginning of a profile interval.
+///
+/// This function is called by the `profile_begin!` macro to create the initial
+/// log record that marks the start of a profiling measurement. It generates a
+/// unique ID for correlating BEGIN and END messages.
+///
+/// # Arguments
+///
+/// * `file` - The source file where the log was generated
+/// * `line` - The line number in the source file
+/// * `column` - The column number in the source file
+///
+/// # Returns
+///
+/// A tuple of (unique ID, [`LogRecord`]) initialized with the current context
+/// and the start time.
+pub fn profile_begin_pre(file: &'static str, line: u32, column: u32) -> (u64, LogRecord) {
+    let id = crate::interval::next_profile_id();
+    let start = crate::sys::Instant::now();
+
+    let mut record = crate::log_record::LogRecord::new(Level::Profile);
+
+    let read_ctx = crate::context::Context::current();
+    read_ctx._log_prelude(&mut record);
+
+    record.log_owned(format!("PROFILE: BEGIN [id={}] ", id));
+
+    record.log(file);
+    record.log_owned(format!(":{}:{} ", line, column));
+
+    record.log_time_since(start);
+
+    (id, record)
+}
+
+/// Completes the beginning log record and creates a profile interval.
+///
+/// This function sends the initial log record to all registered global loggers and
+/// returns a [`ProfileInterval`](crate::interval::ProfileInterval) that will log
+/// the completion when dropped.
+///
+/// # Arguments
+///
+/// * `id` - The unique ID for this profile interval
+/// * `record` - The completed log record for the interval start
+/// * `name` - The name of the operation being profiled
+///
+/// # Returns
+///
+/// A [`ProfileInterval`](crate::interval::ProfileInterval) that logs the end
+/// message with elapsed duration when dropped.
+pub fn profile_begin_post(
+    id: u64,
+    record: LogRecord,
+    name: &'static str,
+) -> crate::interval::ProfileInterval {
+    let global_loggers = crate::hidden::global_loggers();
+    for logger in global_loggers {
+        logger.finish_log_record(record.clone());
+    }
+
+    crate::interval::ProfileInterval::new(id, name, crate::sys::Instant::now())
+}
+
 #[cfg(test)]
 mod tests {
     use logwise::context::Context;
@@ -816,5 +880,42 @@ mod tests {
     fn test_trace() {
         crate::context::Context::reset("test_trace".to_string());
         logwise::trace_sync!("test_trace");
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_mandatory_sync() {
+        crate::context::Context::reset("test_mandatory_sync".to_string());
+        logwise::mandatory_sync!("mandatory debug value={val}", val = 42);
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_profile_sync() {
+        crate::context::Context::reset("test_profile_sync".to_string());
+        logwise::profile_sync!("profile timing={ms}ms", ms = 100);
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_profile_begin() {
+        crate::context::Context::reset("test_profile_begin".to_string());
+        let interval = logwise::profile_begin!("test_operation {param}", param = "foo");
+        // Simulate some work
+        let _ = (0..100).sum::<i32>();
+        drop(interval);
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    fn test_profile_begin_nested() {
+        crate::context::Context::reset("test_profile_begin_nested".to_string());
+        let outer = logwise::profile_begin!("outer_operation");
+        {
+            let inner = logwise::profile_begin!("inner_operation");
+            let _ = (0..50).sum::<i32>();
+            drop(inner);
+        }
+        drop(outer);
     }
 }
