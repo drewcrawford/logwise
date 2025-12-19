@@ -254,6 +254,8 @@ impl Context {
     /// # Examples
     ///
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// use logwise::context::Context;
     ///
     /// // Start fresh with a new root context
@@ -261,6 +263,7 @@ impl Context {
     ///
     /// // All subsequent logs will use this new context
     /// logwise::info_sync!("Starting new session");
+    /// # }
     /// ```
     #[inline]
     pub fn reset(label: String) {
@@ -268,7 +271,7 @@ impl Context {
             None,
             label,
             Level::DebugInternal,
-            crate::log_enabled!(Level::DebugInternal),
+            crate::log_enabled!(Level::DebugInternal, crate::__CALL_LOGWISE_DECLARE_LOGGING_DOMAIN),
         );
         new_context.set_current();
     }
@@ -355,12 +358,15 @@ impl Context {
     /// # Examples
     ///
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// use logwise::context::Context;
     ///
     /// if Context::currently_tracing() {
     ///     // Trace logging is enabled
     ///     logwise::trace_sync!("Detailed debug information");
     /// }
+    /// # }
     /// ```
     #[inline]
     pub fn currently_tracing() -> bool {
@@ -384,6 +390,8 @@ impl Context {
     /// # Examples
     ///
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// use logwise::context::Context;
     ///
     /// // Enable detailed tracing
@@ -395,6 +403,7 @@ impl Context {
     /// // Child contexts inherit the tracing state
     /// let child = Context::from_parent(Context::current());
     /// assert!(child.is_tracing());
+    /// # }
     /// ```
     pub fn begin_trace() {
         Context::current()
@@ -412,6 +421,8 @@ impl Context {
     /// # Examples
     ///
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// use logwise::context::Context;
     ///
     /// let new_ctx = Context::new_task(None, "new_task".to_string(), logwise::Level::Info, true);
@@ -419,6 +430,7 @@ impl Context {
     ///
     /// // All logs now use the new context
     /// logwise::info_sync!("Using new context");
+    /// # }
     /// ```
     pub fn set_current(self) {
         CONTEXT.replace(self);

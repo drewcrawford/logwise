@@ -61,6 +61,8 @@
 //! statistics about task execution:
 //!
 //! ```rust
+//! logwise::declare_logging_domain!();
+//! # fn main() {
 //! # use logwise::context::Context;
 //! # Context::reset("test".to_string());
 //! // Performance intervals are automatically added to the current task
@@ -70,6 +72,7 @@
 //!     std::thread::sleep(std::time::Duration::from_millis(100));
 //! });
 //! // Statistics are logged when the task is dropped
+//! # }
 //! ```
 //!
 //! # Async Context Preservation

@@ -58,6 +58,8 @@
 //! ## Integration with Logging Macros
 //!
 //! ```
+//! logwise::declare_logging_domain!();
+//! # fn main() {
 //! # let user_id = "user123";
 //! # let request_id = 42u32;
 //! // The macros automatically use the Loggable trait
@@ -66,6 +68,7 @@
 //! // Use wrappers for explicit control
 //! logwise::info_sync!("User {user} logged in",
 //!                     user=logwise::privacy::LogIt(user_id));
+//! # }
 //! ```
 
 use crate::log_record::LogRecord;
@@ -508,6 +511,8 @@ impl<T: Loggable> Loggable for Option<T> {
 /// # Example
 ///
 /// ```
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::privacy::LogIt;
 ///
 /// #[derive(Debug)]
@@ -524,12 +529,14 @@ impl<T: Loggable> Loggable for Option<T> {
 /// // This will log the full credit card locally but "<LogIt>" remotely
 /// logwise::info_sync!("Processing payment with {card}",
 ///                     card=LogIt(card));
+/// # }
 /// ```
 ///
 /// # Integration with Complex Types
 ///
 /// ```
-///
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::privacy::LogIt;
 /// use std::collections::HashMap;
 ///
@@ -540,6 +547,7 @@ impl<T: Loggable> Loggable for Option<T> {
 /// // Wrap the entire HashMap to protect all contents
 /// logwise::info_sync!("User data: {data}",
 ///                              data=LogIt(&sensitive_data));
+/// # }
 /// ```
 pub struct LogIt<T>(pub T);
 
@@ -576,6 +584,8 @@ impl<T: Debug> Loggable for LogIt<T> {
 /// # Example
 ///
 /// ```
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::privacy::IPromiseItsNotPrivate;
 ///
 /// // These would normally be redacted as strings
@@ -586,11 +596,14 @@ impl<T: Debug> Loggable for LogIt<T> {
 /// logwise::info_sync!("Event {event} on {server}",
 ///                     event=IPromiseItsNotPrivate(event_type),
 ///                     server=IPromiseItsNotPrivate(server_name));
+/// # }
 /// ```
 ///
 /// # Example with IDs
 ///
 /// ```
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::privacy::IPromiseItsNotPrivate;
 ///
 /// // This would normally be redacted as a u64
@@ -599,11 +612,14 @@ impl<T: Debug> Loggable for LogIt<T> {
 /// // But we know product IDs are public information
 /// logwise::warn_sync!("Product {id} is out of stock",
 ///                     id=IPromiseItsNotPrivate(public_product_id));
+/// # }
 /// ```
 ///
 /// # Contrast with Private Data
 ///
 /// ```
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::privacy::{IPromiseItsNotPrivate, LogIt};
 ///
 /// let public_error_code = "ERR_404";  // Safe to log
@@ -616,6 +632,7 @@ impl<T: Debug> Loggable for LogIt<T> {
 ///
 /// // WRONG - Don't do this! User email is private:
 /// // code=IPromiseItsNotPrivate(user_email)  // DON'T DO THIS!
+/// # }
 /// ```
 pub struct IPromiseItsNotPrivate<T>(pub T);
 

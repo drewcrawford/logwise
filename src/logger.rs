@@ -85,6 +85,8 @@
 //! Loggers are typically registered globally using the [`global_logger`](crate::global_logger) module:
 //!
 //! ```
+//! logwise::declare_logging_domain!();
+//! # fn main() {
 //! use logwise::{Logger, add_global_logger};
 //! use std::sync::Arc;
 //!
@@ -105,6 +107,7 @@
 //!
 //! // Now all log messages will also go to MyCustomLogger
 //! logwise::info_sync!("This message goes to all registered loggers");
+//! # }
 //! ```
 //!
 //! # Performance Considerations

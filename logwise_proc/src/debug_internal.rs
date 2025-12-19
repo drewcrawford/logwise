@@ -9,7 +9,7 @@ pub fn debuginternal_sync_impl(input: TokenStream) -> TokenStream {
     let src = format!(
         r#"
         #[cfg(debug_assertions)] {{
-            if logwise::log_enabled!(logwise::Level::DebugInternal, || crate::__LOGWISE_DOMAIN.is_internal()) {{
+            if logwise::log_enabled!(logwise::Level::DebugInternal) {{
                     let mut record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
                     let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
                     {LFORMAT_EXPAND}
@@ -28,7 +28,7 @@ pub fn debuginternal_async_impl(input: TokenStream) -> TokenStream {
     let src = format!(
         r#"
         #[cfg(debug_assertions)] {{
-            if logwise::log_enabled!(logwise::Level::DebugInternal, || crate::__LOGWISE_DOMAIN.is_internal()) {{
+            if logwise::log_enabled!(logwise::Level::DebugInternal) {{
                let mut record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
                 let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
 

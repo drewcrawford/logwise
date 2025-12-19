@@ -45,6 +45,8 @@ use std::time::Duration;
 /// # Example
 ///
 /// ```rust
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::InMemoryLogger;
 /// use logwise::global_logger::{add_global_logger, set_global_loggers};
 /// use std::sync::Arc;
@@ -65,11 +67,14 @@ use std::time::Duration;
 /// // Retrieve the logs
 /// let logs = logger.drain_logs();
 /// assert!(logs.contains("Test message 42"));
+/// # }
 /// ```
 ///
 /// # Testing Example
 ///
 /// ```rust
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::InMemoryLogger;
 /// use logwise::global_logger::set_global_loggers;
 /// use std::sync::Arc;
@@ -92,6 +97,7 @@ use std::time::Duration;
 /// assert!(logs.contains("Something suspicious happened"));
 /// assert!(logs.contains("An error occurred: 404"));
 /// # }
+/// # }
 /// ```
 ///
 /// # Test Isolation Pattern
@@ -99,6 +105,8 @@ use std::time::Duration;
 /// For better test isolation, you can save and restore the global loggers:
 ///
 /// ```rust
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::InMemoryLogger;
 /// use logwise::global_logger::{global_loggers, set_global_loggers};
 /// use std::sync::Arc;
@@ -120,6 +128,7 @@ use std::time::Duration;
 ///
 /// // Restore original loggers
 /// set_global_loggers(original_loggers);
+/// # }
 /// # }
 /// ```
 #[derive(Debug)]
@@ -180,6 +189,8 @@ impl InMemoryLogger {
     /// # Example
     ///
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// use logwise::InMemoryLogger;
     /// use logwise::global_logger::set_global_loggers;
     /// use std::sync::Arc;
@@ -197,6 +208,7 @@ impl InMemoryLogger {
     /// // Buffer is now empty
     /// let logs_again = logger.drain_logs();
     /// assert_eq!(logs_again, "");
+    /// # }
     /// ```
     ///
     /// # Thread Safety
@@ -225,6 +237,8 @@ impl InMemoryLogger {
     /// # Example
     ///
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// use logwise::InMemoryLogger;
     /// use logwise::global_logger::set_global_loggers;
     /// use std::sync::Arc;
@@ -237,6 +251,7 @@ impl InMemoryLogger {
     /// // Output logs to console for immediate debugging
     /// logger.drain_to_console();
     /// // The error message is now printed to stderr/console
+    /// # }
     /// ```
     pub fn drain_to_console(&self) {
         let mut logs = self.logs.lock().unwrap();

@@ -41,6 +41,8 @@
 //! ## Adding a custom logger
 //!
 //! ```
+//! logwise::declare_logging_domain!();
+//! # fn main() {
 //! use logwise::global_logger::add_global_logger;
 //! use logwise::InMemoryLogger;
 //! use std::sync::Arc;
@@ -51,11 +53,14 @@
 //!
 //! // Now logs go to both stderr and the in-memory logger
 //! logwise::info_sync!("This goes to multiple loggers");
+//! # }
 //! ```
 //!
 //! ## Replacing all loggers
 //!
 //! ```
+//! logwise::declare_logging_domain!();
+//! # fn main() {
 //! use logwise::global_logger::set_global_loggers;
 //! use logwise::InMemoryLogger;
 //! use std::sync::Arc;
@@ -66,6 +71,7 @@
 //!
 //! // Now logs only go to the in-memory logger
 //! logwise::warn_sync!("Only captured in memory");
+//! # }
 //! ```
 //!
 //! # Implementation Notes
@@ -187,6 +193,8 @@ pub fn global_loggers() -> Vec<Arc<dyn Logger>> {
 /// ## Multiple logger types
 ///
 /// ```
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::global_logger::add_global_logger;
 /// use logwise::InMemoryLogger;
 /// use std::sync::Arc;
@@ -199,6 +207,7 @@ pub fn global_loggers() -> Vec<Arc<dyn Logger>> {
 ///
 /// // Now logs go to all registered loggers
 /// logwise::info_sync!("This appears in all loggers");
+/// # }
 /// ```
 pub fn add_global_logger(logger: Arc<dyn Logger>) {
     GLOBAL_LOGGERS_PTR
@@ -232,6 +241,8 @@ pub fn add_global_logger(logger: Arc<dyn Logger>) {
 /// ## Replace with a single logger
 ///
 /// ```
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::global_logger::set_global_loggers;
 /// use logwise::InMemoryLogger;
 /// use std::sync::Arc;
@@ -242,11 +253,14 @@ pub fn add_global_logger(logger: Arc<dyn Logger>) {
 ///
 /// // Now only the in-memory logger receives logs
 /// logwise::info_sync!("Only in memory");
+/// # }
 /// ```
 ///
 /// ## Replace with multiple loggers
 ///
 /// ```
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::global_logger::set_global_loggers;
 /// use logwise::InMemoryLogger;
 /// use std::sync::Arc;
@@ -261,6 +275,7 @@ pub fn add_global_logger(logger: Arc<dyn Logger>) {
 /// set_global_loggers(loggers);
 ///
 /// logwise::warn_sync!("This goes to both loggers");
+/// # }
 /// ```
 ///
 /// ## Clear all loggers (not recommended)

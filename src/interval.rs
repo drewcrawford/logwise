@@ -32,6 +32,8 @@ static PROFILE_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 /// # Example
 ///
 /// ```rust
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// # fn perform_expensive_operation() {}
 /// // Using the perfwarn! macro (recommended)
 /// logwise::perfwarn!("database_query", {
@@ -43,6 +45,7 @@ static PROFILE_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 /// perform_expensive_operation();
 /// // Duration is logged when interval drops
 /// drop(interval);
+/// # }
 /// ```
 ///
 /// # Scaling
@@ -51,11 +54,14 @@ static PROFILE_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 /// only a portion of the measured time is relevant:
 ///
 /// ```rust
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// # fn perform_expensive_operation() {}
 /// let mut interval = logwise::perfwarn_begin!("partial_operation");
 /// perform_expensive_operation();
 /// // Report only 20% of the actual duration
 /// interval.scale(0.2);
+/// # }
 /// ```
 #[derive(Debug)]
 pub struct PerfwarnInterval {
@@ -163,12 +169,15 @@ mod tests {
 /// # Example
 ///
 /// ```rust
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// # use std::time::Duration;
 /// # fn perform_database_query() {}
 /// // Create a conditional interval that warns only if execution takes > 100ms
 /// let _interval = logwise::perfwarn_begin_if!(Duration::from_millis(100), "database_query");
 /// perform_database_query();
 /// // If the query took longer than 100ms, a warning is logged when _interval drops
+/// # }
 /// ```
 ///
 /// # Behavior
@@ -205,6 +214,8 @@ impl PerfwarnIntervalIf {
     /// Use the `perfwarn_begin_if!` macro instead:
     ///
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// use std::time::Duration;
     ///
     /// let _interval = logwise::perfwarn_begin_if!(
@@ -213,6 +224,7 @@ impl PerfwarnIntervalIf {
     /// );
     /// // ... perform operation ...
     /// // Only logs if operation took > 100ms
+    /// # }
     /// ```
     #[inline]
     pub fn new(
@@ -304,12 +316,15 @@ pub fn next_profile_id() -> u64 {
 /// # Example
 ///
 /// ```rust
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// # fn perform_operation() {}
 /// // Using profile_begin! for manual interval management
 /// let interval = logwise::profile_begin!("database_query");
 /// perform_operation();
 /// // BEGIN logged when created, END logged when dropped
 /// drop(interval);
+/// # }
 /// ```
 ///
 /// # Log Output

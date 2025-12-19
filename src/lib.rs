@@ -50,6 +50,8 @@ logwise provides specific log levels for defined use cases:
 ## Basic Logging
 
 ```rust
+logwise::declare_logging_domain!();
+# fn main() {
 // Simple structured logging
 logwise::info_sync!("User logged in", user_id=42);
 
@@ -58,9 +60,12 @@ logwise::warn_sync!("Request failed",
     status=404,
     path="/api/users"
 );
+# }
 ```
 
 ```rust
+logwise::declare_logging_domain!();
+# fn main() {
 // Async logging for better performance
 async fn handle_request() {
     logwise::info_async!("Processing request",
@@ -68,6 +73,7 @@ async fn handle_request() {
         endpoint="/health"
     );
 }
+# }
 ```
 
 ## Privacy-Aware Logging
@@ -75,6 +81,8 @@ async fn handle_request() {
 logwise's privacy system ensures sensitive data is handled appropriately:
 
 ```rust
+logwise::declare_logging_domain!();
+# fn main() {
 use logwise::privacy::{LogIt, IPromiseItsNotPrivate};
 
 #[derive(Debug)]
@@ -99,6 +107,7 @@ let public_id = "PUBLIC-123";
 logwise::info_sync!("Processing {id}",
     id=IPromiseItsNotPrivate(public_id)
 );
+# }
 ```
 
 ## Context and Task Management
@@ -139,6 +148,8 @@ child_ctx.clone().set_current();
 Use the `perfwarn!` macro to track and log slow operations:
 
 ```rust
+logwise::declare_logging_domain!();
+# fn main() {
 # fn perform_database_query() {}
 // Tracks execution time automatically
 logwise::perfwarn!("database_query", {
@@ -146,11 +157,14 @@ logwise::perfwarn!("database_query", {
     perform_database_query()
 });
 // Logs warning if operation exceeds threshold
+# }
 ```
 
 For conditional performance warnings that only log when a threshold is exceeded:
 
 ```rust
+logwise::declare_logging_domain!();
+# fn main() {
 # use std::time::Duration;
 # fn fetch_data() {}
 // Only logs if operation takes longer than 100ms
@@ -160,6 +174,7 @@ let _interval = logwise::perfwarn_begin_if!(
 );
 fetch_data();
 // Warning logged only if threshold exceeded
+# }
 ```
 
 ## Heartbeat Monitoring
@@ -180,6 +195,8 @@ critical_task();
 Use [`log_enabled!`] to check if a log level is enabled before doing expensive work:
 
 ```rust
+logwise::declare_logging_domain!();
+# fn main() {
 use logwise::{Level, log_enabled};
 
 // Skip expensive computation if the log level is disabled
@@ -188,6 +205,7 @@ if log_enabled!(Level::Trace) {
     logwise::trace_sync!("Debug data: {data}", data=expensive_data);
 }
 # fn expensive_debug_computation() -> i32 { 42 }
+# }
 ```
 
 # Architecture Overview
@@ -215,6 +233,8 @@ if log_enabled!(Level::Trace) {
 ## Complete Application Example
 
 ```rust
+logwise::declare_logging_domain!();
+# fn main() {
 use logwise::{context::Context, privacy::LogIt};
 
 #[derive(Debug)]
@@ -224,36 +244,29 @@ struct Config {
 }
 
 // Initialize root context
-    Context::reset("application".to_string());
+Context::reset("application".to_string());
 
-    // Log application startup
-    logwise::info_sync!("Starting application", version="1.0.0");
+// Log application startup
+logwise::info_sync!("Starting application", version="1.0.0");
 
-    // Create task for initialization
-    //     let init_ctx = Context::new_task(
-    //         Some(Context::current()),
-    //         "initialization".to_string(),
-    //         logwise::Level::Info,
-    //         true,
-    //     );init_ctx.clone().set_current();
+// Load configuration
+let config = Config {
+    database_url: "postgres://localhost/myapp".into(),
+    port: 8080,
+};
 
-    // Load configuration
-    let config = Config {
-        database_url: "postgres://localhost/myapp".into(),
-        port: 8080,
-    };
+// Use LogIt for complex types
+logwise::info_sync!("Configuration loaded",
+    config=LogIt(&config)
+);
 
-    // Use LogIt for complex types
-    logwise::info_sync!("Configuration loaded",
-        config=LogIt(&config)
-    );
+// Track performance-critical operations
+logwise::perfwarn!("database_connection", {
+    // connect_to_database(&config.database_url)
+});
 
-    // Track performance-critical operations
-    logwise::perfwarn!("database_connection", {
-        // connect_to_database(&config.database_url)
-    });
-
-    logwise::info_sync!("Application ready", port=config.port);
+logwise::info_sync!("Application ready", port=config.port);
+# }
 ```
 
 ## Custom Logger Implementation
@@ -331,7 +344,6 @@ pub mod privacy;
 mod spinlock;
 mod stderror_logger;
 mod sys;
-
 declare_logging_domain!();
 
 // Re-export core types and functions for public API

@@ -23,6 +23,8 @@ use super::context_impl::Context;
 /// # Examples
 ///
 /// ```rust
+/// logwise::declare_logging_domain!();
+/// # fn main() {
 /// use logwise::context::{Context, ApplyContext};
 ///
 /// async fn process_data() {
@@ -38,6 +40,7 @@ use super::context_impl::Context;
 ///
 /// // The context will be active during all poll calls
 /// future.await;
+/// # }
 /// # }
 /// ```
 ///
@@ -64,6 +67,8 @@ impl<F> ApplyContext<F> {
     /// # Examples
     ///
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// use logwise::context::{Context, ApplyContext};
     /// use std::future::Future;
     ///
@@ -77,6 +82,7 @@ impl<F> ApplyContext<F> {
     /// let wrapped = ApplyContext::new(ctx, my_task());
     /// let result = wrapped.await;
     /// assert_eq!(result, 42);
+    /// # }
     /// # }
     /// ```
     pub fn new(context: Context, f: F) -> Self {

@@ -24,10 +24,13 @@
 //! These functions are not intended to be called directly. Instead, use the macros:
 //!
 //! ```rust
+//! logwise::declare_logging_domain!();
+//! # fn main() {
 //! # use logwise::context::Context;
 //! # Context::reset("example".to_string());
 //! // Use the macro, not the implementation functions
 //! logwise::info_sync!("Operation completed", count=42);
+//! # }
 //! ```
 
 use crate::log_record::LogRecord;
@@ -196,7 +199,7 @@ impl From<bool> for LoggingDomain {
 ///
 /// - **Required for debuginternal macros**: Without this macro at the crate root,
 ///   attempting to use `debuginternal_sync!` or `debuginternal_async!` will result
-///   in a compile error about `__LOGWISE_DOMAIN` not being found.
+///   in a compile error about `__CALL_LOGWISE_DECLARE_LOGGING_DOMAIN` not being found.
 ///
 /// - **Crate-level scope**: This affects only the current crate. Each crate using
 ///   logwise must declare its own logging domain.
@@ -254,15 +257,15 @@ macro_rules! declare_logging_domain {
     () => {
         #[doc(hidden)]
         #[cfg(feature = "logwise_internal")]
-        pub(crate) static __LOGWISE_DOMAIN: $crate::LoggingDomain =
+        pub(crate) static __CALL_LOGWISE_DECLARE_LOGGING_DOMAIN: $crate::LoggingDomain =
             $crate::LoggingDomain::new(true);
         #[cfg(not(feature = "logwise_internal"))]
-        pub(crate) static __LOGWISE_DOMAIN: $crate::LoggingDomain =
+        pub(crate) static __CALL_LOGWISE_DECLARE_LOGGING_DOMAIN: $crate::LoggingDomain =
             $crate::LoggingDomain::new(false);
     };
     ($enabled:expr) => {
         #[doc(hidden)]
-        pub static __LOGWISE_DOMAIN: $crate::LoggingDomain = $crate::LoggingDomain::new($enabled);
+        pub static __CALL_LOGWISE_DECLARE_LOGGING_DOMAIN: $crate::LoggingDomain = $crate::LoggingDomain::new($enabled);
     };
 }
 
@@ -273,7 +276,7 @@ macro_rules! declare_logging_domain {
 #[macro_export]
 macro_rules! log_enabled {
     ($level:expr) => {
-        $crate::log_enabled!($level, || false)
+        $crate::log_enabled!($level, crate::__CALL_LOGWISE_DECLARE_LOGGING_DOMAIN)
     };
     ($level:expr, $domain:expr) => {{
         #[allow(unreachable_patterns)]
@@ -291,7 +294,7 @@ macro_rules! log_enabled {
             $crate::Level::DebugInternal => {
                 #[cfg(debug_assertions)]
                 {
-                    ($domain)() || $crate::context::Context::currently_tracing()
+                    ($domain.is_internal()) || $crate::context::Context::currently_tracing()
                 }
                 #[cfg(not(debug_assertions))]
                 {
@@ -319,6 +322,7 @@ macro_rules! log_enabled {
         }
     }};
 }
+
 
 /// Formatter for writing log messages with full private information.
 ///

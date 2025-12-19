@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-use logwise::{Level, context::Context, perfwarn_begin_if};
+use logwise::{Level, context::Context, perfwarn_begin_if, declare_logging_domain};
 use std::thread;
 use std::time::Duration;
-
+declare_logging_domain!();
 #[test]
 fn test_perfwarn_if_logs_when_slow() {
     Context::reset("test_perfwarn_if_slow".to_string());

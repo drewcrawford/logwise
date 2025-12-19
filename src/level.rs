@@ -45,9 +45,12 @@ pub enum Level {
     ///
     /// # Example
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// # use logwise::context::Context;
     /// Context::begin_trace();
     /// logwise::trace_sync!("Entering function with arg={val}", val=42);
+    /// # }
     /// ```
     Trace,
 
@@ -73,7 +76,10 @@ pub enum Level {
     ///
     /// # Example
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// logwise::info_sync!("Starting operation", name="data_sync");
+    /// # }
     /// ```
     Info,
 
@@ -92,10 +98,13 @@ pub enum Level {
     ///
     /// # Example
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// # fn slow_operation() {}
     /// logwise::perfwarn!("database_query", {
     ///     slow_operation();
     /// });
+    /// # }
     /// ```
     PerfWarn,
 
@@ -106,7 +115,10 @@ pub enum Level {
     ///
     /// # Example
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// logwise::warn_sync!("Config file not found, using defaults");
+    /// # }
     /// ```
     Warning,
 
@@ -117,7 +129,10 @@ pub enum Level {
     ///
     /// # Example
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// logwise::error_sync!("Failed to connect: {reason}", reason="timeout");
+    /// # }
     /// ```
     Error,
 
@@ -135,7 +150,10 @@ pub enum Level {
     ///
     /// # Example
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// logwise::mandatory_sync!("Debug: value is {val}", val=42);
+    /// # }
     /// ```
     Mandatory,
 
@@ -146,8 +164,11 @@ pub enum Level {
     ///
     /// # Example
     /// ```rust
+    /// logwise::declare_logging_domain!();
+    /// # fn main() {
     /// let elapsed_ms = 42u64;
     /// logwise::profile_sync!("Operation took {ms} ms", ms=elapsed_ms);
+    /// # }
     /// ```
     Profile,
 }
