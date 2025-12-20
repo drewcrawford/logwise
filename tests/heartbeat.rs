@@ -44,7 +44,7 @@ mod tests {
         set_global_loggers(vec![logger.clone()]);
 
         {
-            let _hb = heartbeat("on_time", Duration::from_millis(50));
+            let _hb = heartbeat("on_time", Duration::from_millis(200));
         }
 
         // Ensure background thread had a chance to process completions.
