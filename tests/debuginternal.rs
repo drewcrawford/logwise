@@ -19,6 +19,9 @@ fn test_debuginternal_enabled_in_integration_test() {
     logwise::debuginternal_sync!("test message");
 
     let logs = logger.drain_logs();
-    assert!(!logs.is_empty(), "debuginternal should be enabled in integration tests");
+    assert!(
+        !logs.is_empty(),
+        "debuginternal should be enabled in integration tests"
+    );
     assert!(logs.contains("test message"));
 }

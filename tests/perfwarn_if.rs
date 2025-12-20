@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-use logwise::{Level, context::Context, perfwarn_begin_if, declare_logging_domain};
+use logwise::{Level, context::Context, declare_logging_domain, perfwarn_begin_if};
 use std::thread;
 use std::time::Duration;
 declare_logging_domain!();

@@ -1,0 +1,6 @@
+#!/bin/bash
+# Serve web/ directory locally with CORS headers for debugging
+set -e
+
+cd "$(dirname "$0")/../../web"
+vercel dev

@@ -271,7 +271,10 @@ impl Context {
             None,
             label,
             Level::DebugInternal,
-            crate::log_enabled!(Level::DebugInternal, crate::__CALL_LOGWISE_DECLARE_LOGGING_DOMAIN),
+            crate::log_enabled!(
+                Level::DebugInternal,
+                crate::__CALL_LOGWISE_DECLARE_LOGGING_DOMAIN
+            ),
         );
         new_context.set_current();
     }

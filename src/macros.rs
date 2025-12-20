@@ -279,13 +279,15 @@ macro_rules! declare_logging_domain {
     () => {
         #[doc(hidden)]
         pub(crate) static __CALL_LOGWISE_DECLARE_LOGGING_DOMAIN: $crate::LoggingDomain =
-            $crate::LoggingDomain::new(
-                $crate::const_str_eq(env!("CARGO_CRATE_NAME"), module_path!())
-            );
+            $crate::LoggingDomain::new($crate::const_str_eq(
+                env!("CARGO_CRATE_NAME"),
+                module_path!(),
+            ));
     };
     ($enabled:expr) => {
         #[doc(hidden)]
-        pub static __CALL_LOGWISE_DECLARE_LOGGING_DOMAIN: $crate::LoggingDomain = $crate::LoggingDomain::new($enabled);
+        pub static __CALL_LOGWISE_DECLARE_LOGGING_DOMAIN: $crate::LoggingDomain =
+            $crate::LoggingDomain::new($enabled);
     };
 }
 
@@ -342,7 +344,6 @@ macro_rules! log_enabled {
         }
     }};
 }
-
 
 /// Formatter for writing log messages with full private information.
 ///
