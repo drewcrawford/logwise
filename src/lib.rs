@@ -362,7 +362,7 @@ pub use logwise_proc::{
     profile_async, profile_begin, profile_sync, trace_async, trace_sync, warn_sync,
 };
 
-pub use macros::LoggingDomain;
+pub use macros::{LoggingDomain, const_str_eq};
 
 #[doc(hidden)]
 pub mod hidden {

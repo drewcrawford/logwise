@@ -252,16 +252,36 @@ impl From<bool> for LoggingDomain {
 /// // Enable internal logging based on an environment variable
 /// declare_logging_domain!(option_env!("ENABLE_INTERNAL_LOGS").is_some());
 /// ```
+/// Compares two strings for equality at compile time.
+///
+/// This is used by [`declare_logging_domain!`] to determine if the current
+/// compilation unit is the "current crate" (where `debuginternal` should be
+/// enabled by default) or a downstream crate.
+#[doc(hidden)]
+pub const fn const_str_eq(a: &str, b: &str) -> bool {
+    let a = a.as_bytes();
+    let b = b.as_bytes();
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
 #[macro_export]
 macro_rules! declare_logging_domain {
     () => {
         #[doc(hidden)]
-        #[cfg(feature = "logwise_internal")]
         pub(crate) static __CALL_LOGWISE_DECLARE_LOGGING_DOMAIN: $crate::LoggingDomain =
-            $crate::LoggingDomain::new(true);
-        #[cfg(not(feature = "logwise_internal"))]
-        pub(crate) static __CALL_LOGWISE_DECLARE_LOGGING_DOMAIN: $crate::LoggingDomain =
-            $crate::LoggingDomain::new(false);
+            $crate::LoggingDomain::new(
+                $crate::const_str_eq(env!("CARGO_CRATE_NAME"), module_path!())
+            );
     };
     ($enabled:expr) => {
         #[doc(hidden)]
