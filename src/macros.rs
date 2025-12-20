@@ -296,6 +296,7 @@ macro_rules! declare_logging_domain {
 /// This macro centralizes the enablement logic used by the logging macros so the
 /// same checks are available both inside and outside of the macros themselves.
 #[macro_export]
+#[allow(clippy::crate_in_macro_def)]
 macro_rules! log_enabled {
     ($level:expr) => {
         $crate::log_enabled!($level, crate::__CALL_LOGWISE_DECLARE_LOGGING_DOMAIN)
