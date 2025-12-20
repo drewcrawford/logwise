@@ -40,6 +40,8 @@ logwise provides specific log levels for defined use cases:
 | `trace` | Detailed debugging | debug only | Must enable per-thread via [`Context::begin_trace()`](context::Context::begin_trace) |
 | `debuginternal` | Print-style debugging | debug only | On by default in current crate, per-thread in downstream |
 | `info` | Supporting downstream crates | debug only | On by default |
+| `mandatory` | Printf-style debugging | all builds | Always on |
+| `profile` | Profiling output | all builds | Always on |
 | `perfwarn` | Performance problems with analysis | all builds | Always on |
 | `warning` | Suspicious conditions | all builds | Always on |
 | `error` | Logging errors in Results | all builds | Always on |
@@ -208,6 +210,43 @@ if log_enabled!(Level::Trace) {
 # }
 ```
 
+## Mandatory Logging
+
+Use [`mandatory_sync!`] or [`mandatory_async!`] for printf-style debugging that is always enabled, even in release builds:
+
+```rust
+logwise::declare_logging_domain!();
+# fn main() {
+// This log will appear in all builds
+logwise::mandatory_sync!("Debugging value: {value}", value=42);
+# }
+```
+
+## Profiling
+
+Use profiling macros to track execution time and performance characteristics:
+
+```rust
+logwise::declare_logging_domain!();
+# fn main() {
+# fn process_data() {}
+// Logs duration when the interval is dropped
+let _interval = logwise::profile_begin!("data_processing");
+process_data();
+// Automatically logs completion time
+# }
+```
+
+For explicit profiling messages:
+
+```rust
+logwise::declare_logging_domain!();
+# fn main() {
+# let elapsed_ms = 42;
+logwise::profile_sync!("Computation took {ms} ms", ms=elapsed_ms);
+# }
+```
+
 # Architecture Overview
 
 ## Core Components
@@ -218,7 +257,7 @@ if log_enabled!(Level::Trace) {
 * **[`context`] module**: Thread-local hierarchical task management
 * **[`privacy`] module**: Privacy-aware data handling system
 * **[`global_logger`] module**: Global logger registration and management
-* **[`interval`] module**: Performance interval tracking ([`interval::PerfwarnInterval`], [`interval::PerfwarnIntervalIf`])
+* **[`interval`] module**: Performance interval tracking ([`interval::PerfwarnInterval`], [`interval::PerfwarnIntervalIf`], [`interval::ProfileInterval`])
 * **[`HeartbeatGuard`]**: Deadline monitoring for operations
 
 ## Logging Flow
