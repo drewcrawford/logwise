@@ -1,6 +1,6 @@
 [package]
 name = "logwise"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Drew Crawford <drew@sealedabstract.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ rust-version = "1.85.1"
 exclude = [".*"]
 
 [dependencies]
-logwise_proc = { path = "logwise_proc", version = "0.5.0" }
+logwise_proc = { path = "logwise_proc", version = "0.5.1" }
 wasm_safe_thread = "0.1.1"
 
 [dev-dependencies]
