@@ -240,7 +240,7 @@ fn spawn_watcher(receiver: mpsc::Receiver<Message>) {
         .spawn(move || heartbeat_loop(receiver));
 
     #[cfg(target_arch = "wasm32")]
-    let _ = wasm_thread::spawn(move || heartbeat_loop(receiver));
+    let _ = wasm_safe_thread::spawn(move || heartbeat_loop(receiver));
 }
 
 #[cfg(test)]
