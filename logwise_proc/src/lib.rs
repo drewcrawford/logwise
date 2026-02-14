@@ -72,7 +72,7 @@ mod warn;
 
 /// Low-level macro for generating formatter calls from format strings.
 ///
-/// See [`lformat`](mod@lformat) module documentation for details.
+/// See the internal `lformat` module implementation for details.
 #[proc_macro]
 pub fn lformat(input: TokenStream) -> TokenStream {
     lformat::lformat_macro(input)

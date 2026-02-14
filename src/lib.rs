@@ -2,7 +2,8 @@
 /*!
 # logwise
 
-![logo](../../art/logo.png)
+![logo](https://github.com/drewcrawford/logwise/raw/main/art/logo.png)
+
 
 
 An opinionated logging library for Rust with structured logging, privacy-aware data handling,
