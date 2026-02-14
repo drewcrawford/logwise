@@ -9,7 +9,7 @@ use std::panic::Location;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use wasm_safe_mutex::mpsc;
+use wasm_safe_thread::mpsc;
 
 #[derive(Clone, Copy, Debug)]
 struct CallSite {
@@ -118,7 +118,12 @@ impl HeartbeatGuard {
     ///
     /// # Example
     ///
+    /// On `wasm32`, this doctest configures wasm-bindgen to run in a browser
+    /// because thread spawning is not yet supported under Node.
+    ///
     /// ```rust
+    /// # #[cfg(target_arch = "wasm32")]
+    /// # wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
     /// use std::time::Duration;
     /// use logwise::HeartbeatGuard;
     ///
@@ -132,6 +137,8 @@ impl HeartbeatGuard {
     /// Prefer using the [`heartbeat`] function for convenience:
     ///
     /// ```rust
+    /// # #[cfg(target_arch = "wasm32")]
+    /// # wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
     /// use std::time::Duration;
     ///
     /// let guard = logwise::heartbeat("operation", Duration::from_secs(5));
@@ -281,6 +288,7 @@ fn heartbeat_loop(receiver: mpsc::Receiver<Message>) {
             }
             Err(mpsc::RecvTimeoutError::Timeout) => { /* fall through to deadline check */ }
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            Err(other) => panic!("unexpected message: {:?}", other),
         }
 
         let now = Instant::now();

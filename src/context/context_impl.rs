@@ -3,7 +3,7 @@
 //! Core Context implementation.
 
 use crate::Level;
-use std::cell::Cell;
+use std::cell::{Cell, OnceCell};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -123,13 +123,20 @@ impl AsRef<Task> for Context {
 }
 
 thread_local! {
-    pub(crate) static CONTEXT: Cell<Context> = Cell::new(Context::new_task_internal(
-        None,
-        "Default task".to_string(),
-        Level::DebugInternal,
-        false,
-        0,
-    ));
+    pub(crate) static CONTEXT: OnceCell<Cell<Context>> = const { OnceCell::new() };
+}
+
+/// Lazily initializes and returns the thread-local context cell.
+fn get_or_init_context(once: &OnceCell<Cell<Context>>) -> &Cell<Context> {
+    once.get_or_init(|| {
+        Cell::new(Context::new_task_internal(
+            None,
+            String::new(),
+            Level::DebugInternal,
+            false,
+            0,
+        ))
+    })
 }
 
 impl Context {
@@ -149,9 +156,11 @@ impl Context {
     /// ```
     #[inline]
     pub fn current() -> Context {
-        CONTEXT.with(|c|
+        CONTEXT.with(|once| {
+            let c = get_or_init_context(once);
             //safety: we don't let anyone get a mutable reference to this
-            unsafe{&*c.as_ptr()}.clone())
+            unsafe { &*c.as_ptr() }.clone()
+        })
     }
 
     /// Returns the task associated with this context.
@@ -374,7 +383,11 @@ impl Context {
     #[inline]
     pub fn currently_tracing() -> bool {
         CONTEXT
-            .try_with(|c| {
+            .try_with(|once| {
+                // If not initialized yet, we're not tracing
+                let Some(c) = once.get() else {
+                    return false;
+                };
                 //safety: we don't let anyone get a mutable reference to this
                 unsafe { &*c.as_ptr() }
                     .inner
@@ -436,7 +449,9 @@ impl Context {
     /// # }
     /// ```
     pub fn set_current(self) {
-        CONTEXT.replace(self);
+        CONTEXT.with(|once| {
+            get_or_init_context(once).replace(self);
+        });
     }
 
     /// Returns the nesting level of this context in the hierarchy.
@@ -517,7 +532,9 @@ impl Context {
         loop {
             if current.context_id() == id {
                 let parent = current.inner.parent.clone().expect("No parent context");
-                CONTEXT.replace(parent);
+                CONTEXT.with(|once| {
+                    get_or_init_context(once).replace(parent);
+                });
                 return;
             }
             match current.inner.parent.as_ref() {

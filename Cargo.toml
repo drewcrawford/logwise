@@ -15,10 +15,10 @@ exclude = [".*"]
 
 [dependencies]
 logwise_proc = { path = "logwise_proc", version = "0.5.0" }
-wasm_safe_mutex = {version = "0.1.2"}
+wasm_safe_thread = "0.1.1"
 
 [dev-dependencies]
-test_executors = "0.4.0"
+test_executors = "0.4.1"
 
 [features]
 logwise_internal = []
@@ -37,3 +37,4 @@ wasm-bindgen-futures = "0.4.56"
 js-sys = "0.3.83"
 # for print_demo
 wasm_thread = "0.3.3"
+

@@ -21,3 +21,18 @@ rustflags = ["-C", "target-feature=+atomics",
     "-Csymbol-mangling-version=legacy",
     "-Zunstable-options",
 ]
+
+# Note: cfg() predicates do not apply to rustdoc flags, so use the exact
+# triple target section for doctests.
+[target.wasm32-unknown-unknown]
+rustdocflags = ["-C", "target-feature=+atomics",
+    "-Clink-arg=--shared-memory",
+    "-Clink-arg=--max-memory=4294967296",
+    "-Clink-arg=--import-memory",
+    "-Clink-arg=--export=__wasm_init_tls",
+    "-Clink-arg=--export=__tls_size",
+    "-Clink-arg=--export=__tls_align",
+    "-Clink-arg=--export=__tls_base",
+    "-Csymbol-mangling-version=legacy",
+    "-Zunstable-options",
+]

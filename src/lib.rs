@@ -184,6 +184,8 @@ fetch_data();
 Use [`heartbeat`] to monitor that operations complete within a deadline:
 
 ```rust
+# #[cfg(target_arch = "wasm32")]
+# wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 # use std::time::Duration;
 # fn critical_task() {}
 // Create a heartbeat that warns if not completed within 5 seconds
@@ -191,6 +193,9 @@ let _guard = logwise::heartbeat("critical_task", Duration::from_secs(5));
 critical_task();
 // Warning logged if guard is dropped after deadline
 ```
+
+On `wasm32`, this example uses browser execution because wasm-bindgen
+thread spawning is not yet supported in Node.
 
 ## Checking Log Level Enablement
 
