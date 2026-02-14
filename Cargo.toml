@@ -35,4 +35,3 @@ wasm-bindgen-futures = "0.4.56"
 js-sys = "0.3.83"
 # for print_demo
 wasm_thread = "0.3.3"
-
