@@ -325,6 +325,10 @@ impl InMemoryLogger {
             logger: self.clone(),
             duration,
             start_time: None,
+            timer_state: Arc::new(DrainTimerState {
+                armed: std::sync::atomic::AtomicBool::new(false),
+                waker: Mutex::new(None),
+            }),
         }
     }
 }
@@ -375,10 +379,18 @@ impl Logger for InMemoryLogger {
 /// implements a cooperative async pattern for draining logs at regular intervals.
 /// It's designed to work in environments where console access might be restricted
 /// or where you need to interleave logging operations with other async work.
+/// Shared state between [`PeriodicDrainToConsole`] and its timer thread, ensuring
+/// at most one timer thread is in flight regardless of how often the future is polled.
+struct DrainTimerState {
+    armed: std::sync::atomic::AtomicBool,
+    waker: Mutex<Option<std::task::Waker>>,
+}
+
 struct PeriodicDrainToConsole {
     logger: Arc<InMemoryLogger>,
     duration: Duration,
     start_time: Option<crate::sys::Instant>,
+    timer_state: Arc<DrainTimerState>,
 }
 
 impl Future for PeriodicDrainToConsole {
@@ -413,16 +425,25 @@ impl Future for PeriodicDrainToConsole {
         } else {
             //empirically, if we do this inline in chrome, we will repeatedly poll the future
             //instead of interleaving with other tasks.
+            use std::sync::atomic::Ordering;
             #[cfg(not(target_arch = "wasm32"))]
             use std::thread;
             #[cfg(target_arch = "wasm32")]
             use wasm_safe_thread as thread;
-            // Otherwise, register the waker and continue polling
-            let move_waker = cx.waker().clone();
-            thread::spawn(move || {
-                thread::sleep(Duration::from_millis(100));
-                move_waker.wake();
-            });
+            // Register the latest waker; spawn at most one timer thread at a time so
+            // frequent or spurious polls can't pile up sleeping threads.
+            *self.timer_state.waker.lock().unwrap() = Some(cx.waker().clone());
+            if !self.timer_state.armed.swap(true, Ordering::AcqRel) {
+                let timer_state = self.timer_state.clone();
+                thread::spawn(move || {
+                    thread::sleep(Duration::from_millis(100));
+                    timer_state.armed.store(false, Ordering::Release);
+                    let waker = timer_state.waker.lock().unwrap().take();
+                    if let Some(waker) = waker {
+                        waker.wake();
+                    }
+                });
+            }
             Poll::Pending
         }
     }
