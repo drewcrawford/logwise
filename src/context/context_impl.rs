@@ -531,10 +531,19 @@ impl Context {
         let mut current = Context::current();
         loop {
             if current.context_id() == id {
-                let parent = current.inner.parent.clone().expect("No parent context");
-                CONTEXT.with(|once| {
-                    get_or_init_context(once).replace(parent);
-                });
+                match current.inner.parent.clone() {
+                    Some(parent) => {
+                        CONTEXT.with(|once| {
+                            get_or_init_context(once).replace(parent);
+                        });
+                    }
+                    None => {
+                        logwise::warn_sync!(
+                            "Tried to pop context with ID {id}, but it is a root context with no parent; leaving the current context unchanged.",
+                            id = id.0
+                        );
+                    }
+                }
                 return;
             }
             match current.inner.parent.as_ref() {
