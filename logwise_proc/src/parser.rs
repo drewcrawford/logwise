@@ -265,13 +265,20 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
     }
     let mut mode = Mode::Literal(String::new());
 
+    //set when an escaped brace consumes the following character
+    let mut skip_next = false;
     for (c, char) in format_string.chars().enumerate() {
+        if skip_next {
+            skip_next = false;
+            continue;
+        }
         match mode {
             Mode::Literal(mut literal) => {
                 if char == '{' {
                     //peek to see if we're escaping
                     if format_string.chars().nth(c + 1) == Some('{') {
                         literal.push(char);
+                        skip_next = true;
                         mode = Mode::Literal(literal);
                     } else if !literal.is_empty() {
                         //reference logger ident
@@ -284,6 +291,10 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
                         mode = Mode::Key(String::new());
                     }
                 } else {
+                    if char == '}' && format_string.chars().nth(c + 1) == Some('}') {
+                        //escaped }}: emit one } and consume the second
+                        skip_next = true;
+                    }
                     literal.push(char);
                     mode = Mode::Literal(literal);
                 }
