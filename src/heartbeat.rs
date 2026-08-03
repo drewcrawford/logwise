@@ -256,15 +256,22 @@ mod tests {
 fn heartbeat_loop(receiver: mpsc::Receiver<Message>) {
     let mut heartbeats: HashMap<u64, Heartbeat> = HashMap::new();
     loop {
-        let now = Instant::now();
         let next_deadline = heartbeats
             .values()
             .filter(|hb| !hb.warned)
             .map(|hb| hb.deadline)
-            .min()
-            .unwrap_or_else(|| now + Duration::from_millis(250));
+            .min();
 
-        match receiver.recv_sync_timeout(next_deadline) {
+        //with no pending deadline, block until a message arrives rather than
+        //waking every 250ms forever
+        let received = match next_deadline {
+            Some(deadline) => receiver.recv_sync_timeout(deadline),
+            None => receiver
+                .recv_sync()
+                .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
+        };
+
+        match received {
             Ok(Message::Register(hb)) => {
                 heartbeats.insert(hb.id, hb);
             }
