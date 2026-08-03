@@ -74,12 +74,17 @@ impl<T> Spinlock<T> {
         // Spin until we can acquire the lock
         self.spin_lock_write();
 
-        // SAFETY: We have exclusive access to the data now
-        let result = unsafe { f(&mut *self.data.get()) };
+        //unlock on drop so a panic in f can't leave the lock held forever
+        struct WriteUnlock<'a, T>(&'a Spinlock<T>);
+        impl<T> Drop for WriteUnlock<'_, T> {
+            fn drop(&mut self) {
+                self.0.spin_unlock_write();
+            }
+        }
+        let _guard = WriteUnlock(self);
 
-        // Release the lock
-        self.spin_unlock_write();
-        result
+        // SAFETY: We have exclusive access to the data now
+        unsafe { f(&mut *self.data.get()) }
     }
 
     pub fn with<F, R>(&self, f: F) -> R
@@ -89,11 +94,16 @@ impl<T> Spinlock<T> {
         // Spin until we can acquire the lock
         self.spin_lock_read();
 
-        // SAFETY: We have shared access to the data now
-        let result = unsafe { f(&*self.data.get()) };
+        //unlock on drop so a panic in f can't leave the lock held forever
+        struct ReadUnlock<'a, T>(&'a Spinlock<T>);
+        impl<T> Drop for ReadUnlock<'_, T> {
+            fn drop(&mut self) {
+                self.0.spin_unlock_read();
+            }
+        }
+        let _guard = ReadUnlock(self);
 
-        // Release the lock
-        self.spin_unlock_read();
-        result
+        // SAFETY: We have shared access to the data now
+        unsafe { f(&*self.data.get()) }
     }
 }
