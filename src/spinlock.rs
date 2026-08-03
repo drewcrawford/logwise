@@ -20,7 +20,8 @@ pub struct Spinlock<T> {
 }
 
 unsafe impl<T: Send> Send for Spinlock<T> {}
-unsafe impl<T: Send> Sync for Spinlock<T> {}
+//`with` hands out &T to up to 254 concurrent readers, so T must be Sync, not just Send.
+unsafe impl<T: Send + Sync> Sync for Spinlock<T> {}
 
 impl<T> Spinlock<T> {
     pub fn new(data: T) -> Self {
