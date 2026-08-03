@@ -116,7 +116,7 @@ impl Drop for PerfwarnInterval {
         let mut record = LogRecord::new(Level::PerfWarn);
         let ctx = Context::current();
         ctx._log_prelude(&mut record);
-        record.log("PERWARN: END ");
+        record.log("PERFWARN: END ");
         record.log_time_since(end_time);
 
         record.log(self.label);
