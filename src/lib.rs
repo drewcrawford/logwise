@@ -381,7 +381,6 @@ mod heartbeat;
 mod inmemory_logger;
 pub mod interval;
 mod level;
-mod local_logger;
 mod log_record;
 mod logger;
 mod macros;

@@ -27,7 +27,6 @@
 //!
 //! - [`StdErrorLogger`](crate::StdErrorLogger): Outputs to stderr (default logger)
 //! - [`InMemoryLogger`](crate::InMemoryLogger): Stores logs in memory for testing
-//! - [`LocalLogger`](crate::local_logger::LocalLogger): Thread-local logging for performance
 //!
 //! # Custom Logger Implementation
 //!
