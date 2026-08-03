@@ -429,7 +429,7 @@ impl Future for PeriodicDrainToConsole {
             #[cfg(not(target_arch = "wasm32"))]
             use std::thread;
             #[cfg(target_arch = "wasm32")]
-            use wasm_safe_thread as thread;
+            use wasm_lite_std as thread;
             // Register the latest waker; spawn at most one timer thread at a time so
             // frequent or spurious polls can't pile up sleeping threads.
             *self.timer_state.waker.lock().unwrap() = Some(cx.waker().clone());

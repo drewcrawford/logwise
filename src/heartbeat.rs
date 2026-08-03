@@ -9,7 +9,7 @@ use std::panic::Location;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use wasm_safe_thread::mpsc;
+use wasm_lite_std::mpsc;
 
 #[derive(Clone, Copy, Debug)]
 struct CallSite {
@@ -240,7 +240,7 @@ fn spawn_watcher(receiver: mpsc::Receiver<Message>) {
         .spawn(move || heartbeat_loop(receiver));
 
     #[cfg(target_arch = "wasm32")]
-    let _ = wasm_safe_thread::spawn(move || heartbeat_loop(receiver));
+    let _ = wasm_lite_std::spawn(move || heartbeat_loop(receiver));
 }
 
 fn heartbeat_loop(receiver: mpsc::Receiver<Message>) {

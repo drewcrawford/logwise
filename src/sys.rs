@@ -12,7 +12,4 @@
 //! the [`heartbeat`](crate::heartbeat) function and
 //! [`InMemoryLogger::periodic_drain_to_console`](crate::InMemoryLogger::periodic_drain_to_console).
 
-#[cfg(not(target_arch = "wasm32"))]
-pub use std::time::{Duration, Instant};
-#[cfg(target_arch = "wasm32")]
-pub use web_time::{Duration, Instant};
+pub use wasm_lite_std::time::{Duration, Instant};
