@@ -101,10 +101,18 @@ where
             let d = self.get_unchecked_mut();
             (d.0.clone(), Pin::new_unchecked(&mut d.1))
         };
-        let prior_context = Context::current();
+        //restore on drop so a panicking inner poll can't leak our context
+        //into the next future polled on this thread
+        struct RestoreContext(Option<Context>);
+        impl Drop for RestoreContext {
+            fn drop(&mut self) {
+                if let Some(prior) = self.0.take() {
+                    prior.set_current();
+                }
+            }
+        }
+        let _restore = RestoreContext(Some(Context::current()));
         context.set_current();
-        let r = fut.poll(cx);
-        prior_context.set_current();
-        r
+        fut.poll(cx)
     }
 }
