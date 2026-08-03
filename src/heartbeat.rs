@@ -360,7 +360,6 @@ pub fn heartbeat(name: &'static str, duration: Duration) -> HeartbeatGuard {
     HeartbeatGuard::new(name, duration)
 }
 
-
 #[cfg(test)]
 mod tests {
     #[cfg_attr(not(target_arch = "wasm32"), test)]

@@ -38,7 +38,7 @@ pub fn profile_attr_impl(_attr: TokenStream, item: TokenStream) -> TokenStream {
         None => {
             return "compile_error!(\"#[profile] can only be applied to functions\")"
                 .parse()
-                .unwrap()
+                .unwrap();
         }
     };
 
@@ -47,7 +47,7 @@ pub fn profile_attr_impl(_attr: TokenStream, item: TokenStream) -> TokenStream {
         None => {
             return "compile_error!(\"#[profile] requires a function with a body\")"
                 .parse()
-                .unwrap()
+                .unwrap();
         }
     };
 
@@ -55,7 +55,9 @@ pub fn profile_attr_impl(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let original_body = if let TokenTree::Group(g) = &tokens[body_idx] {
         g.stream()
     } else {
-        return "compile_error!(\"Expected function body\")".parse().unwrap();
+        return "compile_error!(\"Expected function body\")"
+            .parse()
+            .unwrap();
     };
 
     // Build the new body with profiling

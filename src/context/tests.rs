@@ -5,9 +5,6 @@
 use super::context_impl::Context;
 use super::task::{Task, TaskID};
 use crate::Level;
-
-#[cfg(target_arch = "wasm32")]
-
 #[cfg_attr(not(target_arch = "wasm32"), test)]
 #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
 fn test_new_context() {

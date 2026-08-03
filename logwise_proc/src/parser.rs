@@ -220,7 +220,7 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
                     .parse()
                     .unwrap(),
                 name: "".to_string(),
-            }
+            };
         }
     };
     let format_string = match some_input {
