@@ -820,7 +820,7 @@ mod tests {
     use logwise_proc::{debuginternal_sync, info_sync, warn_sync};
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_warn_sync() {
         crate::context::Context::reset("test_warn_sync".to_string());
         info_sync!("test_warn_sync");
@@ -828,7 +828,7 @@ mod tests {
     }
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn perfwarn() {
         use logwise::perfwarn;
         Context::reset("test_perfwarn".to_string());
@@ -839,13 +839,13 @@ mod tests {
         });
     }
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_debuginternal_sync() {
         crate::context::Context::reset("test_debuginternal_sync".to_string());
         debuginternal_sync!("test_debuginternal_sync");
     }
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_log_rich() {
         let val = false;
         crate::context::Context::reset("test_log_rich".to_string());
@@ -854,7 +854,7 @@ mod tests {
     }
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_log_custom() {
         crate::context::Context::reset("test_log_custom".to_string());
         #[derive(Debug)]
@@ -865,7 +865,7 @@ mod tests {
     }
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     #[allow(clippy::let_underscore_future)] // Just testing macro compiles, not executing
     fn test_log_info_async() {
         crate::context::Context::reset("test_log_info_async".to_string());
@@ -876,28 +876,28 @@ mod tests {
     }
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_trace() {
         crate::context::Context::reset("test_trace".to_string());
         logwise::trace_sync!("test_trace");
     }
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_mandatory_sync() {
         crate::context::Context::reset("test_mandatory_sync".to_string());
         logwise::mandatory_sync!("mandatory debug value={val}", val = 42);
     }
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_profile_sync() {
         crate::context::Context::reset("test_profile_sync".to_string());
         logwise::profile_sync!("profile timing={ms}ms", ms = 100);
     }
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_profile_begin() {
         crate::context::Context::reset("test_profile_begin".to_string());
         let interval = logwise::profile_begin!("test_operation {param}", param = "foo");
@@ -907,7 +907,7 @@ mod tests {
     }
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_profile_begin_nested() {
         crate::context::Context::reset("test_profile_begin_nested".to_string());
         let outer = logwise::profile_begin!("outer_operation");
@@ -925,7 +925,7 @@ mod tests {
     }
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_profile_attribute() {
         crate::context::Context::reset("test_profile_attribute".to_string());
         let result = profiled_function();
@@ -938,7 +938,7 @@ mod tests {
     }
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_profile_attribute_with_args() {
         crate::context::Context::reset("test_profile_attribute_with_args".to_string());
         let result = profiled_with_args(10, 20);
@@ -954,7 +954,7 @@ mod tests {
     }
 
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_profile_attribute_early_return() {
         crate::context::Context::reset("test_profile_attribute_early_return".to_string());
         assert_eq!(profiled_early_return(-5), -1);

@@ -70,37 +70,37 @@ impl Logger for StdErrorLogger {
             let msg = record.parts.join("");
             match record.level() {
                 Level::Trace => {
-                    web_sys::console::trace_1(&msg.into());
+                    wasm_lite::console::trace(&msg);
                 }
                 Level::DebugInternal => {
-                    web_sys::console::debug_1(&msg.into());
+                    wasm_lite::console::debug(&msg);
                 }
                 Level::Info => {
-                    web_sys::console::info_1(&msg.into());
+                    wasm_lite::console::info(&msg);
                 }
                 Level::Analytics => {
-                    web_sys::console::info_1(&msg.into());
+                    wasm_lite::console::info(&msg);
                 }
                 Level::PerfWarn => {
-                    web_sys::console::warn_1(&msg.into());
+                    wasm_lite::console::warn(&msg);
                 }
                 Level::Warning => {
-                    web_sys::console::warn_1(&msg.into());
+                    wasm_lite::console::warn(&msg);
                 }
                 Level::Error => {
                     if msg == "DEBUGME" {
                         panic!("DEBUGME")
                     }
-                    web_sys::console::error_1(&msg.into());
+                    wasm_lite::console::error(&msg);
                 }
                 Level::Panic => {
-                    web_sys::console::error_1(&msg.into());
+                    wasm_lite::console::error(&msg);
                 }
                 Level::Mandatory => {
-                    web_sys::console::log_1(&msg.into());
+                    wasm_lite::console::log(&msg);
                 }
                 Level::Profile => {
-                    web_sys::console::log_1(&msg.into());
+                    wasm_lite::console::log(&msg);
                 }
             }
         }

@@ -146,7 +146,7 @@ boilerplate notes.
 #[cfg(test)]
 mod tests {
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn assert_send_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<super::PerfwarnInterval>();

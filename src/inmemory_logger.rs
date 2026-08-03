@@ -232,7 +232,7 @@ impl InMemoryLogger {
     /// # Platform Behavior
     ///
     /// - On native platforms: Logs are written to stderr using `eprintln!`
-    /// - On WASM: Logs are written using `web_sys::console::log_1`
+    /// - On WASM: Logs are written using `wasm_lite::console::log`
     ///
     /// # Example
     ///
@@ -257,7 +257,7 @@ impl InMemoryLogger {
         let mut logs = self.logs.lock().unwrap();
         for log in logs.iter() {
             #[cfg(target_arch = "wasm32")]
-            web_sys::console::log_1(&log.clone().into());
+            wasm_lite::console::log(&log);
             #[cfg(not(target_arch = "wasm32"))]
             eprintln!("{}", log);
         }

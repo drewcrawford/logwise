@@ -122,8 +122,6 @@ impl HeartbeatGuard {
     /// because thread spawning is not yet supported under Node.
     ///
     /// ```rust
-    /// # #[cfg(target_arch = "wasm32")]
-    /// # wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
     /// use std::time::Duration;
     /// use logwise::HeartbeatGuard;
     ///
@@ -137,8 +135,6 @@ impl HeartbeatGuard {
     /// Prefer using the [`heartbeat`] function for convenience:
     ///
     /// ```rust
-    /// # #[cfg(target_arch = "wasm32")]
-    /// # wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
     /// use std::time::Duration;
     ///
     /// let guard = logwise::heartbeat("operation", Duration::from_secs(5));
@@ -368,7 +364,7 @@ pub fn heartbeat(name: &'static str, duration: Duration) -> HeartbeatGuard {
 #[cfg(test)]
 mod tests {
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn assert_send_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<super::HeartbeatGuard>();

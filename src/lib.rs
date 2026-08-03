@@ -185,8 +185,6 @@ fetch_data();
 Use [`heartbeat`] to monitor that operations complete within a deadline:
 
 ```rust
-# #[cfg(target_arch = "wasm32")]
-# wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 # use std::time::Duration;
 # fn critical_task() {}
 // Create a heartbeat that warns if not completed within 5 seconds

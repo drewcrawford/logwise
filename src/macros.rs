@@ -411,7 +411,7 @@ impl<'a> PrivateFormatter<'a> {
 #[cfg(test)]
 mod tests {
     #[cfg_attr(not(target_arch = "wasm32"), test)]
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
     fn test_logging_domain_trait_implementations() {
         use crate::LoggingDomain;
 

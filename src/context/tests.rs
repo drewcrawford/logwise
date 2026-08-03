@@ -7,12 +7,9 @@ use super::task::{Task, TaskID};
 use crate::Level;
 
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen_test::*;
-#[cfg(target_arch = "wasm32")]
-wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 #[cfg_attr(not(target_arch = "wasm32"), test)]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
 fn test_new_context() {
     Context::reset("test_new_context".to_string());
     let port_context = Context::current();
@@ -24,7 +21,7 @@ fn test_new_context() {
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), test)]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
 fn test_context_equality() {
     Context::reset("test_context_equality".to_string());
     let context1 = Context::current();
@@ -40,7 +37,7 @@ fn test_context_equality() {
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), test)]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
 #[allow(clippy::mutable_key_type)] // Context hash is based on Arc pointer, not interior state
 fn test_context_hash() {
     use std::collections::HashMap;
@@ -76,7 +73,7 @@ fn test_context_hash() {
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), test)]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
 fn test_context_display() {
     Context::reset("root_task".to_string());
     let root_context = Context::current();
@@ -120,7 +117,7 @@ fn test_context_display() {
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), test)]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
 fn test_context_as_ref_task() {
     Context::reset("test_as_ref".to_string());
     let context = Context::current();
