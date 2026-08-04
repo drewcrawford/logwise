@@ -12,28 +12,18 @@ mod tests {
     use std::time::Duration;
     use test_executors::async_test;
     #[cfg(target_arch = "wasm32")]
-    use wasm_bindgen::JsValue;
-    #[cfg(target_arch = "wasm32")]
-    use wasm_bindgen_futures::JsFuture;
 
     static TEST_LOGGER_GUARD: Mutex<()> = Mutex::new(());
-    #[cfg(target_arch = "wasm32")]
-    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
+    /// Let the event loop turn once, so a spawned task gets a chance to run.
     #[cfg(target_arch = "wasm32")]
     async fn yield_once() {
-        let _ = JsFuture::from(js_sys::Promise::resolve(&JsValue::NULL)).await;
+        wasm_lite_std::yield_to_event_loop_async().await;
     }
 
     #[cfg(target_arch = "wasm32")]
     async fn sleep_ms(ms: i32) {
-        let promise = js_sys::Promise::new(&mut |resolve, _| {
-            let window = web_sys::window().unwrap();
-            window
-                .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms)
-                .unwrap();
-        });
-        let _ = JsFuture::from(promise).await;
+        wasm_lite_std::sleep_async(std::time::Duration::from_millis(ms as u64)).await;
     }
 
     #[async_test]
