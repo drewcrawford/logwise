@@ -11,7 +11,6 @@ mod tests {
     use std::thread;
     use std::time::Duration;
     use test_executors::async_test;
-    #[cfg(target_arch = "wasm32")]
 
     static TEST_LOGGER_GUARD: Mutex<()> = Mutex::new(());
 

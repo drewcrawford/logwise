@@ -65,6 +65,10 @@
 //! # fn main() {
 //! # use logwise::context::Context;
 //! # Context::reset("test".to_string());
+//! # // `thread::sleep` is `Atomics.wait`, which traps on the browser main
+//! # // thread, so the example runs in a worker there and inline on native.
+//! # wasm_lite_std::worker_doctest!(|| {
+//! # Context::reset("test".to_string());
 //! // Performance intervals are automatically added to the current task
 //! // When using the perfwarn! macro:
 //! logwise::perfwarn!("expensive_operation", {
@@ -72,6 +76,7 @@
 //!     std::thread::sleep(std::time::Duration::from_millis(100));
 //! });
 //! // Statistics are logged when the task is dropped
+//! # });
 //! # }
 //! ```
 //!

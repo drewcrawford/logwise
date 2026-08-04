@@ -29,3 +29,15 @@ wasm_lite = { path = "../wasm_lite/crates/wasm_lite" }
 
 [target.'cfg(target_arch="wasm32")'.dev-dependencies]
 # for print_demo
+
+# Dev-cycle self-patch: the published test_executors expands #[async_test] to
+# #[wasm_bindgen_test], so without this the wasm32 test target does not compile
+# here. The Instant flag-day is all-or-nothing, hence some_executor too.
+[patch.crates-io]
+test_executors = { path = "../test_executors" }
+some_executor = { path = "../some_executor" }
+# reached via some_executor; the published one still pulls wasm-bindgen in
+continue = { path = "../continue" }
+# test_executors depends on logwise, so without this the dev-cycle pulls the
+# *registry* logwise -- which still uses wasm_safe_thread/web-sys -- back in.
+logwise = { path = "." }

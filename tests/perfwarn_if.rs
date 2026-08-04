@@ -3,7 +3,10 @@ use logwise::{Level, context::Context, declare_logging_domain, perfwarn_begin_if
 use std::thread;
 use std::time::Duration;
 declare_logging_domain!();
-#[test]
+// `thread::sleep` is `Atomics.wait`, which traps on the browser main thread,
+// so these run in a worker there.
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test(worker))]
+#[cfg_attr(not(target_arch = "wasm32"), test)]
 fn test_perfwarn_if_logs_when_slow() {
     Context::reset("test_perfwarn_if_slow".to_string());
 
@@ -19,7 +22,8 @@ fn test_perfwarn_if_logs_when_slow() {
     // For automated verification, we'd need a mock logger, but existing tests use InMemoryLogger.
 }
 
-#[test]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test(worker))]
+#[cfg_attr(not(target_arch = "wasm32"), test)]
 fn test_perfwarn_if_skips_when_fast() {
     Context::reset("test_perfwarn_if_fast".to_string());
 
@@ -31,7 +35,8 @@ fn test_perfwarn_if_skips_when_fast() {
     drop(interval);
 }
 
-#[test]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test(worker))]
+#[cfg_attr(not(target_arch = "wasm32"), test)]
 fn test_perfwarn_if_statistics() {
     Context::reset("test_perfwarn_if_stats".to_string());
 
