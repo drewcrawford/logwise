@@ -126,6 +126,18 @@
 use crate::log_record::LogRecord;
 use std::fmt::Debug;
 
+/// Controls which representation of a log record a logger receives.
+///
+/// Custom loggers default to [`Redacted`](LogPrivacy::Redacted), so adding a
+/// network or analytics destination cannot accidentally opt into private data.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LogPrivacy {
+    /// Include the complete local/private representation.
+    Private,
+    /// Replace potentially private values with their safe representation.
+    Redacted,
+}
+
 /// Core trait for implementing logging backends in logwise.
 ///
 /// This trait defines the interface that all loggers must implement to receive and process
@@ -190,6 +202,14 @@ use std::fmt::Debug;
 /// assert_eq!(logger.get_count(), 1);
 /// ```
 pub trait Logger: Debug + Send + Sync {
+    /// Selects the representation delivered to this logger.
+    ///
+    /// The safe default is [`LogPrivacy::Redacted`]. Local destinations that
+    /// are explicitly trusted may override this to [`LogPrivacy::Private`].
+    fn privacy(&self) -> LogPrivacy {
+        LogPrivacy::Redacted
+    }
+
     /// Processes a log record synchronously.
     ///
     /// This method receives a complete [`LogRecord`] and is responsible for outputting it

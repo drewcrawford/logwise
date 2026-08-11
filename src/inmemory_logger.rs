@@ -23,7 +23,7 @@
 //! logging system via `add_global_logger()` or `set_global_loggers()`.
 
 use crate::log_record::LogRecord;
-use crate::logger::Logger;
+use crate::logger::{LogPrivacy, Logger};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -340,6 +340,10 @@ impl InMemoryLogger {
 /// asynchronous logging are supported, with the async version being a simple
 /// wrapper around the synchronous implementation.
 impl Logger for InMemoryLogger {
+    fn privacy(&self) -> LogPrivacy {
+        LogPrivacy::Private
+    }
+
     /// Processes and stores a log record in the internal buffer.
     ///
     /// The record is converted to a string using its `Display` implementation

@@ -138,7 +138,7 @@ impl Drop for Task {
             if !first {
                 let global_loggers = crate::global_logger::global_loggers();
                 for logger in global_loggers {
-                    logger.finish_log_record(record.clone());
+                    logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
                 }
             }
         }
@@ -151,7 +151,7 @@ impl Drop for Task {
             record.log("`");
             let global_loggers = crate::global_logger::global_loggers();
             for logger in global_loggers {
-                logger.finish_log_record(record.clone());
+                logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
             }
         }
     }

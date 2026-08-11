@@ -91,7 +91,7 @@ pub fn debuginternal_pre(file: &'static str, line: u32, column: u32) -> LogRecor
 pub fn debuginternal_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record(record.clone());
+        logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
     }
 }
 
@@ -119,7 +119,9 @@ pub fn debuginternal_sync_post(record: LogRecord) {
 pub async fn debuginternal_async_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record_async(record.clone()).await;
+        logger
+            .finish_log_record_async(record.clone_for_logger(logger.as_ref()))
+            .await;
     }
 }
 
@@ -190,7 +192,7 @@ pub fn info_sync_post(record: LogRecord) {
     for logger in global_loggers {
         //can't call eprintln in wasm32!
         // eprintln!("Sending to logger: {:?}", logger);
-        logger.finish_log_record(record.clone());
+        logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
     }
 }
 
@@ -218,7 +220,9 @@ pub fn info_sync_post(record: LogRecord) {
 pub async fn info_async_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record_async(record.clone()).await;
+        logger
+            .finish_log_record_async(record.clone_for_logger(logger.as_ref()))
+            .await;
     }
 }
 
@@ -287,7 +291,7 @@ pub fn warn_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
 pub fn warn_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record(record.clone());
+        logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
     }
 }
 
@@ -356,7 +360,7 @@ pub fn trace_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
 pub fn trace_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record(record.clone());
+        logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
     }
 }
 
@@ -384,7 +388,9 @@ pub fn trace_sync_post(record: LogRecord) {
 pub async fn trace_async_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record_async(record.clone()).await;
+        logger
+            .finish_log_record_async(record.clone_for_logger(logger.as_ref()))
+            .await;
     }
 }
 
@@ -453,7 +459,7 @@ pub fn error_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord {
 pub fn error_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record(record.clone());
+        logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
     }
 }
 
@@ -481,7 +487,9 @@ pub fn error_sync_post(record: LogRecord) {
 pub async fn error_async_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record_async(record.clone()).await;
+        logger
+            .finish_log_record_async(record.clone_for_logger(logger.as_ref()))
+            .await;
     }
 }
 
@@ -565,7 +573,7 @@ pub fn perfwarn_begin_post(
 ) -> crate::interval::PerfwarnInterval {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record(record.clone());
+        logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
     }
 
     crate::interval::PerfwarnInterval::new(name, crate::sys::Instant::now())
@@ -668,7 +676,7 @@ pub fn mandatory_sync_pre(file: &'static str, line: u32, column: u32) -> LogReco
 pub fn mandatory_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record(record.clone());
+        logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
     }
 }
 
@@ -684,7 +692,9 @@ pub fn mandatory_sync_post(record: LogRecord) {
 pub async fn mandatory_async_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record_async(record.clone()).await;
+        logger
+            .finish_log_record_async(record.clone_for_logger(logger.as_ref()))
+            .await;
     }
 }
 
@@ -730,7 +740,7 @@ pub fn profile_sync_pre(file: &'static str, line: u32, column: u32) -> LogRecord
 pub fn profile_sync_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record(record.clone());
+        logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
     }
 }
 
@@ -746,7 +756,9 @@ pub fn profile_sync_post(record: LogRecord) {
 pub async fn profile_async_post(record: LogRecord) {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record_async(record.clone()).await;
+        logger
+            .finish_log_record_async(record.clone_for_logger(logger.as_ref()))
+            .await;
     }
 }
 
@@ -808,7 +820,7 @@ pub fn profile_begin_post(
 ) -> crate::interval::ProfileInterval {
     let global_loggers = crate::hidden::global_loggers();
     for logger in global_loggers {
-        logger.finish_log_record(record.clone());
+        logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
     }
 
     crate::interval::ProfileInterval::new(id, name, crate::sys::Instant::now())

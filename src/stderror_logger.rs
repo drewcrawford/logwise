@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 use crate::log_record::LogRecord;
-use crate::logger::Logger;
+use crate::logger::{LogPrivacy, Logger};
 
 /**
 A reference logger that logs to stderr.
@@ -53,6 +53,10 @@ impl StdErrorLogger {
 }
 
 impl Logger for StdErrorLogger {
+    fn privacy(&self) -> LogPrivacy {
+        LogPrivacy::Private
+    }
+
     fn finish_log_record(&self, record: LogRecord) {
         #[cfg(not(target_arch = "wasm32"))]
         {

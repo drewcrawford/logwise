@@ -7,12 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `LogPrivacy`, giving trusted local logger implementations an explicit opt-in to full private diagnostics while keeping new destinations safely redacted by default.
+
 ### Changed
 
 - Moved the WebAssembly logging, clock, threading, and test infrastructure to `wasm_lite` and `wasm_lite_std`, removing the `wasm-bindgen`, `web-sys`, and related dependency stack.
 
 ### Fixed
 
+- Custom loggers now receive privacy-redacted values by default, while explicitly local stderr and in-memory loggers retain full diagnostic detail. Private values no longer hitch an accidental ride to remote logging services.
 - Escaped braces in log format strings now render literally, so `{{key}}` produces `{key}` instead of being treated as an interpolation.
 - Performance-warning interval closing records now use the same `PERFWARN` label as their opening records.
 - Idle heartbeat watchers now sleep until work arrives instead of waking four times per second.

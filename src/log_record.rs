@@ -3,8 +3,8 @@
 //! Log record type for the logwise logging system.
 //!
 //! This module defines [`LogRecord`], the core data structure that accumulates log message
-//! parts during the logging process. Log records are built incrementally using the `log`
-//! and `log_owned` methods, then submitted to loggers for output.
+//! parts during the logging process. Log records retain private and redacted
+//! representations, then select the appropriate form for each logger destination.
 //!
 //! # Design Philosophy
 //!
@@ -40,6 +40,7 @@
 //! ```
 
 use crate::Level;
+use crate::logger::{LogPrivacy, Logger};
 use std::fmt::{Debug, Display};
 use std::sync::OnceLock;
 
@@ -67,6 +68,7 @@ Instead, the design is as follows:
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LogRecord {
     pub(crate) parts: Vec<String>,
+    redacted_parts: Vec<String>,
     level: Level,
 }
 impl LogRecord {
@@ -77,6 +79,7 @@ impl LogRecord {
     */
     pub fn log(&mut self, message: &str) {
         self.parts.push(message.to_string());
+        self.redacted_parts.push(message.to_string());
     }
 
     /**
@@ -86,6 +89,7 @@ impl LogRecord {
     Logging implementations may choose to copy and drop the value if desired.
     */
     pub fn log_owned(&mut self, message: String) {
+        self.redacted_parts.push(message.clone());
         self.parts.push(message);
     }
 
@@ -109,6 +113,7 @@ impl LogRecord {
     pub fn new(level: Level) -> Self {
         Self {
             parts: Vec::new(),
+            redacted_parts: Vec::new(),
             level,
         }
     }
@@ -159,6 +164,31 @@ impl LogRecord {
     /// ```
     pub fn level(&self) -> Level {
         self.level
+    }
+
+    pub(crate) fn append_variants(
+        &mut self,
+        private_parts: Vec<String>,
+        redacted_parts: Vec<String>,
+    ) {
+        self.parts.extend(private_parts);
+        self.redacted_parts.extend(redacted_parts);
+    }
+
+    pub(crate) fn insert_shared_part(&mut self, index: usize, part: String) {
+        self.parts.insert(index, part.clone());
+        self.redacted_parts.insert(index, part);
+    }
+
+    pub(crate) fn clone_for_logger(&self, logger: &dyn Logger) -> Self {
+        match logger.privacy() {
+            LogPrivacy::Private => self.clone(),
+            LogPrivacy::Redacted => Self {
+                parts: self.redacted_parts.clone(),
+                redacted_parts: self.redacted_parts.clone(),
+                level: self.level,
+            },
+        }
     }
 }
 

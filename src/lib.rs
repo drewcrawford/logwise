@@ -394,7 +394,7 @@ pub use heartbeat::{HeartbeatGuard, heartbeat};
 pub use inmemory_logger::InMemoryLogger;
 pub use level::Level;
 pub use log_record::LogRecord;
-pub use logger::Logger;
+pub use logger::{LogPrivacy, Logger};
 
 // Re-export logging macros from the procedural macro crate.
 // See individual macro documentation for usage details.

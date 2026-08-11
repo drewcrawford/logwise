@@ -15,9 +15,9 @@
 //!
 //! # Privacy
 //!
-//! The [`PrivateFormatter`] ensures that all logged values respect privacy constraints
-//! by calling the [`Loggable::log_all`](crate::privacy::Loggable::log_all) method, which
-//! includes all private information for local logging.
+//! The [`PrivateFormatter`] builds both full and redacted representations of each
+//! value. Logger destinations receive the representation selected by their
+//! [`LogPrivacy`](crate::LogPrivacy) policy.
 //!
 //! # Example
 //!
@@ -346,12 +346,12 @@ macro_rules! log_enabled {
     }};
 }
 
-/// Formatter for writing log messages with full private information.
+/// Formatter for writing log messages with private and redacted representations.
 ///
 /// This formatter is used by the procedural macros to write both literal strings
 /// and formatted values to a log record. It ensures that all values are logged
-/// with their complete information (including private data) by calling
-/// [`Loggable::log_all`](crate::privacy::Loggable::log_all).
+/// with both their complete information and the safe representation produced by
+/// [`Loggable::log_redacting_private_info`](crate::privacy::Loggable::log_redacting_private_info).
 ///
 /// # Example
 ///
@@ -394,17 +394,22 @@ impl<'a> PrivateFormatter<'a> {
     }
     /// Writes a loggable value to the log record.
     ///
-    /// This method calls [`Loggable::log_all`](crate::privacy::Loggable::log_all)
-    /// to ensure the value is logged with all its information, including any
-    /// private data. This is appropriate for local logging but not for remote
-    /// telemetry.
+    /// This method captures both [`Loggable::log_all`] and
+    /// [`Loggable::log_redacting_private_info`] so each logger can receive the
+    /// representation allowed by its privacy policy.
     ///
     /// # Arguments
     ///
     /// * `s` - The value to log (must implement [`Loggable`](crate::privacy::Loggable))
     #[inline]
     pub fn write_val<Val: Loggable>(&mut self, s: Val) {
-        s.log_all(self.record);
+        let mut private = LogRecord::new(self.record.level());
+        s.log_all(&mut private);
+
+        let mut redacted = LogRecord::new(self.record.level());
+        s.log_redacting_private_info(&mut redacted);
+
+        self.record.append_variants(private.parts, redacted.parts);
     }
 }
 
