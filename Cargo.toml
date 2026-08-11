@@ -30,6 +30,11 @@ wasm_lite = { path = "../wasm_lite/crates/wasm_lite" }
 [target.'cfg(target_arch="wasm32")'.dev-dependencies]
 # for print_demo
 
+[[test]]
+name = "wasm_stderr_logger"
+path = "tests/wasm_stderr_logger.rs"
+harness = false
+
 # Dev-cycle self-patch: the published test_executors expands #[async_test] to
 # #[wasm_bindgen_test], so without this the wasm32 test target does not compile
 # here. The Instant flag-day is all-or-nothing, hence some_executor too.

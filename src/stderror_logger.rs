@@ -92,9 +92,6 @@ impl Logger for StdErrorLogger {
                     wasm_lite::console::warn(&msg);
                 }
                 Level::Error => {
-                    if msg == "DEBUGME" {
-                        panic!("DEBUGME")
-                    }
                     wasm_lite::console::error(&msg);
                 }
                 Level::Panic => {
