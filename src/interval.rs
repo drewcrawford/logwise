@@ -68,6 +68,7 @@ pub struct PerfwarnInterval {
     label: &'static str,
     start: crate::sys::Instant,
     scale: f32,
+    context: Context,
 }
 
 impl PerfwarnInterval {
@@ -82,6 +83,7 @@ impl PerfwarnInterval {
             label,
             start: time,
             scale: 1.0,
+            context: Context::current(),
         }
     }
 
@@ -110,12 +112,10 @@ impl Drop for PerfwarnInterval {
     fn drop(&mut self) {
         let end_time = crate::sys::Instant::now();
         let duration = end_time.duration_since(self.start);
-        let ctx = Context::current();
-        ctx._add_task_interval(self.label, duration);
+        self.context._add_task_interval(self.label, duration);
 
         let mut record = LogRecord::new(Level::PerfWarn);
-        let ctx = Context::current();
-        ctx._log_prelude(&mut record);
+        self.context._log_prelude(&mut record);
         record.log("PERFWARN: END ");
         record.log_time_since(end_time);
 
@@ -125,7 +125,7 @@ impl Drop for PerfwarnInterval {
         record.log_owned(format!("[interval took {:?}] ", scaled_duration));
         let global_loggers = global_loggers();
         for logger in global_loggers {
-            logger.finish_log_record(record.clone());
+            logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
         }
     }
 }
@@ -193,6 +193,7 @@ pub struct PerfwarnIntervalIf {
     start: crate::sys::Instant,
     threshold: crate::sys::Duration,
     record: crate::log_record::LogRecord,
+    context: Context,
 }
 
 impl PerfwarnIntervalIf {
@@ -238,6 +239,7 @@ impl PerfwarnIntervalIf {
             start: time,
             threshold,
             record,
+            context: Context::current(),
         }
     }
 }
@@ -246,8 +248,8 @@ impl Drop for PerfwarnIntervalIf {
     fn drop(&mut self) {
         let end_time = crate::sys::Instant::now();
         let duration = end_time.duration_since(self.start);
-        let ctx = Context::current();
-        ctx._add_task_interval_if(self.label, duration, self.threshold);
+        self.context
+            ._add_task_interval_if(self.label, duration, self.threshold);
 
         if duration > self.threshold {
             // We need to insert the timestamp before the label (which is already in the record).
@@ -272,7 +274,7 @@ impl Drop for PerfwarnIntervalIf {
                 temp_record.log_time_since(end_time);
                 let timestamp = temp_record.parts.pop().unwrap();
 
-                self.record.parts.insert(insert_idx, timestamp);
+                self.record.insert_shared_part(insert_idx, timestamp);
             }
 
             self.record.log(" is SLOW: ");
@@ -281,7 +283,7 @@ impl Drop for PerfwarnIntervalIf {
 
             let global_loggers = global_loggers();
             for logger in global_loggers {
-                logger.finish_log_record(self.record.clone());
+                logger.finish_log_record(self.record.clone_for_logger(logger.as_ref()));
             }
         }
     }
@@ -339,6 +341,7 @@ pub struct ProfileInterval {
     id: u64,
     label: &'static str,
     start: crate::sys::Instant,
+    context: Context,
 }
 
 impl ProfileInterval {
@@ -358,6 +361,7 @@ impl ProfileInterval {
             id,
             label,
             start: time,
+            context: Context::current(),
         }
     }
 
@@ -374,15 +378,14 @@ impl Drop for ProfileInterval {
         let duration = end_time.duration_since(self.start);
 
         let mut record = LogRecord::new(Level::Profile);
-        let ctx = Context::current();
-        ctx._log_prelude(&mut record);
+        self.context._log_prelude(&mut record);
         record.log_owned(format!("PROFILE: END [id={}] ", self.id));
         record.log_owned(format!("[elapsed: {:?}] ", duration));
         record.log(self.label);
 
         let global_loggers = global_loggers();
         for logger in global_loggers {
-            logger.finish_log_record(record.clone());
+            logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
         }
     }
 }
