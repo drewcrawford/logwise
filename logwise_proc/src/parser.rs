@@ -2,7 +2,7 @@
 //SPDX-License-Identifier: MIT OR Apache-2.0
 
 use proc_macro::{TokenStream, TokenTree};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashSet, VecDeque};
 
 /// Parses a key from the token stream, consuming tokens until '=' is encountered.
 ///
@@ -83,7 +83,7 @@ fn parse_value(input: &mut VecDeque<TokenTree>) -> TokenStream {
     }
 }
 
-/// Builds a HashMap of key-value pairs from the remaining token stream.
+/// Builds an ordered list of key-value pairs from the remaining token stream.
 ///
 /// This function processes the parameter list portion of logging macros, extracting
 /// all key-value pairs that follow the format string. It expects the first token
@@ -93,7 +93,7 @@ fn parse_value(input: &mut VecDeque<TokenTree>) -> TokenStream {
 /// * `input` - Mutable reference to the token stream containing key-value pairs
 ///
 /// # Returns
-/// * `Ok(HashMap<String, TokenStream>)` - Successfully parsed key-value pairs
+/// * `Ok(Vec<(String, TokenStream)>)` - Successfully parsed key-value pairs
 /// * `Err(TokenStream)` - Compile error if the format is invalid
 ///
 /// # Expected Input Format
@@ -110,8 +110,8 @@ fn parse_value(input: &mut VecDeque<TokenTree>) -> TokenStream {
 /// ```
 fn build_kvs(
     input: &mut VecDeque<TokenTree>,
-) -> Result<HashMap<String, TokenStream>, TokenStream> {
-    let mut kvs = HashMap::new();
+) -> Result<Vec<(String, TokenStream)>, TokenStream> {
+    let mut kvs = Vec::new();
     //first extract the comma.
     if input.is_empty() {
         return Ok(kvs);
@@ -134,7 +134,12 @@ fn build_kvs(
             }
         };
         let value = parse_value(input);
-        kvs.insert(key, value);
+        if kvs.iter().any(|(existing, _)| existing == &key) {
+            return Err(format!(r#"compile_error!("Duplicate key {key}")"#)
+                .parse()
+                .unwrap());
+        }
+        kvs.push((key, value));
     }
 }
 
@@ -234,7 +239,7 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
     };
 
     //parse kv section
-    let k = match build_kvs(collect) {
+    let key_values = match build_kvs(collect) {
         Ok(kvs) => kvs,
         Err(e) => {
             return LFormatResult {
@@ -243,6 +248,7 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
             };
         }
     };
+    let mut used_keys = HashSet::new();
     //parse format string
     //holds the part of the string literal until the next {
     let mut source = String::new();
@@ -291,8 +297,8 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
                     //write out the key
                     source.push_str(&logger);
                     source.push_str(".write_val(");
-                    let value = match k.get(&key) {
-                        Some(value) => value.to_string(),
+                    let value = match key_values.iter().find(|(name, _)| name == &key) {
+                        Some((_, value)) => value.to_string(),
                         None => {
                             return LFormatResult {
                                 output: format!(r#"compile_error!("Key {} not found")"#, key)
@@ -302,6 +308,7 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
                             };
                         }
                     };
+                    used_keys.insert(key);
                     source.push_str(&value);
                     source.push_str(");\n");
                     mode = Mode::Literal(String::new());
@@ -329,6 +336,24 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
             };
         }
     }
+
+    // Key/value arguments that are not interpolated are structured fields, not
+    // dead syntax. Preserve them in call-site order instead of silently dropping
+    // both the field and the value expression.
+    for (key, value) in &key_values {
+        if used_keys.contains(key) {
+            continue;
+        }
+        source.push_str(&logger);
+        source.push_str(".write_literal(");
+        source.push_str(&format!("{:?}", format!(" {key}=")));
+        source.push_str(");\n");
+        source.push_str(&logger);
+        source.push_str(".write_val(");
+        source.push_str(&value.to_string());
+        source.push_str(");\n");
+    }
+
     return LFormatResult {
         output: source.parse().unwrap(),
         name: format_string,
