@@ -134,7 +134,7 @@ fn get_or_init_context(once: &OnceCell<Cell<Context>>) -> &Cell<Context> {
             String::new(),
             Level::DebugInternal,
             false,
-            0,
+            CONTEXT_ID.fetch_add(1, Ordering::Relaxed),
         ))
     })
 }
