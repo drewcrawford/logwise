@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Custom loggers now receive privacy-redacted values by default, while explicitly local stderr and in-memory loggers retain full diagnostic detail. Private values no longer hitch an accidental ride to remote logging services.
 - Replacing global loggers now destroys retired logger instances after releasing the configuration lock, preventing re-entrant logger cleanup from deadlocking the process.
 - Performance and profiling intervals stay attached to the context where they began, even when guards move between threads or another context becomes current before they finish.
+- Heartbeat warnings stay attached to the context where the heartbeat began instead of inheriting the watcher or drop thread's current context.
 - Escaped braces in log format strings now render literally, so `{{key}}` produces `{key}` instead of being treated as an interpolation.
 - Performance-warning interval closing records now use the same `PERFWARN` label as their opening records.
 - Idle heartbeat watchers now sleep until work arrives instead of waking four times per second.

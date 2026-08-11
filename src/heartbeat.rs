@@ -38,6 +38,7 @@ struct Heartbeat {
     deadline: Instant,
     callsite: CallSite,
     warned: bool,
+    context: Context,
 }
 
 enum Message {
@@ -106,6 +107,7 @@ pub struct HeartbeatGuard {
     deadline: Instant,
     callsite: CallSite,
     sender: Option<mpsc::Sender<Message>>,
+    context: Context,
 }
 
 impl HeartbeatGuard {
@@ -150,6 +152,7 @@ impl HeartbeatGuard {
                 deadline: now,
                 callsite: CallSite::new(),
                 sender: None,
+                context: Context::current(),
             };
         }
 
@@ -157,6 +160,7 @@ impl HeartbeatGuard {
         let created_at = Instant::now();
         let deadline = created_at + duration;
         let callsite = CallSite::new();
+        let context = Context::current();
         let sender = channel();
 
         let heartbeat = Heartbeat {
@@ -166,6 +170,7 @@ impl HeartbeatGuard {
             deadline,
             callsite,
             warned: false,
+            context: context.clone(),
         };
 
         // Ignore send failures so the guard remains cheap even during shutdown.
@@ -178,6 +183,7 @@ impl HeartbeatGuard {
             deadline,
             callsite,
             sender: Some(sender),
+            context,
         }
     }
 }
@@ -192,7 +198,7 @@ impl Drop for HeartbeatGuard {
         let now = Instant::now();
         if now > self.deadline {
             let drop_site = CallSite::new();
-            log_heartbeat(drop_site, |record| {
+            log_heartbeat(&self.context, drop_site, |record| {
                 record.log_owned(format!(
                     "heartbeat \"{}\" dropped after deadline by {:?} ",
                     self.name,
@@ -212,10 +218,9 @@ impl Drop for HeartbeatGuard {
     }
 }
 
-fn log_heartbeat(callsite: CallSite, write: impl FnOnce(&mut LogRecord)) {
+fn log_heartbeat(context: &Context, callsite: CallSite, write: impl FnOnce(&mut LogRecord)) {
     let mut record = LogRecord::new(Level::PerfWarn);
-    let ctx = Context::current();
-    ctx._log_prelude(&mut record);
+    context._log_prelude(&mut record);
 
     record.log("PERFWARN: HEARTBEAT ");
     record.log(callsite.file);
@@ -225,7 +230,7 @@ fn log_heartbeat(callsite: CallSite, write: impl FnOnce(&mut LogRecord)) {
 
     let loggers = global_loggers();
     for logger in loggers {
-        logger.finish_log_record(record.clone());
+        logger.finish_log_record(record.clone_for_logger(logger.as_ref()));
     }
 }
 
@@ -265,7 +270,7 @@ fn heartbeat_loop(receiver: mpsc::Receiver<Message>) {
                 if let Some(hb) = heartbeats.remove(&id) {
                     let now = Instant::now();
                     if !hb.warned && now >= hb.deadline {
-                        log_heartbeat(hb.callsite, |record| {
+                        log_heartbeat(&hb.context, hb.callsite, |record| {
                             record.log_owned(format!(
                                 "heartbeat \"{}\" missed deadline by {:?} ",
                                 hb.name,
@@ -287,7 +292,7 @@ fn heartbeat_loop(receiver: mpsc::Receiver<Message>) {
         let now = Instant::now();
         for heartbeat in heartbeats.values_mut() {
             if !heartbeat.warned && now >= heartbeat.deadline {
-                log_heartbeat(heartbeat.callsite, |record| {
+                log_heartbeat(&heartbeat.context, heartbeat.callsite, |record| {
                     record.log_owned(format!(
                         "heartbeat \"{}\" missed deadline by {:?} ",
                         heartbeat.name,
