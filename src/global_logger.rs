@@ -289,12 +289,16 @@ pub fn add_global_logger(logger: Arc<dyn Logger>) {
 /// ```
 pub fn set_global_loggers(new_loggers: Vec<Arc<dyn Logger>>) {
     let loggers_clone = new_loggers.clone();
-    GLOBAL_LOGGERS_PTR
+    let old_loggers = GLOBAL_LOGGERS_PTR
         .get_or_init(|| {
             // Initialize the global loggers with the provided loggers.
             Spinlock::new(loggers_clone)
         })
-        .with_mut(|loggers| *loggers = new_loggers);
+        .with_mut(|loggers| std::mem::replace(loggers, new_loggers));
+
+    // Logger destructors are user code and may log or inspect the global logger
+    // list. Run them only after releasing the configuration lock.
+    drop(old_loggers);
 }
 
 #[cfg(test)]
