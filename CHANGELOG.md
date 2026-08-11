@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Moved the WebAssembly logging, clock, threading, and test infrastructure to `wasm_lite` and `wasm_lite_std`, removing the `wasm-bindgen`, `web-sys`, and related dependency stack.
+
+### Fixed
+
+- Escaped braces in log format strings now render literally, so `{{key}}` produces `{key}` instead of being treated as an interpolation.
+- Performance-warning interval closing records now use the same `PERFWARN` label as their opening records.
+- Idle heartbeat watchers now sleep until work arrives instead of waking four times per second.
+- Contexts are restored after a wrapped future panics, and attempts to pop a root context now warn instead of panicking.
+- Periodic in-memory log draining keeps at most one timer active, preventing repeated polls from accumulating sleeping threads.
+- Internal spinlocks now require the correct thread-safety bound and always unlock when a protected closure panics.
+- WebAssembly tests build and run on current nightly toolchains, including threaded tests and doctests in Chrome.
+
 ## [0.5.1] - 2026-02-14
 
 ### Changed
