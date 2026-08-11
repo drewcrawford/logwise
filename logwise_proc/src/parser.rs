@@ -55,14 +55,14 @@ fn parse_key(input: &mut VecDeque<TokenTree>) -> Option<String> {
 /// Parses a value from the token stream, consuming tokens until ',' or end of stream.
 ///
 /// This function extracts the right-hand side of key-value pairs in macro arguments.
-/// It reconstructs the original Rust expression as a string, handling all token types
-/// including complex expressions with method calls, operators, and nested structures.
+/// It preserves the original Rust tokens, including the spacing required between
+/// adjacent identifiers and keywords.
 ///
 /// # Arguments
 /// * `input` - Mutable reference to the token stream being parsed
 ///
 /// # Returns
-/// * `String` - The complete value expression as a string
+/// * `TokenStream` - The complete value expression
 ///
 /// # Examples
 /// ```ignore
@@ -71,29 +71,14 @@ fn parse_key(input: &mut VecDeque<TokenTree>) -> Option<String> {
 /// // Returns: "user.name.clone()".to_string()
 /// // Consumes everything until the comma
 /// ```
-fn parse_value(input: &mut VecDeque<TokenTree>) -> String {
+fn parse_value(input: &mut VecDeque<TokenTree>) -> TokenStream {
     //basically we go until we get a , or end.
-    let mut value = String::new();
+    let mut value = TokenStream::new();
     loop {
         match input.pop_front() {
-            Some(TokenTree::Punct(p)) => {
-                if p.as_char() == ',' {
-                    return value;
-                }
-                value.push_str(&p.to_string());
-            }
-            Some(TokenTree::Ident(i)) => {
-                value.push_str(&i.to_string());
-            }
-            Some(TokenTree::Literal(l)) => {
-                value.push_str(&l.to_string());
-            }
-            Some(TokenTree::Group(g)) => {
-                value.push_str(&g.to_string());
-            }
-            None => {
-                return value;
-            }
+            Some(TokenTree::Punct(p)) if p.as_char() == ',' => return value,
+            Some(token) => value.extend(std::iter::once(token)),
+            None => return value,
         }
     }
 }
@@ -108,7 +93,7 @@ fn parse_value(input: &mut VecDeque<TokenTree>) -> String {
 /// * `input` - Mutable reference to the token stream containing key-value pairs
 ///
 /// # Returns
-/// * `Ok(HashMap<String, String>)` - Successfully parsed key-value pairs
+/// * `Ok(HashMap<String, TokenStream>)` - Successfully parsed key-value pairs
 /// * `Err(TokenStream)` - Compile error if the format is invalid
 ///
 /// # Expected Input Format
@@ -123,7 +108,9 @@ fn parse_value(input: &mut VecDeque<TokenTree>) -> String {
 /// // Input: `, name="alice", count=42`
 /// // Output: HashMap { "name" => "\"alice\"", "count" => "42" }
 /// ```
-fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<HashMap<String, String>, TokenStream> {
+fn build_kvs(
+    input: &mut VecDeque<TokenTree>,
+) -> Result<HashMap<String, TokenStream>, TokenStream> {
     let mut kvs = HashMap::new();
     //first extract the comma.
     if input.is_empty() {
@@ -305,7 +292,7 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
                     source.push_str(&logger);
                     source.push_str(".write_val(");
                     let value = match k.get(&key) {
-                        Some(l) => l.to_string(),
+                        Some(value) => value.to_string(),
                         None => {
                             return LFormatResult {
                                 output: format!(r#"compile_error!("Key {} not found")"#, key)
