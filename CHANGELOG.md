@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Logging macros now preserve valid Rust expressions such as casts instead of collapsing required token spacing.
 - Logging macro key/value fields that are not interpolated into the message are appended in call-site order instead of disappearing quietly.
 - WebAssembly error logging no longer contains a magic `DEBUGME` message that panics instead of writing the record.
+- The native release script now builds logwise itself instead of trying to package files from an unrelated application. A small but important identity check for the release machinery.
 - Escaped braces in log format strings now render literally, so `{{key}}` produces `{key}` instead of being treated as an interpolation.
 - Performance-warning interval closing records now use the same `PERFWARN` label as their opening records.
 - Idle heartbeat watchers now sleep until work arrives instead of waking four times per second.
