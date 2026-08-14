@@ -5,15 +5,15 @@ use std::collections::VecDeque;
 
 pub fn debuginternal_sync_impl(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
-    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let lformat_result = lformat_impl(&mut input, "__logwise_formatter".to_string());
     let src = format!(
         r#"
         #[cfg(debug_assertions)] {{
             if logwise::log_enabled!(logwise::Level::DebugInternal) {{
-                    let mut record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
-                    let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                    let mut __logwise_record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
+                    let mut __logwise_formatter = logwise::hidden::PrivateFormatter::new(&mut __logwise_record);
                     {LFORMAT_EXPAND}
-                    logwise::hidden::debuginternal_sync_post(record);
+                    logwise::hidden::debuginternal_sync_post(__logwise_record);
            }}
         }}
     "#,
@@ -24,16 +24,16 @@ pub fn debuginternal_sync_impl(input: TokenStream) -> TokenStream {
 
 pub fn debuginternal_async_impl(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
-    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let lformat_result = lformat_impl(&mut input, "__logwise_formatter".to_string());
     let src = format!(
         r#"
         #[cfg(debug_assertions)] {{
             if logwise::log_enabled!(logwise::Level::DebugInternal) {{
-               let mut record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
-                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+               let mut __logwise_record = logwise::hidden::debuginternal_pre(file!(),line!(),column!());
+                let mut __logwise_formatter = logwise::hidden::PrivateFormatter::new(&mut __logwise_record);
 
                 {LFORMAT_EXPAND}
-                logwise::hidden::debuginternal_async_post(record).await;
+                logwise::hidden::debuginternal_async_post(__logwise_record).await;
             }}
         }}
     "#,

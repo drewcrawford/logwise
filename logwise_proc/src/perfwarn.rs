@@ -5,15 +5,15 @@ use std::collections::VecDeque;
 
 pub fn perfwarn_begin_impl(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
-    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let lformat_result = lformat_impl(&mut input, "__logwise_formatter".to_string());
     let src = format!(
         r#"
         {{
             if logwise::log_enabled!(logwise::Level::PerfWarn) {{
-                let mut record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
-                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                let mut __logwise_record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
+                let mut __logwise_formatter = logwise::hidden::PrivateFormatter::new(&mut __logwise_record);
                 {LFORMAT_EXPAND}
-                logwise::hidden::perfwarn_begin_post(record,"{NAME}")
+                logwise::hidden::perfwarn_begin_post(__logwise_record,"{NAME}")
             }} else {{
                 logwise::hidden::perfwarn_begin_post(
                     logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!()),
@@ -30,8 +30,12 @@ pub fn perfwarn_begin_impl(input: TokenStream) -> TokenStream {
 
 pub fn perfwarn_impl(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
-    let last_token = input.pop_back().expect("Expected block");
-    let lformat_expand = lformat_impl(&mut input, "formatter".to_string());
+    let last_token = match input.pop_back() {
+        Some(t) => t,
+        //an empty invocation is a user error, not a reason to panic the compiler
+        None => return r#"compile_error!("Expected block")"#.parse().unwrap(),
+    };
+    let lformat_expand = lformat_impl(&mut input, "__logwise_formatter".to_string());
 
     let group = match last_token {
         TokenTree::Group(g) => g,
@@ -44,17 +48,17 @@ pub fn perfwarn_impl(input: TokenStream) -> TokenStream {
     let src = format!(
         r#"
         {{
-            if logwise::log_enabled!(logwise::Level::PerfWarn) {{
-                let mut record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
-                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+            let __logwise_interval = if logwise::log_enabled!(logwise::Level::PerfWarn) {{
+                let mut __logwise_record = logwise::hidden::perfwarn_begin_pre(file!(),line!(),column!());
+                let mut __logwise_formatter = logwise::hidden::PrivateFormatter::new(&mut __logwise_record);
                 {LFORMAT_EXPAND}
-                let interval = logwise::hidden::perfwarn_begin_post(record,"{NAME}");
-                let result = {BLOCK};
-                drop(interval);
-                result
+                Some(logwise::hidden::perfwarn_begin_post(__logwise_record,"{NAME}"))
             }} else {{
-                {BLOCK}
-            }}
+                None
+            }};
+            let __logwise_result = {BLOCK};
+            drop(__logwise_interval);
+            __logwise_result
         }}
     "#,
         LFORMAT_EXPAND = lformat_expand.output,
@@ -78,15 +82,15 @@ pub fn perfwarn_begin_if_impl(input: TokenStream) -> TokenStream {
         }
     }
 
-    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let lformat_result = lformat_impl(&mut input, "__logwise_formatter".to_string());
     let src = format!(
         r#"
         {{
             if logwise::log_enabled!(logwise::Level::PerfWarn) {{
-                let mut record = logwise::hidden::perfwarn_begin_if_pre(file!(),line!(),column!());
-                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                let mut __logwise_record = logwise::hidden::perfwarn_begin_if_pre(file!(),line!(),column!());
+                let mut __logwise_formatter = logwise::hidden::PrivateFormatter::new(&mut __logwise_record);
                 {LFORMAT_EXPAND}
-                logwise::hidden::perfwarn_begin_if_post(record, "{NAME}", {THRESHOLD})
+                logwise::hidden::perfwarn_begin_if_post(__logwise_record, "{NAME}", {THRESHOLD})
             }} else {{
                 logwise::hidden::perfwarn_begin_if_post(
                     logwise::hidden::perfwarn_begin_if_pre(file!(),line!(),column!()),

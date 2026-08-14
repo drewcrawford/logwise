@@ -5,18 +5,18 @@ use std::collections::VecDeque;
 
 pub fn trace_sync_impl(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
-    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let lformat_result = lformat_impl(&mut input, "__logwise_formatter".to_string());
     let src = format!(
         r#"
         #[cfg(debug_assertions)]
         {{
             if logwise::log_enabled!(logwise::Level::Trace) {{
-                let mut record = logwise::hidden::trace_sync_pre(file!(),line!(),column!());
+                let mut __logwise_record = logwise::hidden::trace_sync_pre(file!(),line!(),column!());
 
-                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                let mut __logwise_formatter = logwise::hidden::PrivateFormatter::new(&mut __logwise_record);
 
                 {LFORMAT_EXPAND}
-                logwise::hidden::trace_sync_post(record);
+                logwise::hidden::trace_sync_post(__logwise_record);
             }}
         }}
     "#,
@@ -28,18 +28,18 @@ pub fn trace_sync_impl(input: TokenStream) -> TokenStream {
 
 pub fn trace_async_impl(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
-    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let lformat_result = lformat_impl(&mut input, "__logwise_formatter".to_string());
     let src = format!(
         r#"
         #[cfg(debug_assertions)]
         {{
             if logwise::log_enabled!(logwise::Level::Trace) {{
-                let mut record = logwise::hidden::trace_sync_pre(file!(),line!(),column!());
+                let mut __logwise_record = logwise::hidden::trace_sync_pre(file!(),line!(),column!());
 
-                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                let mut __logwise_formatter = logwise::hidden::PrivateFormatter::new(&mut __logwise_record);
 
                 {LFORMAT_EXPAND}
-                logwise::hidden::trace_async_post(record).await;
+                logwise::hidden::trace_async_post(__logwise_record).await;
             }}
         }}
     "#,

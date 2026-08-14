@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //SPDX-License-Identifier: MIT OR Apache-2.0
 
-use proc_macro::{TokenStream, TokenTree};
+use proc_macro::{Spacing, TokenStream, TokenTree};
 use std::collections::{HashSet, VecDeque};
 
 /// Parses a key from the token stream, consuming tokens until '=' is encountered.
@@ -74,12 +74,42 @@ fn parse_key(input: &mut VecDeque<TokenTree>) -> Option<String> {
 fn parse_value(input: &mut VecDeque<TokenTree>) -> TokenStream {
     //basically we go until we get a , or end.
     let mut value = TokenStream::new();
+    //Depth of unclosed generic argument lists, opened by a turbofish (`::<`) or by
+    //the leading `<` of a qualified path (`<T as Trait<A, B>>::f()`). A comma in
+    //there separates generic arguments, not macro arguments, so it must not end the
+    //value. Commas nested in (), [] or {} arrive inside a Group token and never
+    //reach this loop.
+    let mut generic_depth = 0usize;
+    //number of consecutive `:` puncts, used to spot the `::<` that opens a turbofish
+    let mut colon_run = 0usize;
+    //previous punct, used to tell the `>` of `->`/`=>` from a closing angle bracket
+    let mut prev_punct: Option<(char, Spacing)> = None;
     loop {
-        match input.pop_front() {
-            Some(TokenTree::Punct(p)) if p.as_char() == ',' => return value,
-            Some(token) => value.extend(std::iter::once(token)),
+        let token = match input.pop_front() {
+            Some(token) => token,
             None => return value,
+        };
+        if let TokenTree::Punct(p) = &token {
+            let c = p.as_char();
+            match c {
+                ',' if generic_depth == 0 => return value,
+                '<' if generic_depth > 0 || colon_run >= 2 || value.is_empty() => {
+                    generic_depth += 1;
+                }
+                '>' if generic_depth > 0
+                    && !matches!(prev_punct, Some(('-' | '=', Spacing::Joint))) =>
+                {
+                    generic_depth -= 1;
+                }
+                _ => {}
+            }
+            colon_run = if c == ':' { colon_run + 1 } else { 0 };
+            prev_punct = Some((c, p.spacing()));
+        } else {
+            colon_run = 0;
+            prev_punct = None;
         }
+        value.extend(std::iter::once(token));
     }
 }
 
@@ -108,9 +138,7 @@ fn parse_value(input: &mut VecDeque<TokenTree>) -> TokenStream {
 /// // Input: `, name="alice", count=42`
 /// // Output: HashMap { "name" => "\"alice\"", "count" => "42" }
 /// ```
-fn build_kvs(
-    input: &mut VecDeque<TokenTree>,
-) -> Result<Vec<(String, TokenStream)>, TokenStream> {
+fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<Vec<(String, TokenStream)>, TokenStream> {
     let mut kvs = Vec::new();
     //first extract the comma.
     if input.is_empty() {
@@ -119,11 +147,11 @@ fn build_kvs(
     match input.pop_front() {
         Some(TokenTree::Punct(p)) => {
             if p.as_char() != ',' {
-                return Err(r#"compile_error!("Expected ','")"#.parse().unwrap());
+                return Err(r#"compile_error!("Expected ','");"#.parse().unwrap());
             }
         }
         _ => {
-            return Err(r#"compile_error!("Expected ','")"#.parse().unwrap());
+            return Err(r#"compile_error!("Expected ','");"#.parse().unwrap());
         }
     }
     loop {
@@ -135,9 +163,13 @@ fn build_kvs(
         };
         let value = parse_value(input);
         if kvs.iter().any(|(existing, _)| existing == &key) {
-            return Err(format!(r#"compile_error!("Duplicate key {key}")"#)
-                .parse()
-                .unwrap());
+            //the key is stringified call-site tokens, so quote it rather than
+            //splicing it into a literal raw
+            return Err(
+                format!(r#"compile_error!({:?});"#, format!("Duplicate key {key}"))
+                    .parse()
+                    .unwrap(),
+            );
         }
         kvs.push((key, value));
     }
@@ -208,7 +240,7 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
         Some(i) => i,
         None => {
             return LFormatResult {
-                output: r#"compile_error!("lformat!() must be called with a string literal")"#
+                output: r#"compile_error!("lformat!() must be called with a string literal");"#
                     .parse()
                     .unwrap(),
                 name: "".to_string(),
@@ -220,7 +252,7 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
             let out = l.to_string();
             if !out.starts_with('"') || !out.ends_with('"') {
                 return LFormatResult {
-                    output: r#"compile_error!("lformat!() must be called with a string literal")"#
+                    output: r#"compile_error!("lformat!() must be called with a string literal");"#
                         .parse()
                         .unwrap(),
                     name: "".to_string(),
@@ -230,7 +262,7 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
         }
         _ => {
             return LFormatResult {
-                output: r#"compile_error!("lformat!() must be called with a string literal")"#
+                output: r#"compile_error!("lformat!() must be called with a string literal");"#
                     .parse()
                     .unwrap(),
                 name: "".to_string(),
@@ -252,89 +284,104 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
     //parse format string
     //holds the part of the string literal until the next {
     let mut source = String::new();
-    enum Mode {
-        Literal(String),
-        Key(String),
-    }
-    let mut mode = Mode::Literal(String::new());
-
-    //set when an escaped brace consumes the following character
-    let mut skip_next = false;
-    for (c, char) in format_string.chars().enumerate() {
-        if skip_next {
-            skip_next = false;
-            continue;
-        }
-        match mode {
-            Mode::Literal(mut literal) => {
-                if char == '{' {
-                    //peek to see if we're escaping
-                    if format_string.chars().nth(c + 1) == Some('{') {
-                        literal.push(char);
-                        skip_next = true;
-                        mode = Mode::Literal(literal);
-                    } else if !literal.is_empty() {
-                        //reference logger ident
-                        source.push_str(&logger);
-                        source.push_str(".write_literal(\"");
-                        source.push_str(&literal);
-                        source.push_str("\");\n");
-                        mode = Mode::Key(String::new());
-                    } else {
-                        mode = Mode::Key(String::new());
-                    }
-                } else {
-                    if char == '}' && format_string.chars().nth(c + 1) == Some('}') {
-                        //escaped }}: emit one } and consume the second
-                        skip_next = true;
-                    }
-                    literal.push(char);
-                    mode = Mode::Literal(literal);
-                }
-            }
-            Mode::Key(mut key) => {
-                if char == '}' {
-                    //write out the key
-                    source.push_str(&logger);
-                    source.push_str(".write_val(");
-                    let value = match key_values.iter().find(|(name, _)| name == &key) {
-                        Some((_, value)) => value.to_string(),
-                        None => {
-                            return LFormatResult {
-                                output: format!(r#"compile_error!("Key {} not found")"#, key)
-                                    .parse()
-                                    .unwrap(),
-                                name: "".to_string(),
-                            };
+    //`format_string` is the *source* form of the literal, so escape sequences are
+    //still spelled out (`\n`, `\u{1F600}`, ...) and literal text is re-emitted
+    //verbatim into another string literal below. Escapes therefore round-trip, as
+    //long as the scan never mistakes a brace belonging to `\u{...}` for a
+    //placeholder delimiter.
+    let chars: Vec<char> = format_string.chars().collect();
+    let mut literal = String::new();
+    let mut i = 0;
+    while i < chars.len() {
+        match chars[i] {
+            '\\' => {
+                //copy the whole escape sequence verbatim, braces included
+                literal.push('\\');
+                i += 1;
+                let Some(&escaped) = chars.get(i) else {
+                    break;
+                };
+                literal.push(escaped);
+                i += 1;
+                if escaped == 'u' && chars.get(i) == Some(&'{') {
+                    while let Some(&c) = chars.get(i) {
+                        literal.push(c);
+                        i += 1;
+                        if c == '}' {
+                            break;
                         }
-                    };
-                    used_keys.insert(key);
-                    source.push_str(&value);
-                    source.push_str(");\n");
-                    mode = Mode::Literal(String::new());
-                } else {
-                    key.push(char);
-                    mode = Mode::Key(key);
+                    }
                 }
+            }
+            //escaped braces: emit one brace and consume both
+            '{' if chars.get(i + 1) == Some(&'{') => {
+                literal.push('{');
+                i += 2;
+            }
+            '}' if chars.get(i + 1) == Some(&'}') => {
+                literal.push('}');
+                i += 2;
+            }
+            '{' => {
+                if !literal.is_empty() {
+                    //reference logger ident
+                    source.push_str(&logger);
+                    source.push_str(".write_literal(\"");
+                    source.push_str(&literal);
+                    source.push_str("\");\n");
+                    literal.clear();
+                }
+                i += 1;
+                let mut key = String::new();
+                let mut closed = false;
+                while let Some(&c) = chars.get(i) {
+                    i += 1;
+                    if c == '}' {
+                        closed = true;
+                        break;
+                    }
+                    key.push(c);
+                }
+                if !closed {
+                    return LFormatResult {
+                        output: r#"compile_error!("Expected '}'");"#.parse().unwrap(),
+                        name: "".to_string(),
+                    };
+                }
+                //write out the key
+                source.push_str(&logger);
+                source.push_str(".write_val(");
+                let value = match key_values.iter().find(|(name, _)| name == &key) {
+                    Some((_, value)) => value.to_string(),
+                    None => {
+                        return LFormatResult {
+                            //the key is arbitrary text from the format string, so
+                            //quote it rather than splicing it into a literal raw
+                            output: format!(
+                                r#"compile_error!({:?});"#,
+                                format!("Key {key} not found")
+                            )
+                            .parse()
+                            .unwrap(),
+                            name: "".to_string(),
+                        };
+                    }
+                };
+                used_keys.insert(key);
+                source.push_str(&value);
+                source.push_str(");\n");
+            }
+            c => {
+                literal.push(c);
+                i += 1;
             }
         }
     }
-    //check end situation
-    match mode {
-        Mode::Literal(l) => {
-            if !l.is_empty() {
-                source.push_str(&logger.to_string());
-                source.push_str(".write_literal(\"");
-                source.push_str(&l);
-                source.push_str("\");\n");
-            }
-        }
-        Mode::Key(_) => {
-            return LFormatResult {
-                output: r#"compile_error!("Expected '}'")"#.parse().unwrap(),
-                name: "".to_string(),
-            };
-        }
+    if !literal.is_empty() {
+        source.push_str(&logger);
+        source.push_str(".write_literal(\"");
+        source.push_str(&literal);
+        source.push_str("\");\n");
     }
 
     // Key/value arguments that are not interpolated are structured fields, not

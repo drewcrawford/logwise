@@ -5,17 +5,17 @@ use std::collections::VecDeque;
 
 pub fn warn_sync_impl(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
-    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let lformat_result = lformat_impl(&mut input, "__logwise_formatter".to_string());
     let src = format!(
         r#"
         {{
             if logwise::log_enabled!(logwise::Level::Warning) {{
-                let mut record = logwise::hidden::warn_sync_pre(file!(),line!(),column!());
+                let mut __logwise_record = logwise::hidden::warn_sync_pre(file!(),line!(),column!());
 
-                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                let mut __logwise_formatter = logwise::hidden::PrivateFormatter::new(&mut __logwise_record);
 
                 {LFORMAT_EXPAND}
-                logwise::hidden::warn_sync_post(record);
+                logwise::hidden::warn_sync_post(__logwise_record);
             }}
         }}
     "#,

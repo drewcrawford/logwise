@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Logging macro key/value fields that are not interpolated into the message are appended in call-site order instead of disappearing quietly.
 - WebAssembly error logging no longer contains a magic `DEBUGME` message that panics instead of writing the record.
 - The native release script now builds logwise itself instead of trying to package files from an unrelated application. A small but important identity check for the release machinery.
+- Unicode escapes in format strings are escapes again. `"\u{1F600}"` used to be read as a placeholder named `1F600` and refuse to compile; now it is just an emoji.
+- Log values can contain generic argument lists. `HashMap::<u8, u8>::new()` was being chopped in half at the comma between the type parameters.
+- Logging macros no longer reach out and grab call-site variables named `record`, `formatter`, `id`, `interval`, or `result`. Your names are yours again.
+- Macro errors now say what is actually wrong. A missing key used to surface as a syntax error pointing into logwise's own generated code, burying the real "Key ... not found" message.
+- `perfwarn!` reports a compile error on an empty invocation instead of panicking the compiler, and expands the measured block once instead of duplicating it into both branches of the level check.
 - Escaped braces in log format strings now render literally, so `{{key}}` produces `{key}` instead of being treated as an interpolation.
 - Performance-warning interval closing records now use the same `PERFWARN` label as their opening records.
 - Idle heartbeat watchers now sleep until work arrives instead of waking four times per second.

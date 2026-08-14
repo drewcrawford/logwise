@@ -5,17 +5,17 @@ use std::collections::VecDeque;
 
 pub fn mandatory_sync_impl(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
-    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let lformat_result = lformat_impl(&mut input, "__logwise_formatter".to_string());
     let src = format!(
         r#"
         {{
             if logwise::log_enabled!(logwise::Level::Mandatory) {{
-                let mut record = logwise::hidden::mandatory_sync_pre(file!(),line!(),column!());
+                let mut __logwise_record = logwise::hidden::mandatory_sync_pre(file!(),line!(),column!());
 
-                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                let mut __logwise_formatter = logwise::hidden::PrivateFormatter::new(&mut __logwise_record);
 
                 {LFORMAT_EXPAND}
-                logwise::hidden::mandatory_sync_post(record);
+                logwise::hidden::mandatory_sync_post(__logwise_record);
             }}
         }}
     "#,
@@ -27,17 +27,17 @@ pub fn mandatory_sync_impl(input: TokenStream) -> TokenStream {
 
 pub fn mandatory_async_impl(input: TokenStream) -> TokenStream {
     let mut input: VecDeque<_> = input.into_iter().collect();
-    let lformat_result = lformat_impl(&mut input, "formatter".to_string());
+    let lformat_result = lformat_impl(&mut input, "__logwise_formatter".to_string());
     let src = format!(
         r#"
         {{
             if logwise::log_enabled!(logwise::Level::Mandatory) {{
-                let mut record = logwise::hidden::mandatory_sync_pre(file!(),line!(),column!());
+                let mut __logwise_record = logwise::hidden::mandatory_sync_pre(file!(),line!(),column!());
 
-                let mut formatter = logwise::hidden::PrivateFormatter::new(&mut record);
+                let mut __logwise_formatter = logwise::hidden::PrivateFormatter::new(&mut __logwise_record);
 
                 {LFORMAT_EXPAND}
-                logwise::hidden::mandatory_async_post(record).await;
+                logwise::hidden::mandatory_async_post(__logwise_record).await;
             }}
         }}
     "#,
