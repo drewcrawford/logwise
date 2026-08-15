@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Periodic in-memory log draining keeps at most one timer active, preventing repeated polls from accumulating sleeping threads.
 - Internal spinlocks now require the correct thread-safety bound and always unlock when a protected closure panics.
 - WebAssembly tests build and run on current nightly toolchains, including threaded tests and doctests in Chrome.
+- The wasm32 gate compiles again on current nightlies. Nightly deprecated `Atomic::fetch_update` in favour of a `try_update` our MSRV does not have, and `-D warnings` turned that into a hard error before anything else got a chance to run.
 
 ## [0.5.1] - 2026-02-14
 

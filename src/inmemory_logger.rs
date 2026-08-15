@@ -257,7 +257,7 @@ impl InMemoryLogger {
         let mut logs = self.logs.lock().unwrap();
         for log in logs.iter() {
             #[cfg(target_arch = "wasm32")]
-            wasm_lite::console::log(&log);
+            wasm_lite::console::log(log);
             #[cfg(not(target_arch = "wasm32"))]
             eprintln!("{}", log);
         }

@@ -48,18 +48,26 @@ impl<T> Spinlock<T> {
     }
 
     fn spin_lock_read(&self) {
-        while self
-            .locked
-            .fetch_update(Acquire, Relaxed, |v| {
-                if v < (LOCKED_WRITE - 1) {
-                    Some(v + 1)
-                } else {
-                    None
+        //hand-rolled rather than `fetch_update`, which nightly has deprecated in
+        //favour of a `try_update` that our MSRV does not have
+        let mut current = self.locked.load(Relaxed);
+        loop {
+            if current >= LOCKED_WRITE - 1 {
+                //a writer holds the lock, or we are at the reader ceiling
+                std::hint::spin_loop();
+                current = self.locked.load(Relaxed);
+                continue;
+            }
+            match self
+                .locked
+                .compare_exchange_weak(current, current + 1, Acquire, Relaxed)
+            {
+                Ok(_) => return,
+                Err(actual) => {
+                    std::hint::spin_loop();
+                    current = actual;
                 }
-            })
-            .is_err()
-        {
-            std::hint::spin_loop();
+            }
         }
     }
     fn spin_unlock_read(&self) {
