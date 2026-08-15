@@ -24,11 +24,11 @@
 
 use crate::log_record::LogRecord;
 use crate::logger::{LogPrivacy, Logger};
+use crate::sys::Duration;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::Poll;
-use std::time::Duration;
 
 /// An in-memory logger that stores log messages in a `Vec<String>`.
 ///

@@ -3,8 +3,12 @@
 //! Platform-specific time types for cross-platform compatibility.
 //!
 //! This module provides re-exports of `Duration` and `Instant` that work
-//! across native and WebAssembly targets. On native platforms, these come
-//! from `std::time`, while on WASM they come from `web_time`.
+//! across native and WebAssembly targets. Both come from `wasm_lite_std::time`,
+//! which re-exports `std::time` verbatim on native and substitutes
+//! `performance.now()`-backed equivalents on wasm32.
+//!
+//! Use `crate::sys::Instant` throughout the crate rather than
+//! `std::time::Instant`, which does not work on wasm32.
 //!
 //! # Public API
 //!

@@ -421,4 +421,7 @@ pub mod hidden {
 }
 extern crate self as logwise;
 
-pub use sys::Duration;
+// `Instant` appears in the signatures of public API (`LogRecord::log_time_since`,
+// `interval::PerfwarnInterval::new`, ...), and on wasm32 it is *not*
+// `std::time::Instant`, so callers need to be able to name ours.
+pub use sys::{Duration, Instant};

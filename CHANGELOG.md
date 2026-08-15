@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `LogPrivacy`, giving trusted local logger implementations an explicit opt-in to full private diagnostics while keeping new destinations safely redacted by default.
+- `Instant` is re-exported at the crate root alongside `Duration`. It appears in the signatures of public API such as `LogRecord::log_time_since` and `interval::PerfwarnInterval::new`, and on wasm32 it is not `std::time::Instant`, so callers had no way to name it without depending on `wasm_lite_std` themselves.
 
 ### Changed
 
