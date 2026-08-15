@@ -5,33 +5,25 @@
 use std::fs;
 use std::process::Command;
 
-#[test]
-fn test_logging_macro_accepts_cast_expressions() {
-    let fixture_dir =
-        std::env::temp_dir().join(format!("logwise-macro-expression-{}", std::process::id()));
+/// Builds a throwaway crate around `source` and runs `cargo check` on it.
+///
+/// Returns the (success, stderr) of the check.
+fn check_fixture(name: &str, source: &str) -> (bool, String) {
+    let fixture_dir = std::env::temp_dir().join(format!("logwise-{name}-{}", std::process::id()));
     let source_dir = fixture_dir.join("src");
+    let _ = fs::remove_dir_all(&fixture_dir);
     fs::create_dir_all(&source_dir).expect("create macro regression fixture");
 
     let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     fs::write(
         fixture_dir.join("Cargo.toml"),
         format!(
-            "[package]\nname = \"logwise_macro_expression_fixture\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n[dependencies]\nlogwise = {{ path = {:?} }}\n",
+            "[package]\nname = \"logwise_{name}_fixture\"\nversion = \"0.0.0\"\nedition = \"2024\"\npublish = false\n\n[dependencies]\nlogwise = {{ path = {:?} }}\n",
             manifest_dir
         ),
     )
     .expect("write fixture manifest");
-    fs::write(
-        source_dir.join("lib.rs"),
-        r#"
-logwise::declare_logging_domain!();
-
-pub fn log_cast(value: u16) {
-    logwise::warn_sync!("narrowed value: {value}", value = value as u8);
-}
-"#,
-    )
-    .expect("write fixture source");
+    fs::write(source_dir.join("lib.rs"), source).expect("write fixture source");
 
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let output = Command::new(cargo)
@@ -45,9 +37,78 @@ pub fn log_cast(value: u16) {
         .expect("run cargo check for macro regression fixture");
 
     let _ = fs::remove_dir_all(&fixture_dir);
-    assert!(
+    (
         output.status.success(),
-        "a valid cast expression was mangled by the logging macro:\n{}",
-        String::from_utf8_lossy(&output.stderr)
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
+}
+
+#[test]
+fn test_logging_macro_accepts_cast_expressions() {
+    let (success, stderr) = check_fixture(
+        "macro-expression",
+        r#"
+logwise::declare_logging_domain!();
+
+pub fn log_cast(value: u16) {
+    logwise::warn_sync!("narrowed value: {value}", value = value as u8);
+}
+"#,
+    );
+
+    assert!(
+        success,
+        "a valid cast expression was mangled by the logging macro:\n{stderr}"
+    );
+}
+
+#[test]
+fn test_logging_macro_rejects_an_argument_with_no_key() {
+    // `count` reads like `format!`'s implicit capture, but logwise has no such
+    // thing. It used to be discarded silently, taking every argument after it
+    // along with it.
+    let (success, stderr) = check_fixture(
+        "macro-bare-argument",
+        r#"
+logwise::declare_logging_domain!();
+
+pub fn log_bare(count: u8) {
+    logwise::warn_sync!("finished", count);
+}
+"#,
+    );
+
+    assert!(
+        !success,
+        "an argument with no `key =` was accepted and silently discarded"
+    );
+    assert!(
+        stderr.contains("expected `key = value`"),
+        "the diagnostic did not explain the missing key:\n{stderr}"
+    );
+}
+
+#[test]
+fn test_logging_macro_keeps_arguments_after_a_malformed_one() {
+    // The malformed argument must be reported rather than truncating the list at
+    // the first thing that does not parse as `key = value`.
+    let (success, stderr) = check_fixture(
+        "macro-trailing-argument",
+        r#"
+logwise::declare_logging_domain!();
+
+pub fn log_trailing(status: u16, count: u8) {
+    logwise::warn_sync!("finished {status}", status = status, count);
+}
+"#,
+    );
+
+    assert!(
+        !success,
+        "a trailing argument with no `key =` was silently discarded"
+    );
+    assert!(
+        stderr.contains("expected `key = value`"),
+        "the diagnostic did not explain the missing key:\n{stderr}"
     );
 }

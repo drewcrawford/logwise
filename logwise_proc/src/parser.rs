@@ -4,37 +4,49 @@
 use proc_macro::{Spacing, TokenStream, TokenTree};
 use std::collections::{HashSet, VecDeque};
 
+/// Outcome of scanning for the `key` half of a `key = value` argument.
+enum KeyResult {
+    /// A key terminated by `=`.
+    Key(String),
+    /// The argument list ended cleanly (nothing was consumed).
+    End,
+    /// Tokens were consumed but no `=` followed them. Carries the offending text
+    /// so the caller can point the user at it.
+    Malformed(String),
+}
+
 /// Parses a key from the token stream, consuming tokens until '=' is encountered.
 ///
 /// This function extracts the left-hand side of key-value pairs in macro arguments.
 /// It continues consuming tokens (identifiers, literals, groups) until it finds an
 /// equals sign, which signals the start of the value portion.
 ///
+/// A run of tokens that is *not* followed by `=` is reported as
+/// [`KeyResult::Malformed`] rather than silently discarded: dropping it would throw
+/// away the caller's expression (and any structured field it was meant to carry)
+/// with no diagnostic at all.
+///
 /// # Arguments
 /// * `input` - Mutable reference to the token stream being parsed
-///
-/// # Returns
-/// * `Some(String)` - The key if '=' was found
-/// * `Some("".to_string())` - Empty string if a non-'=' punctuation was found
-/// * `None` - If the stream was exhausted without finding '='
 ///
 /// # Examples
 /// ```ignore
 /// # // ignore because: This shows pseudo-code for token stream parsing, not actual runnable code
 /// // For input: `name = "value"`
-/// // Returns: Some("name".to_string())
+/// // Returns: KeyResult::Key("name".to_string())
 /// // Consumes: `name`, stops at `=`
 /// ```
-fn parse_key(input: &mut VecDeque<TokenTree>) -> Option<String> {
+fn parse_key(input: &mut VecDeque<TokenTree>) -> KeyResult {
     //basically we go until we get a =.
     let mut key = String::new();
     loop {
         match input.pop_front() {
             Some(TokenTree::Punct(p)) => {
                 if p.as_char() == '=' {
-                    return Some(key);
+                    return KeyResult::Key(key);
                 }
-                return Some("".to_string());
+                key.push(p.as_char());
+                return KeyResult::Malformed(key);
             }
             Some(TokenTree::Ident(i)) => {
                 key.push_str(&i.to_string());
@@ -46,7 +58,10 @@ fn parse_key(input: &mut VecDeque<TokenTree>) -> Option<String> {
                 key.push_str(&g.to_string());
             }
             None => {
-                return None;
+                if key.is_empty() {
+                    return KeyResult::End;
+                }
+                return KeyResult::Malformed(key);
             }
         }
     }
@@ -156,9 +171,21 @@ fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<Vec<(String, TokenStream
     }
     loop {
         let key = match parse_key(input) {
-            Some(k) => k,
-            None => {
+            KeyResult::Key(k) => k,
+            KeyResult::End => {
                 return Ok(kvs);
+            }
+            KeyResult::Malformed(text) => {
+                //the text is stringified call-site tokens, so quote it rather than
+                //splicing it into a literal raw
+                return Err(format!(
+                    r#"compile_error!({:?});"#,
+                    format!(
+                        "expected `key = value` after the format string, found `{text}`. Logging macros do not capture bindings implicitly -- name the field, as in `key = {text}`."
+                    )
+                )
+                .parse()
+                .unwrap());
             }
         };
         let value = parse_value(input);
