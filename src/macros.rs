@@ -403,6 +403,21 @@ impl<'a> PrivateFormatter<'a> {
     /// * `s` - The value to log (must implement [`Loggable`](crate::privacy::Loggable))
     #[inline]
     pub fn write_val<Val: Loggable>(&mut self, s: Val) {
+        self.write_val_ref(&s);
+    }
+    /// Writes a borrowed loggable value to the log record.
+    ///
+    /// Behaves exactly like [`write_val`](Self::write_val), but does not consume
+    /// the value. The macros use this when a `{key}` placeholder appears more than
+    /// once in a format string: the value expression is bound once and then logged
+    /// by reference for each occurrence, so it is evaluated exactly once no matter
+    /// how many times it is interpolated.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The value to log (must implement [`Loggable`](crate::privacy::Loggable))
+    #[inline]
+    pub fn write_val_ref<Val: Loggable + ?Sized>(&mut self, s: &Val) {
         let mut private = LogRecord::new(self.record.level());
         s.log_all(&mut private);
 

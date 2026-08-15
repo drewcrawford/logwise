@@ -307,16 +307,124 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
             };
         }
     };
-    let mut used_keys = HashSet::new();
     //parse format string
-    //holds the part of the string literal until the next {
-    let mut source = String::new();
     //`format_string` is the *source* form of the literal, so escape sequences are
     //still spelled out (`\n`, `\u{1F600}`, ...) and literal text is re-emitted
     //verbatim into another string literal below. Escapes therefore round-trip, as
     //long as the scan never mistakes a brace belonging to `\u{...}` for a
     //placeholder delimiter.
+    let segments = match scan_format_string(&format_string) {
+        Ok(segments) => segments,
+        Err(e) => {
+            return LFormatResult {
+                output: e,
+                name: "".to_string(),
+            };
+        }
+    };
+
+    // A key may appear more than once (`"{n} and {n}"`). Splicing the value
+    // expression once per occurrence would evaluate it once per occurrence --
+    // running its side effects repeatedly, and failing to compile outright for a
+    // value that is moved. Occurrences are counted up front so repeated keys can
+    // be bound once and then logged by reference.
+    let mut occurrences: Vec<usize> = vec![0; key_values.len()];
+    for segment in &segments {
+        if let Segment::Placeholder(key) = segment {
+            if let Some(idx) = key_values.iter().position(|(name, _)| name == key) {
+                occurrences[idx] += 1;
+            }
+        }
+    }
+
+    let mut source = String::new();
+    let mut used_keys = HashSet::new();
+    let mut bound_keys = HashSet::new();
+    for segment in &segments {
+        match segment {
+            Segment::Literal(literal) => {
+                //reference logger ident
+                source.push_str(&logger);
+                source.push_str(".write_literal(\"");
+                source.push_str(literal);
+                source.push_str("\");\n");
+            }
+            Segment::Placeholder(key) => {
+                let Some(idx) = key_values.iter().position(|(name, _)| name == key) else {
+                    return LFormatResult {
+                        //the key is arbitrary text from the format string, so
+                        //quote it rather than splicing it into a literal raw
+                        output: format!(r#"compile_error!({:?});"#, format!("Key {key} not found"))
+                            .parse()
+                            .unwrap(),
+                        name: "".to_string(),
+                    };
+                };
+                used_keys.insert(key.clone());
+                let value = key_values[idx].1.to_string();
+                if occurrences[idx] > 1 {
+                    //bind on first use so the expression is evaluated exactly once,
+                    //in the position the format string puts it
+                    if bound_keys.insert(idx) {
+                        source.push_str(&format!("let __logwise_val_{idx} = {value};\n"));
+                    }
+                    source.push_str(&logger);
+                    source.push_str(&format!(".write_val_ref(&__logwise_val_{idx});\n"));
+                } else {
+                    source.push_str(&logger);
+                    source.push_str(".write_val(");
+                    source.push_str(&value);
+                    source.push_str(");\n");
+                }
+            }
+        }
+    }
+
+    // Key/value arguments that are not interpolated are structured fields, not
+    // dead syntax. Preserve them in call-site order instead of silently dropping
+    // both the field and the value expression.
+    for (key, value) in &key_values {
+        if used_keys.contains(key) {
+            continue;
+        }
+        source.push_str(&logger);
+        source.push_str(".write_literal(");
+        source.push_str(&format!("{:?}", format!(" {key}=")));
+        source.push_str(");\n");
+        source.push_str(&logger);
+        source.push_str(".write_val(");
+        source.push_str(&value.to_string());
+        source.push_str(");\n");
+    }
+
+    LFormatResult {
+        output: source.parse().unwrap(),
+        name: format_string,
+    }
+}
+
+/// One piece of a scanned format string.
+enum Segment {
+    /// Static text, still in *source* form (escape sequences spelled out), ready
+    /// to be re-emitted verbatim into another string literal.
+    Literal(String),
+    /// The key of a `{key}` placeholder.
+    Placeholder(String),
+}
+
+/// Splits the source form of a format string into literal runs and placeholders.
+///
+/// Escape sequences are copied verbatim -- including the braces of `\u{...}`, which
+/// belong to the escape and not to a placeholder -- and `{{`/`}}` collapse to a
+/// single brace.
+///
+/// # Returns
+/// * `Ok(Vec<Segment>)` - the scanned segments, in order
+/// * `Err(TokenStream)` - a `compile_error!` for an unterminated placeholder
+fn scan_format_string(format_string: &str) -> Result<Vec<Segment>, TokenStream> {
     let chars: Vec<char> = format_string.chars().collect();
+    let mut segments = Vec::new();
+    //holds the part of the string literal until the next {
     let mut literal = String::new();
     let mut i = 0;
     while i < chars.len() {
@@ -351,12 +459,7 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
             }
             '{' => {
                 if !literal.is_empty() {
-                    //reference logger ident
-                    source.push_str(&logger);
-                    source.push_str(".write_literal(\"");
-                    source.push_str(&literal);
-                    source.push_str("\");\n");
-                    literal.clear();
+                    segments.push(Segment::Literal(std::mem::take(&mut literal)));
                 }
                 i += 1;
                 let mut key = String::new();
@@ -370,33 +473,9 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
                     key.push(c);
                 }
                 if !closed {
-                    return LFormatResult {
-                        output: r#"compile_error!("Expected '}'");"#.parse().unwrap(),
-                        name: "".to_string(),
-                    };
+                    return Err(r#"compile_error!("Expected '}'");"#.parse().unwrap());
                 }
-                //write out the key
-                source.push_str(&logger);
-                source.push_str(".write_val(");
-                let value = match key_values.iter().find(|(name, _)| name == &key) {
-                    Some((_, value)) => value.to_string(),
-                    None => {
-                        return LFormatResult {
-                            //the key is arbitrary text from the format string, so
-                            //quote it rather than splicing it into a literal raw
-                            output: format!(
-                                r#"compile_error!({:?});"#,
-                                format!("Key {key} not found")
-                            )
-                            .parse()
-                            .unwrap(),
-                            name: "".to_string(),
-                        };
-                    }
-                };
-                used_keys.insert(key);
-                source.push_str(&value);
-                source.push_str(");\n");
+                segments.push(Segment::Placeholder(key));
             }
             c => {
                 literal.push(c);
@@ -405,31 +484,7 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
         }
     }
     if !literal.is_empty() {
-        source.push_str(&logger);
-        source.push_str(".write_literal(\"");
-        source.push_str(&literal);
-        source.push_str("\");\n");
+        segments.push(Segment::Literal(literal));
     }
-
-    // Key/value arguments that are not interpolated are structured fields, not
-    // dead syntax. Preserve them in call-site order instead of silently dropping
-    // both the field and the value expression.
-    for (key, value) in &key_values {
-        if used_keys.contains(key) {
-            continue;
-        }
-        source.push_str(&logger);
-        source.push_str(".write_literal(");
-        source.push_str(&format!("{:?}", format!(" {key}=")));
-        source.push_str(");\n");
-        source.push_str(&logger);
-        source.push_str(".write_val(");
-        source.push_str(&value.to_string());
-        source.push_str(");\n");
-    }
-
-    return LFormatResult {
-        output: source.parse().unwrap(),
-        name: format_string,
-    };
+    Ok(segments)
 }

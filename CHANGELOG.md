@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `declare_logging_domain!()`'s documentation described a `logwise_internal` feature flag that it never consulted. It compares `CARGO_CRATE_NAME` against `module_path!()`; the docs now say so, and show how to gate on a feature if that is what you were after.
 - `LogRecord::log_time_since` documented itself as measuring elapsed time. It stamps an already-captured instant's offset from process start, which is what every caller wants of it, and now what it claims.
 - An argument with no `key =` in front of it is now a compile error naming the offender. `warn_sync!("finished", count)` reads like `format!`'s implicit capture, but logwise has no such thing; it used to be discarded in silence, taking every argument after it along with it.
+- A `{key}` used more than once in a format string evaluates its value exactly once. `"attempt {n}, retrying {n}"` used to splice the expression in twice, so side effects ran twice and the two spots could disagree — and a value that gets moved failed to compile, pointing at generated code rather than at your call.
 
 ## [0.5.1] - 2026-02-14
 
