@@ -38,7 +38,7 @@ logwise provides specific log levels for defined use cases:
 
 | Level | Use Case | Build Type | Thread Control |
 |-------|----------|------------|----------------|
-| `trace` | Detailed debugging | debug only | Must enable per-thread via [`Context::begin_trace()`](context::Context::begin_trace) |
+| `trace` | Detailed debugging | debug only | Must enable per-thread via [`Context::begin_trace()`] |
 | `debuginternal` | Print-style debugging | debug only | On by default in current crate, per-thread in downstream |
 | `info` | Supporting downstream crates | debug only | On by default |
 | `mandatory` | Printf-style debugging | all builds | Always on |
@@ -54,21 +54,22 @@ logwise provides specific log levels for defined use cases:
 
 ```rust
 logwise::declare_logging_domain!();
-# fn main() {
-// Simple structured logging
-logwise::info_sync!("User logged in", user_id=42);
 
-// With multiple parameters
-logwise::warn_sync!("Request failed",
-    status=404,
-    path="/api/users"
-);
-# }
+fn main() {
+    // Simple structured logging
+    logwise::info_sync!("User logged in", user_id=42);
+
+    // With multiple parameters
+    logwise::warn_sync!("Request failed",
+        status=404,
+        path="/api/users"
+    );
+}
 ```
 
 ```rust
 logwise::declare_logging_domain!();
-# fn main() {
+
 // Async logging for better performance
 async fn handle_request() {
     logwise::info_async!("Processing request",
@@ -76,7 +77,8 @@ async fn handle_request() {
         endpoint="/health"
     );
 }
-# }
+
+fn main() {}
 ```
 
 ## Privacy-Aware Logging
@@ -85,7 +87,7 @@ logwise's privacy system ensures sensitive data is handled appropriately:
 
 ```rust
 logwise::declare_logging_domain!();
-# fn main() {
+
 use logwise::privacy::{LogIt, IPromiseItsNotPrivate};
 
 #[derive(Debug)]
@@ -95,22 +97,23 @@ struct User {
     email: String,
 }
 
-// Complex types require explicit privacy handling
-let user = User {
-    id: 123,
-    name: "Alice".into(),
-    email: "alice@example.com".into()
-};
+fn main() {
+    // Complex types require explicit privacy handling
+    let user = User {
+        id: 123,
+        name: "Alice".into(),
+        email: "alice@example.com".into()
+    };
 
-// Use LogIt wrapper for complex types
-logwise::info_sync!("User created", user=LogIt(&user));
+    // Use LogIt wrapper for complex types
+    logwise::info_sync!("User created", user=LogIt(&user));
 
-// Mark explicitly non-private data when it's safe
-let public_id = "PUBLIC-123";
-logwise::info_sync!("Processing {id}",
-    id=IPromiseItsNotPrivate(public_id)
-);
-# }
+    // Mark explicitly non-private data when it's safe
+    let public_id = "PUBLIC-123";
+    logwise::info_sync!("Processing {id}",
+        id=IPromiseItsNotPrivate(public_id)
+    );
+}
 ```
 
 ## Context and Task Management
@@ -118,7 +121,6 @@ logwise::info_sync!("Processing {id}",
 Track hierarchical tasks with automatic performance monitoring:
 
 ```rust
-# fn main() {
 use logwise::context::Context;
 
 // Create a new task
@@ -143,7 +145,6 @@ let child_ctx = Context::new_task(
 child_ctx.clone().set_current();
 
 // Task completion is logged automatically when dropped
-# }
 ```
 
 ## Performance Tracking
@@ -152,32 +153,37 @@ Use the `perfwarn!` macro to track and log slow operations:
 
 ```rust
 logwise::declare_logging_domain!();
-# fn main() {
-# fn perform_database_query() {}
-// Tracks execution time automatically
-logwise::perfwarn!("database_query", {
-    // Your expensive operation here
-    perform_database_query()
-});
-// Logs warning if operation exceeds threshold
-# }
+
+fn perform_database_query() {}
+
+fn main() {
+    // Tracks execution time automatically
+    logwise::perfwarn!("database_query", {
+        // Your expensive operation here
+        perform_database_query()
+    });
+    // Logs warning if operation exceeds threshold
+}
 ```
 
 For conditional performance warnings that only log when a threshold is exceeded:
 
 ```rust
 logwise::declare_logging_domain!();
-# fn main() {
-# use std::time::Duration;
-# fn fetch_data() {}
-// Only logs if operation takes longer than 100ms
-let _interval = logwise::perfwarn_begin_if!(
-    Duration::from_millis(100),
-    "slow_operation"
-);
-fetch_data();
-// Warning logged only if threshold exceeded
-# }
+
+use std::time::Duration;
+
+fn fetch_data() {}
+
+fn main() {
+    // Only logs if operation takes longer than 100ms
+    let _interval = logwise::perfwarn_begin_if!(
+        Duration::from_millis(100),
+        "slow_operation"
+    );
+    fetch_data();
+    // Warning logged only if threshold exceeded
+}
 ```
 
 ## Heartbeat Monitoring
@@ -185,8 +191,10 @@ fetch_data();
 Use [`heartbeat`] to monitor that operations complete within a deadline:
 
 ```rust
-# use std::time::Duration;
-# fn critical_task() {}
+use std::time::Duration;
+
+fn critical_task() {}
+
 // Create a heartbeat that warns if not completed within 5 seconds
 let _guard = logwise::heartbeat("critical_task", Duration::from_secs(5));
 critical_task();
@@ -202,16 +210,18 @@ Use [`log_enabled!`] to check if a log level is enabled before doing expensive w
 
 ```rust
 logwise::declare_logging_domain!();
-# fn main() {
+
 use logwise::{Level, log_enabled};
 
-// Skip expensive computation if the log level is disabled
-if log_enabled!(Level::Trace) {
-    let expensive_data = expensive_debug_computation();
-    logwise::trace_sync!("Debug data: {data}", data=expensive_data);
+fn expensive_debug_computation() -> i32 { 42 }
+
+fn main() {
+    // Skip expensive computation if the log level is disabled
+    if log_enabled!(Level::Trace) {
+        let expensive_data = expensive_debug_computation();
+        logwise::trace_sync!("Debug data: {data}", data=expensive_data);
+    }
 }
-# fn expensive_debug_computation() -> i32 { 42 }
-# }
 ```
 
 ## Mandatory Logging
@@ -220,10 +230,11 @@ Use [`mandatory_sync!`] or [`mandatory_async!`] for printf-style debugging that 
 
 ```rust
 logwise::declare_logging_domain!();
-# fn main() {
-// This log will appear in all builds
-logwise::mandatory_sync!("Debugging value: {value}", value=42);
-# }
+
+fn main() {
+    // This log will appear in all builds
+    logwise::mandatory_sync!("Debugging value: {value}", value=42);
+}
 ```
 
 ## Profiling
@@ -232,23 +243,26 @@ Use profiling macros to track execution time and performance characteristics:
 
 ```rust
 logwise::declare_logging_domain!();
-# fn main() {
-# fn process_data() {}
-// Logs duration when the interval is dropped
-let _interval = logwise::profile_begin!("data_processing");
-process_data();
-// Automatically logs completion time
-# }
+
+fn process_data() {}
+
+fn main() {
+    // Logs duration when the interval is dropped
+    let _interval = logwise::profile_begin!("data_processing");
+    process_data();
+    // Automatically logs completion time
+}
 ```
 
 For explicit profiling messages:
 
 ```rust
 logwise::declare_logging_domain!();
-# fn main() {
-# let elapsed_ms = 42;
-logwise::profile_sync!("Computation took {ms} ms", ms=elapsed_ms);
-# }
+
+fn main() {
+    let elapsed_ms = 42;
+    logwise::profile_sync!("Computation took {ms} ms", ms=elapsed_ms);
+}
 ```
 
 # Architecture Overview
@@ -277,7 +291,7 @@ logwise::profile_sync!("Computation took {ms} ms", ms=elapsed_ms);
 
 ```rust
 logwise::declare_logging_domain!();
-# fn main() {
+
 use logwise::{context::Context, privacy::LogIt};
 
 #[derive(Debug)]
@@ -286,30 +300,31 @@ struct Config {
     port: u16,
 }
 
-// Initialize root context
-Context::reset("application".to_string());
+fn main() {
+    // Initialize root context
+    Context::reset("application".to_string());
 
-// Log application startup
-logwise::info_sync!("Starting application", version="1.0.0");
+    // Log application startup
+    logwise::info_sync!("Starting application", version="1.0.0");
 
-// Load configuration
-let config = Config {
-    database_url: "postgres://localhost/myapp".into(),
-    port: 8080,
-};
+    // Load configuration
+    let config = Config {
+        database_url: "postgres://localhost/myapp".into(),
+        port: 8080,
+    };
 
-// Use LogIt for complex types
-logwise::info_sync!("Configuration loaded",
-    config=LogIt(&config)
-);
+    // Use LogIt for complex types
+    logwise::info_sync!("Configuration loaded",
+        config=LogIt(&config)
+    );
 
-// Track performance-critical operations
-logwise::perfwarn!("database_connection", {
-    // connect_to_database(&config.database_url)
-});
+    // Track performance-critical operations
+    logwise::perfwarn!("database_connection", {
+        // connect_to_database(&config.database_url)
+    });
 
-logwise::info_sync!("Application ready", port=config.port);
-# }
+    logwise::info_sync!("Application ready", port=config.port);
+}
 ```
 
 ## Custom Logger Implementation
@@ -368,7 +383,9 @@ logwise includes WebAssembly support with browser-specific features:
 
 * Uses `web-time` for time operations
 * Console output via `web-sys`
-* Batched logging with [`InMemoryLogger::periodic_drain_to_console`](InMemoryLogger::periodic_drain_to_console)
+* Batched logging with [`InMemoryLogger::periodic_drain_to_console`]
+
+[`Context::begin_trace()`]: context::Context::begin_trace
 
 */
 
