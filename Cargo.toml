@@ -41,8 +41,10 @@ harness = false
 [patch.crates-io]
 test_executors = { path = "../test_executors" }
 some_executor = { path = "../some_executor" }
-# reached via some_executor; the published one still pulls wasm-bindgen in
-continue = { path = "../continue" }
+# `continue` is reached via some_executor and needs no patch: 0.1.3 dropped
+# wasm-bindgen and takes wasm_lite only as a dev-dependency, which does not
+# reach us. Re-add a patch here only if a future release puts it back on a
+# wasm32 *normal* dependency.
 # test_executors depends on logwise, so without this the dev-cycle pulls the
 # *registry* logwise -- which still uses wasm_safe_thread/web-sys -- back in.
 logwise = { path = "." }

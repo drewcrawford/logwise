@@ -26,7 +26,9 @@ cargo test --test perfwarn_if -- --nocapture
 
 ### Local path dependencies
 
-The root `Cargo.toml` depends on `../wasm_lite/crates/wasm_lite_std` by path and carries a `[patch.crates-io]` block pointing `some_executor`, `continue`, `test_executors`, and `logwise` itself at sibling checkouts. If any sibling is missing, **every** cargo command fails during resolution with `failed to load source for dependency`, before compiling anything. Clone the siblings, or temporarily swap the missing one for its crates.io release — and restore `Cargo.toml`/`Cargo.lock` before committing.
+The root `Cargo.toml` depends on `../wasm_lite/crates/wasm_lite_std` by path and carries a `[patch.crates-io]` block pointing `some_executor`, `test_executors`, `wasm_lite`, `wasm_lite_std`, and `logwise` itself at sibling checkouts. If any sibling is missing, **every** cargo command fails during resolution with `failed to load source for dependency`, before compiling anything. Clone the siblings, or temporarily swap the missing one for its crates.io release — and restore `Cargo.toml`/`Cargo.lock` before committing.
+
+Each entry earns its place; check before adding or removing one. `some_executor`, `test_executors`, and `logwise` are patched because their published releases still carry `wasm-bindgen`/`web-sys` on a wasm32 *normal* dependency, and the `Instant` flag-day is all-or-nothing. `wasm_lite` and `wasm_lite_std` are patched for a different reason: we take them by path while `some_executor` takes them from the registry, and because `wasm_lite` exports `#[no_mangle]` symbols (`__wl_thread_entry`, `__wl_closure_call_0`, ...), two copies in one graph is a wasm32 `duplicate symbol` link failure rather than a silent duplicate. `continue` needs no patch as of its 0.1.3 release. To check whether a patch is still needed, read the published entry's *normal* deps rather than guessing — `cargo info` reports the patched copy, so it cannot tell you.
 
 ## Architecture
 
