@@ -1,4 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Entry points for `trace_sync!` / `trace_async!`, the noisiest level.
+//!
+//! Both take `"literal {key}", key = expr` and expand to a `#[cfg(debug_assertions)]`
+//! block guarded by `log_enabled!(Level::Trace)`, so the call disappears entirely from
+//! release builds and, in debug builds, still costs nothing unless the thread opted in
+//! via `Context::begin_trace()`. The async variant shares `trace_sync_pre` for the
+//! prelude and only differs in awaiting `trace_async_post`.
+
 use crate::parser::lformat_impl;
 use proc_macro::TokenStream;
 use std::collections::VecDeque;

@@ -1,4 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Entry points for `debuginternal_sync!` / `debuginternal_async!`, the level a library
+//! author uses to debug their own crate.
+//!
+//! Like `trace`, the expansion is wrapped in `#[cfg(debug_assertions)]` and so is absent
+//! from release builds, but the runtime `log_enabled!(Level::DebugInternal)` check passes
+//! by default in any crate that invoked `declare_logging_domain!()` at its root, rather
+//! than requiring per-thread activation.
+
 use crate::parser::lformat_impl;
 use proc_macro::TokenStream;
 use std::collections::VecDeque;

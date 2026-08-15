@@ -1,4 +1,15 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! The `#[logwise::profile]` attribute macro, the only entry point in this crate that
+//! rewrites an existing item instead of generating a fresh expression.
+//!
+//! It scans the token stream for the `fn` keyword to recover the function name and for
+//! the first brace-delimited group, which it takes to be the body, then replaces that
+//! group in place -- leaving visibility, generics, argument list and return type
+//! untouched. The new body opens a `ProfileInterval` named
+//! `concat!(module_path!(), "::", fn_name)` and holds the guard for the original body's
+//! scope, so the interval closes on any return path.
+
 use proc_macro::{Delimiter, TokenStream, TokenTree};
 
 /// Implementation of the `#[profile]` attribute macro.

@@ -1,4 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Entry points for `info_sync!` / `info_async!`, the level aimed at the *users* of a
+//! crate rather than at its author.
+//!
+//! Still debug-only -- the emitted block carries `#[cfg(debug_assertions)]`, so release
+//! builds pay nothing -- but unlike `trace` it needs no per-thread opt-in beyond the
+//! `log_enabled!(Level::Info)` check. Both variants build the record through
+//! `info_sync_pre` and differ only in which `_post` they call.
+
 use crate::parser::lformat_impl;
 use proc_macro::TokenStream;
 use std::collections::VecDeque;

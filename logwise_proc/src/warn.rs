@@ -1,4 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Entry point for `warn_sync!`, for suspicious-but-recoverable conditions.
+//!
+//! Unlike the debug-only levels there is no `#[cfg(debug_assertions)]` gate, and
+//! `log_enabled!(Level::Warning)` is constant-`true`, so the record is always built and
+//! any filtering is left to the installed loggers. This module is sync-only -- there is
+//! deliberately no `warn_async!` counterpart to the other levels' async variants.
+
 use crate::parser::lformat_impl;
 use proc_macro::TokenStream;
 use std::collections::VecDeque;

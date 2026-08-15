@@ -1,4 +1,15 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Deadline monitoring: [`heartbeat`] hands back an RAII guard that emits a `PerfWarn`
+//! record if the work it brackets outlives its duration.
+//!
+//! Unlike a perfwarn interval, which can only report once the region ends, heartbeats are
+//! watched by one lazily spawned background thread (a `wasm_lite_std` worker on wasm32)
+//! that blocks on the nearest deadline, so a hang is reported while it is still happening
+//! and again at the drop site if the guard was already late. Each guard captures
+//! [`Context::current`] and its caller location so warnings are attributed to the
+//! originating task, and degrades to an inert, channel-less guard when `PerfWarn` is off.
+
 use crate::context::Context;
 use crate::global_logger::global_loggers;
 use crate::log_record::LogRecord;

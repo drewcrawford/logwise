@@ -1,6 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! Shared front end for every logging macro in this crate: it turns
+//! `"literal {key}", key = expr, ...` into a flat sequence of `write_literal` /
+//! `write_val` calls on a caller-named formatter binding, plus the format string itself
+//! for use as an interval name.
+//!
+//! Parsing works on the raw `TokenTree` stream rather than through `syn`. Two invariants
+//! drive most of the code: `parse_value` tracks angle-bracket depth so a comma inside a
+//! turbofish or qualified path does not end an argument, and `lformat_impl` counts
+//! placeholder occurrences so a key used twice is bound once and logged by reference,
+//! evaluating each value expression exactly once. Nothing the caller wrote is dropped
+//! silently -- an uninterpolated `key = value` becomes a trailing structured field, and
+//! tokens with no `=` after them become a `compile_error!`.
+
 use proc_macro::{Spacing, TokenStream, TokenTree};
 use std::collections::{HashSet, VecDeque};
 

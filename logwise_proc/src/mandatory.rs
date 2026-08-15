@@ -1,4 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Entry points for `mandatory_sync!` / `mandatory_async!`, printf-style debugging that
+//! nothing is allowed to silence.
+//!
+//! The `log_enabled!(Level::Mandatory)` guard in the expansion is constant-`true` in
+//! every build profile and cannot be turned off by a logging domain, which is the point:
+//! it is for debugging hostile environments where the other levels are compiled out.
+//! That is also why these calls are meant to be deleted before committing, rather than
+//! left in place like `warn`/`error`.
+
 use crate::parser::lformat_impl;
 use proc_macro::TokenStream;
 use std::collections::VecDeque;

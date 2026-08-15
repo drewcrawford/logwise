@@ -1,4 +1,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! The three `PerfWarn` interval entry points, which time a region rather than logging a
+//! point event: `perfwarn_begin!("fmt {k}", k = v)` returns a guard that reports on drop,
+//! `perfwarn!("fmt", { .. })` takes a trailing brace group and scopes that guard to the
+//! block, and `perfwarn_begin_if!(threshold, "fmt", ..)` parses a leading expression up
+//! to the first comma and reports only when the interval exceeds it.
+//!
+//! Every branch of the expansion yields an interval, including the one taken when
+//! `log_enabled!(Level::PerfWarn)` is false, so the macro's type does not depend on
+//! whether logging is on. The format string doubles as the interval's name, taken from
+//! `LFormatResult::name` and spliced into the expansion as a string literal.
+
 use crate::parser::lformat_impl;
 use proc_macro::{TokenStream, TokenTree};
 use std::collections::VecDeque;

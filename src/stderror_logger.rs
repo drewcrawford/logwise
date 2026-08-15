@@ -1,4 +1,15 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! The reference [`Logger`] implementation, and the one most applications install: a
+//! zero-sized sink that writes finished records to stderr.
+//!
+//! It reports [`LogPrivacy::Private`], so records reach it unredacted -- appropriate for
+//! a developer's terminal, not for a shipped telemetry sink. Off wasm it takes the stderr
+//! lock once per record, which is what keeps concurrently logged lines from interleaving;
+//! on wasm32 there is no stderr, so the parts are joined and routed to the `console`
+//! method matching the record's [`Level`](crate::Level). Output is unbuffered, so
+//! `prepare_to_die` has nothing to flush and the async path defers to the blocking one.
+
 use crate::log_record::LogRecord;
 use crate::logger::{LogPrivacy, Logger};
 

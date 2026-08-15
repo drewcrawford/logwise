@@ -1,4 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Entry points for `error_sync!` / `error_async!`, used on `Result` error paths where
+//! an operation actually failed.
+//!
+//! Compiled into every profile: there is no `#[cfg(debug_assertions)]` gate and
+//! `log_enabled!(Level::Error)` is constant-`true`, so the message text and its value
+//! expressions must be release-safe. The async variant reuses `error_sync_pre` to build
+//! the record and differs only by awaiting `error_async_post`.
+
 use crate::parser::lformat_impl;
 use proc_macro::TokenStream;
 use std::collections::VecDeque;
