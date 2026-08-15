@@ -40,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Internal spinlocks now require the correct thread-safety bound and always unlock when a protected closure panics.
 - WebAssembly tests build and run on current nightly toolchains, including threaded tests and doctests in Chrome.
 - The wasm32 gate compiles again on current nightlies. Nightly deprecated `Atomic::fetch_update` in favour of a `try_update` our MSRV does not have, and `-D warnings` turned that into a hard error before anything else got a chance to run.
+- `declare_logging_domain!()`'s documentation described a `logwise_internal` feature flag that it never consulted. It compares `CARGO_CRATE_NAME` against `module_path!()`; the docs now say so, and show how to gate on a feature if that is what you were after.
+- `LogRecord::log_time_since` documented itself as measuring elapsed time. It stamps an already-captured instant's offset from process start, which is what every caller wants of it, and now what it claims.
 
 ## [0.5.1] - 2026-02-14
 

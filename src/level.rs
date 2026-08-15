@@ -56,9 +56,10 @@ pub enum Level {
 
     /// Print-style debugging for the library author.
     ///
-    /// On by default in the current crate (when built with `--features logwise_internal`),
-    /// but only available to downstream users in their debug builds with tracing enabled.
-    /// Compiled out entirely in release builds.
+    /// On by default in any crate that invokes
+    /// [`declare_logging_domain!`](crate::declare_logging_domain) at its root, and
+    /// otherwise reachable in debug builds with tracing enabled. Compiled out
+    /// entirely in release builds.
     ///
     /// # Example
     /// ```rust

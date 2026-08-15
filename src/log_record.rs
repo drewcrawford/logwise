@@ -128,24 +128,35 @@ impl LogRecord {
         time
     }
 
-    /// Logs the elapsed time since a given instant to the record.
+    /// Stamps an already-captured instant onto the record.
     ///
-    /// This calculates the duration from the application's initial timestamp to the given
-    /// instant and appends it to the record in the format `[duration] `.
+    /// This is [`log_timestamp`](LogRecord::log_timestamp) for a moment that has
+    /// already passed: it appends `instant`'s offset from the application's initial
+    /// timestamp, in the format `[duration] `. It does *not* measure the time
+    /// elapsed since `instant` — for that, subtract two instants yourself and log
+    /// the difference.
+    ///
+    /// Use it when the moment worth reporting is not the moment you are writing the
+    /// record, such as an interval's start time captured before the prelude was
+    /// built.
     ///
     /// # Arguments
     ///
-    /// * `start` - The instant from which to calculate the elapsed time
+    /// * `instant` - The instant to stamp onto the record
     ///
     /// # Example
     ///
     /// ```rust
     /// use logwise::{LogRecord, Level};
     ///
-    /// let mut record = LogRecord::new(Level::Info);
-    /// let start = record.log_timestamp();
+    /// let mut opening = LogRecord::new(Level::Info);
+    /// let began = opening.log_timestamp();
+    ///
     /// // ... perform some operation ...
-    /// record.log_time_since(start);
+    ///
+    /// // Report when the work began, not when this record is being written.
+    /// let mut closing = LogRecord::new(Level::Info);
+    /// closing.log_time_since(began);
     /// ```
     pub fn log_time_since(&mut self, start: crate::sys::Instant) {
         let duration = start.duration_since(initial_timestamp());

@@ -40,8 +40,8 @@ use std::sync::atomic::AtomicBool;
 /// Controls whether internal logging is enabled for a crate.
 ///
 /// This struct manages the internal logging domain for a crate, determining
-/// whether `debuginternal` log messages are displayed. The domain is typically
-/// configured at compile time based on the `logwise_internal` feature flag.
+/// whether `debuginternal` log messages are displayed. The domain is configured
+/// at compile time by [`declare_logging_domain!`](crate::declare_logging_domain).
 ///
 /// # Example
 ///
@@ -175,10 +175,11 @@ pub const fn const_str_eq(a: &str, b: &str) -> bool {
 ///
 /// # Two Invocation Patterns
 ///
-/// ## 1. Default Invocation (Feature-Based)
+/// ## 1. Default Invocation
 ///
-/// When called without arguments, the macro automatically enables internal logging
-/// based on the presence of the `logwise_internal` feature flag:
+/// When called without arguments, the macro compares `CARGO_CRATE_NAME` against
+/// `module_path!()` and enables internal logging when they match — that is, when
+/// the macro is invoked at the root of the crate being compiled:
 ///
 /// ```rust
 /// # #[macro_use] extern crate logwise;
@@ -186,18 +187,10 @@ pub const fn const_str_eq(a: &str, b: &str) -> bool {
 /// declare_logging_domain!();
 /// ```
 ///
-/// With this pattern, you should declare a `logwise_internal` feature in your
-/// `Cargo.toml`:
-///
-/// ```toml
-/// [features]
-/// logwise_internal = []
-/// ```
-///
-/// Then enable internal logging by running:
-/// ```bash
-/// cargo build --features logwise_internal
-/// ```
+/// Note that this comparison is made while compiling *your* crate, so it holds
+/// whether your crate is the top-level build target or a dependency of someone
+/// else's. If you want internal logging gated on something — a Cargo feature, an
+/// environment variable, a profile — use the explicit form below and say so.
 ///
 /// ## 2. Explicit Invocation
 ///
@@ -231,16 +224,7 @@ pub const fn const_str_eq(a: &str, b: &str) -> bool {
 ///
 /// # Examples
 ///
-/// ## Basic Setup with Feature Flag
-///
-/// `Cargo.toml`:
-/// ```toml
-/// [dependencies]
-/// logwise = "0.1"
-///
-/// [features]
-/// logwise_internal = []
-/// ```
+/// ## Basic Setup
 ///
 /// `src/lib.rs`:
 /// ```rust
@@ -249,9 +233,25 @@ pub const fn const_str_eq(a: &str, b: &str) -> bool {
 /// # fn main() { }
 ///
 /// pub fn my_function() {
-///     // This will only log when built with --features logwise_internal
+///     // Logs in debug builds; compiled out in release builds
 ///     logwise::debuginternal_sync!("Debug output: {value}", value=42);
 /// }
+/// ```
+///
+/// ## Gating on a Cargo Feature
+///
+/// `Cargo.toml`:
+/// ```toml
+/// [features]
+/// logwise_internal = []
+/// ```
+///
+/// `src/lib.rs`:
+/// ```rust
+/// # #[macro_use] extern crate logwise;
+/// // Only enabled when built with --features logwise_internal
+/// declare_logging_domain!(cfg!(feature = "logwise_internal"));
+/// # fn main() { }
 /// ```
 ///
 /// ## Always-Enabled Internal Logging
