@@ -15,7 +15,11 @@ exclude = [".*"]
 
 [dependencies]
 logwise_proc = { path = "logwise_proc", version = "0.5.0" }
-wasm_lite_std = { path = "../wasm_lite/crates/wasm_lite_std" }
+# Taken from the registry, not by path: a published crate may not carry a path
+# dependency without a version, and a path pointing outside this checkout would
+# not survive packaging anyway. The [patch.crates-io] block below redirects this
+# to ../wasm_lite for the dev cycle, which is what keeps the graph on one copy.
+wasm_lite_std = "0.1.1"
 
 [dev-dependencies]
 test_executors = "0.4.1"
@@ -24,7 +28,9 @@ test_executors = "0.4.1"
 logwise_internal = []
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
-wasm_lite = { path = "../wasm_lite/crates/wasm_lite" }
+# Registry dependency for the same reason as wasm_lite_std above; the patch
+# below points it at the local checkout during development.
+wasm_lite = "0.1.1"
 
 
 [target.'cfg(target_arch="wasm32")'.dev-dependencies]
