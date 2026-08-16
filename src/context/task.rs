@@ -119,10 +119,10 @@ impl Drop for Task {
             let mut first = true;
             for (key, duration) in &borrow.interval_statistics {
                 // Check if we should log this statistic
-                if let Some(threshold) = borrow.interval_thresholds.get(key) {
-                    if duration <= threshold {
-                        continue;
-                    }
+                if let Some(threshold) = borrow.interval_thresholds.get(key)
+                    && duration <= threshold
+                {
+                    continue;
                 }
 
                 if !first {
