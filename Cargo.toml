@@ -45,24 +45,3 @@ wasm_lite = "0.1.1"
 name = "wasm_stderr_logger"
 path = "tests/wasm_stderr_logger.rs"
 harness = false
-
-# Dev-cycle self-patch: the published test_executors expands #[async_test] to
-# #[wasm_bindgen_test], so without this the wasm32 test target does not compile
-# here. The Instant flag-day is all-or-nothing, hence some_executor too.
-[patch.crates-io]
-test_executors = { path = "../test_executors" }
-some_executor = { path = "../some_executor" }
-# `continue` is reached via some_executor and needs no patch: 0.1.3 dropped
-# wasm-bindgen and takes wasm_lite only as a dev-dependency, which does not
-# reach us. Re-add a patch here only if a future release puts it back on a
-# wasm32 *normal* dependency.
-# test_executors depends on logwise, so without this the dev-cycle pulls the
-# *registry* logwise -- which still uses wasm_safe_thread/web-sys -- back in.
-logwise = { path = "." }
-# Same trap one level down: we take wasm_lite by path, but some_executor and
-# test_executors take it from the registry. wasm_lite exports #[no_mangle]
-# symbols (__wl_thread_entry, __wl_closure_call_0, ...), so two copies in one
-# graph is not a silent duplicate -- every wasm32 test binary fails to link
-# with "duplicate symbol". Patch both so the whole graph shares one copy.
-wasm_lite = { path = "../wasm_lite/crates/wasm_lite" }
-wasm_lite_std = { path = "../wasm_lite/crates/wasm_lite_std" }
