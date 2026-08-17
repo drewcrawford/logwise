@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-17
+
 ### Fixed
 
 - **The declared MSRV was wrong, and 0.6.0 shipped with it.** `rust-version` said 1.85.1, but `wasm_lite_std` sits in the shared `[dependencies]` table and requires 1.95.0, so that has been the real floor on every target since we adopted it. A build on 1.85–1.94 did not get a clean "requires rustc 1.95.0"; it got a compile error from inside `wasm_lite_std`, and cargo's MSRV-aware resolver would happily pick 0.6.0 for a toolchain that cannot build it. Now declared honestly.
