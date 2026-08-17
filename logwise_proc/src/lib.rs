@@ -83,7 +83,10 @@ pub fn lformat(input: TokenStream) -> TokenStream {
 /// Active when `Context::currently_tracing()` is true. Compiled out in release builds.
 ///
 /// ```
-/// logwise::trace_sync!("Processing {value}", value=42);
+/// logwise::declare_logging_domain!();
+/// fn main() {
+///     logwise::trace_sync!("Processing {value}", value=42);
+/// }
 /// ```
 #[proc_macro]
 pub fn trace_sync(input: TokenStream) -> TokenStream {
@@ -95,9 +98,11 @@ pub fn trace_sync(input: TokenStream) -> TokenStream {
 /// Async variant of `trace_sync!`. Compiled out in release builds.
 ///
 /// ```
+/// logwise::declare_logging_domain!();
 /// async fn example() {
 ///     logwise::trace_async!("Processing {size} bytes", size=42);
 /// }
+/// fn main() {}
 /// ```
 #[proc_macro]
 pub fn trace_async(input: TokenStream) -> TokenStream {
@@ -128,6 +133,7 @@ pub fn debuginternal_sync(input: TokenStream) -> TokenStream {
 /// async fn example() {
 ///     logwise::debuginternal_async!("Starting {id}", id="task_123");
 /// }
+/// fn main() {}
 /// ```
 #[proc_macro]
 pub fn debuginternal_async(input: TokenStream) -> TokenStream {
@@ -139,7 +145,10 @@ pub fn debuginternal_async(input: TokenStream) -> TokenStream {
 /// For important operational information. Compiled out in release builds.
 ///
 /// ```
-/// logwise::info_sync!("Processing {count} items", count=42);
+/// logwise::declare_logging_domain!();
+/// fn main() {
+///     logwise::info_sync!("Processing {count} items", count=42);
+/// }
 /// ```
 #[proc_macro]
 pub fn info_sync(input: TokenStream) -> TokenStream {
@@ -151,9 +160,11 @@ pub fn info_sync(input: TokenStream) -> TokenStream {
 /// Async variant of `info_sync!`. Compiled out in release builds.
 ///
 /// ```
+/// logwise::declare_logging_domain!();
 /// async fn example() {
 ///     logwise::info_async!("Connected to {host}", host="localhost");
 /// }
+/// fn main() {}
 /// ```
 #[proc_macro]
 pub fn info_async(input: TokenStream) -> TokenStream {
@@ -165,7 +176,10 @@ pub fn info_async(input: TokenStream) -> TokenStream {
 /// For suspicious conditions that warrant attention. Active in release builds.
 ///
 /// ```
-/// logwise::warn_sync!("Large payload: {size} bytes", size=1024);
+/// logwise::declare_logging_domain!();
+/// fn main() {
+///     logwise::warn_sync!("Large payload: {size} bytes", size=1024);
+/// }
 /// ```
 #[proc_macro]
 pub fn warn_sync(input: TokenStream) -> TokenStream {
@@ -177,9 +191,12 @@ pub fn warn_sync(input: TokenStream) -> TokenStream {
 /// Returns a guard that warns on drop if operation takes too long. Active in release builds.
 ///
 /// ```
-/// let interval = logwise::perfwarn_begin!("Database query");
-/// // ... operation ...
-/// drop(interval);
+/// logwise::declare_logging_domain!();
+/// fn main() {
+///     let interval = logwise::perfwarn_begin!("Database query");
+///     // ... operation ...
+///     drop(interval);
+/// }
 /// ```
 #[proc_macro]
 pub fn perfwarn_begin(input: TokenStream) -> TokenStream {
@@ -191,10 +208,13 @@ pub fn perfwarn_begin(input: TokenStream) -> TokenStream {
 /// Wraps a code block with performance monitoring. Preserves block's return value.
 ///
 /// ```
+/// logwise::declare_logging_domain!();
 /// # fn expensive() -> i32 { 42 }
-/// let result = logwise::perfwarn!("Loading users", {
-///     expensive()
-/// });
+/// fn main() {
+///     let result = logwise::perfwarn!("Loading users", {
+///         expensive()
+///     });
+/// }
 /// ```
 #[proc_macro]
 pub fn perfwarn(input: TokenStream) -> TokenStream {
@@ -206,10 +226,13 @@ pub fn perfwarn(input: TokenStream) -> TokenStream {
 /// Only logs if duration exceeds the specified threshold.
 ///
 /// ```
+/// logwise::declare_logging_domain!();
 /// # use std::time::Duration;
-/// let threshold = Duration::from_millis(100);
-/// let interval = logwise::perfwarn_begin_if!(threshold, "operation {p}", p=42);
-/// drop(interval);
+/// fn main() {
+///     let threshold = Duration::from_millis(100);
+///     let interval = logwise::perfwarn_begin_if!(threshold, "operation {p}", p=42);
+///     drop(interval);
+/// }
 /// ```
 #[proc_macro]
 pub fn perfwarn_begin_if(input: TokenStream) -> TokenStream {
@@ -221,7 +244,10 @@ pub fn perfwarn_begin_if(input: TokenStream) -> TokenStream {
 /// For actual error conditions in Result error paths. Active in release builds.
 ///
 /// ```
-/// logwise::error_sync!("Failed to read file: {error}", error="not found");
+/// logwise::declare_logging_domain!();
+/// fn main() {
+///     logwise::error_sync!("Failed to read file: {error}", error="not found");
+/// }
 /// ```
 #[proc_macro]
 pub fn error_sync(input: TokenStream) -> TokenStream {
@@ -233,9 +259,11 @@ pub fn error_sync(input: TokenStream) -> TokenStream {
 /// Async variant of `error_sync!`. Active in release builds.
 ///
 /// ```
+/// logwise::declare_logging_domain!();
 /// async fn example() {
 ///     logwise::error_async!("API failed: {error}", error="timeout");
 /// }
+/// fn main() {}
 /// ```
 #[proc_macro]
 pub fn error_async(input: TokenStream) -> TokenStream {
@@ -247,7 +275,10 @@ pub fn error_async(input: TokenStream) -> TokenStream {
 /// Always enabled for temporary printf-style debugging. Remove before committing.
 ///
 /// ```
-/// logwise::mandatory_sync!("Debug value: {val}", val=42);
+/// logwise::declare_logging_domain!();
+/// fn main() {
+///     logwise::mandatory_sync!("Debug value: {val}", val=42);
+/// }
 /// ```
 #[proc_macro]
 pub fn mandatory_sync(input: TokenStream) -> TokenStream {
@@ -259,9 +290,11 @@ pub fn mandatory_sync(input: TokenStream) -> TokenStream {
 /// Async variant of `mandatory_sync!`. Remove before committing.
 ///
 /// ```
+/// logwise::declare_logging_domain!();
 /// async fn example() {
 ///     logwise::mandatory_async!("Debug: {val}", val=42);
 /// }
+/// fn main() {}
 /// ```
 #[proc_macro]
 pub fn mandatory_async(input: TokenStream) -> TokenStream {
@@ -273,7 +306,10 @@ pub fn mandatory_async(input: TokenStream) -> TokenStream {
 /// For temporary profiling and performance investigation. Remove before committing.
 ///
 /// ```
-/// logwise::profile_sync!("Operation took {ms} ms", ms=100);
+/// logwise::declare_logging_domain!();
+/// fn main() {
+///     logwise::profile_sync!("Operation took {ms} ms", ms=100);
+/// }
 /// ```
 #[proc_macro]
 pub fn profile_sync(input: TokenStream) -> TokenStream {
@@ -285,9 +321,11 @@ pub fn profile_sync(input: TokenStream) -> TokenStream {
 /// Async variant of `profile_sync!`. Remove before committing.
 ///
 /// ```
+/// logwise::declare_logging_domain!();
 /// async fn example() {
 ///     logwise::profile_async!("Async timing: {ms} ms", ms=50);
 /// }
+/// fn main() {}
 /// ```
 #[proc_macro]
 pub fn profile_async(input: TokenStream) -> TokenStream {
@@ -299,9 +337,12 @@ pub fn profile_async(input: TokenStream) -> TokenStream {
 /// Logs BEGIN when created and END with duration when dropped. Each interval has a unique ID.
 ///
 /// ```
-/// let interval = logwise::profile_begin!("database_query");
-/// // ... operation ...
-/// drop(interval);
+/// logwise::declare_logging_domain!();
+/// fn main() {
+///     let interval = logwise::profile_begin!("database_query");
+///     // ... operation ...
+///     drop(interval);
+/// }
 /// ```
 #[proc_macro]
 pub fn profile_begin(input: TokenStream) -> TokenStream {

@@ -3,7 +3,8 @@
 use logwise::Level;
 use logwise::context::Context;
 
-#[test]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+#[cfg_attr(not(target_arch = "wasm32"), test)]
 fn test_lazily_created_root_and_first_child_have_distinct_context_ids() {
     let lazy_root = Context::current();
     let first_child = Context::new_task(

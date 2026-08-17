@@ -53,12 +53,25 @@ use crate::parser::lformat_impl;
 /// lformat!(logger,"Hello, {world}!", world=23);
 /// ```
 ///
-/// This expands to approximately:
-/// ```ignore
-/// # // ignore because: This shows macro expansion output, not actual runnable code
-/// logger.write_literal("Hello, ");
-/// logger.write_val(23);
-/// logger.write_literal("!");
+/// This expands to the following calls, in this order — which the example
+/// checks rather than asserting in prose, so a change to the expansion breaks
+/// the documentation that describes it:
+/// ```
+/// # use std::cell::RefCell;
+/// # #[derive(Default)]
+/// # struct Logger { calls: RefCell<Vec<String>> }
+/// # impl Logger {
+/// #   fn write_literal(&self, s: &str) { self.calls.borrow_mut().push(format!("literal {s}")); }
+/// #   fn write_val(&self, v: u8) { self.calls.borrow_mut().push(format!("val {v}")); }
+/// # }
+/// # use logwise_proc::lformat;
+/// # let logger = Logger::default();
+/// lformat!(logger, "Hello, {world}!", world = 23);
+///
+/// assert_eq!(
+///     *logger.calls.borrow(),
+///     ["literal Hello, ", "val 23", "literal !"],
+/// );
 /// ```
 ///
 /// Complex expressions as values:

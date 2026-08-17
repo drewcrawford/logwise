@@ -43,8 +43,7 @@ enum KeyResult {
 /// * `input` - Mutable reference to the token stream being parsed
 ///
 /// # Examples
-/// ```ignore
-/// # // ignore because: This shows pseudo-code for token stream parsing, not actual runnable code
+/// ```text
 /// // For input: `name = "value"`
 /// // Returns: KeyResult::Key("name".to_string())
 /// // Consumes: `name`, stops at `=`
@@ -93,8 +92,7 @@ fn parse_key(input: &mut VecDeque<TokenTree>) -> KeyResult {
 /// * `TokenStream` - The complete value expression
 ///
 /// # Examples
-/// ```ignore
-/// # // ignore because: This shows pseudo-code for token stream parsing, not actual runnable code
+/// ```text
 /// // For input: `user.name.clone(), next_param = value`
 /// // Returns: "user.name.clone()".to_string()
 /// // Consumes everything until the comma
@@ -155,14 +153,12 @@ fn parse_value(input: &mut VecDeque<TokenTree>) -> TokenStream {
 /// * `Err(TokenStream)` - Compile error if the format is invalid
 ///
 /// # Expected Input Format
-/// ```ignore
-/// # // ignore because: This shows pseudo-code for token stream parsing, not actual runnable code
+/// ```text
 /// // After format string: , key1=value1, key2=value2, key3=complex_expr()
 /// ```
 ///
 /// # Examples
-/// ```ignore
-/// # // ignore because: This shows pseudo-code for token stream parsing, not actual runnable code
+/// ```text
 /// // Input: `, name="alice", count=42`
 /// // Output: HashMap { "name" => "\"alice\"", "count" => "42" }
 /// ```
@@ -226,8 +222,7 @@ fn build_kvs(input: &mut VecDeque<TokenTree>) -> Result<Vec<(String, TokenStream
 ///
 /// # Usage
 /// The `output` field contains code like:
-/// ```ignore
-/// # // ignore because: This illustrates generated code output, not actual runnable code
+/// ```text
 /// formatter.write_literal("Hello, ");
 /// formatter.write_val(username);
 /// formatter.write_literal("!");
@@ -267,8 +262,7 @@ pub struct LFormatResult {
 /// - Unclosed braces in format string
 ///
 /// # Examples
-/// ```ignore
-/// # // ignore because: This shows pseudo-code for code generation, not actual runnable code
+/// ```text
 /// // Input: "Hello {name}!", name="world"
 /// // Generates:
 /// // formatter.write_literal("Hello ");
@@ -343,10 +337,10 @@ pub fn lformat_impl(collect: &mut VecDeque<TokenTree>, logger: String) -> LForma
     // be bound once and then logged by reference.
     let mut occurrences: Vec<usize> = vec![0; key_values.len()];
     for segment in &segments {
-        if let Segment::Placeholder(key) = segment {
-            if let Some(idx) = key_values.iter().position(|(name, _)| name == key) {
-                occurrences[idx] += 1;
-            }
+        if let Segment::Placeholder(key) = segment
+            && let Some(idx) = key_values.iter().position(|(name, _)| name == key)
+        {
+            occurrences[idx] += 1;
         }
     }
 

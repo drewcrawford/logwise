@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+// Native only, and not portable in principle: each case builds a throwaway crate
+// in a temp directory and shells out to `cargo check` to assert on the
+// *diagnostic* logwise_proc emits. There is no filesystem and no subprocess in
+// the browser. What it covers is the proc-macro's compile-time behaviour, which
+// is target-independent, so a native-only run loses nothing.
 #![cfg(not(target_arch = "wasm32"))]
 
 use std::fs;

@@ -310,7 +310,8 @@ mod tests {
 
     static TEST_LOGGER_GUARD: Mutex<()> = Mutex::new(());
 
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn test_add_logger() {
         let _guard = TEST_LOGGER_GUARD.lock().unwrap();
         set_global_loggers(vec![Arc::new(StdErrorLogger::new())]);
@@ -329,7 +330,8 @@ mod tests {
         );
     }
 
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn test_set_loggers() {
         let _guard = TEST_LOGGER_GUARD.lock().unwrap();
         // Create some test loggers
@@ -344,9 +346,18 @@ mod tests {
         assert_eq!(loggers.len(), 2, "Should have exactly 2 loggers");
     }
 
-    #[test]
+    // `join` blocks, which traps on the browser main thread, so this runs in a
+    // worker there — and the spawn inside it is then a worker spawning a worker.
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test(worker))]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn test_thread_safety() {
+        // `std::thread::sleep` works on wasm32 but `std::thread::spawn` does not
+        // — it is `Unsupported` there — so go through the veneer, as
+        // `inmemory_logger` and `heartbeat` already do.
+        #[cfg(not(target_arch = "wasm32"))]
         use std::thread;
+        #[cfg(target_arch = "wasm32")]
+        use wasm_lite_std as thread;
 
         let _guard = TEST_LOGGER_GUARD.lock().unwrap();
         set_global_loggers(vec![Arc::new(StdErrorLogger::new())]);

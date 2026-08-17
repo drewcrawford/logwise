@@ -28,10 +28,10 @@ pub fn profile_attr_impl(_attr: TokenStream, item: TokenStream) -> TokenStream {
         match &tokens[i] {
             TokenTree::Ident(ident) if ident.to_string() == "fn" => {
                 // Next non-punct token should be the function name
-                if i + 1 < tokens.len() {
-                    if let TokenTree::Ident(name) = &tokens[i + 1] {
-                        fn_name = Some(name.to_string());
-                    }
+                if i + 1 < tokens.len()
+                    && let TokenTree::Ident(name) = &tokens[i + 1]
+                {
+                    fn_name = Some(name.to_string());
                 }
             }
             TokenTree::Group(g) if g.delimiter() == Delimiter::Brace => {

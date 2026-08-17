@@ -9,7 +9,8 @@ use logwise::context::Context;
 use logwise::{InMemoryLogger, add_global_logger};
 use std::sync::Arc;
 
-#[test]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+#[cfg_attr(not(target_arch = "wasm32"), test)]
 fn test_debuginternal_enabled_in_integration_test() {
     Context::reset("test_debuginternal".to_string());
 

@@ -54,13 +54,6 @@ jobs:
                 rustup target add wasm32-unknown-unknown
                 rustup +nightly target add wasm32-unknown-unknown
 
-      # scripts/wasm32/tests still drives the browser through
-      # wasm-bindgen-test-runner rather than the wasm_lite CLI, so this install
-      # is load-bearing here and is not redundant with the step below.
-      - name: Install wasm-bindgen-cli
-        if: matrix.target == 'wasm32' && !(env.GITEA_ACTIONS == 'true')
-        run: cargo +nightly install wasm-bindgen-cli
-
       - name: Install nightly components
         if: matrix.target == 'wasm32' && !(env.GITEA_ACTIONS == 'true')
         run: |
@@ -71,6 +64,9 @@ jobs:
       # subcommand and looks for the binary on PATH. GitHub runners are bare, so
       # install it there; the Gitea runner is provisioned with it already, which
       # is why this carries the same GITEA_ACTIONS guard as the steps above.
+      #
+      # This is now the only test runner: nothing in the wasm32 graph reaches
+      # wasm-bindgen, so wasm-bindgen-cli is no longer installed here.
       - name: Install wasm_lite runner
         if: matrix.target == 'wasm32' && !(env.GITEA_ACTIONS == 'true')
         run: cargo +nightly install wasm_lite_cli

@@ -74,7 +74,7 @@ pub fn perfwarn_impl(input: TokenStream) -> TokenStream {
         }}
     "#,
         LFORMAT_EXPAND = lformat_expand.output,
-        BLOCK = group.to_string(),
+        BLOCK = group,
         NAME = lformat_expand.name
     );
     src.parse().unwrap()

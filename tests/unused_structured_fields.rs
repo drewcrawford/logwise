@@ -14,7 +14,8 @@ impl Drop for RestoreLoggers {
     }
 }
 
-#[test]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+#[cfg_attr(not(target_arch = "wasm32"), test)]
 fn test_structured_fields_not_named_in_the_message_are_preserved() {
     let _restore = RestoreLoggers(global_loggers());
     let logger = Arc::new(InMemoryLogger::new());

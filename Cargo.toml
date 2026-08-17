@@ -13,6 +13,13 @@ rust-version = "1.95.0"
 
 exclude = [".*"]
 
+# `logwise_proc` is a path dependency, which is not the same as a workspace
+# member: without this it is outside the workspace, `--all` silently skips it,
+# and `cargo test -p logwise_proc` refuses to run at all. Its doctests --- the
+# documented expansion of every macro this crate exports --- had never executed.
+[workspace]
+members = [".", "logwise_proc"]
+
 [dependencies]
 logwise_proc = { path = "logwise_proc", version = "0.5.0" }
 # Taken from the registry, not by path: a published crate may not carry a path
@@ -21,25 +28,14 @@ logwise_proc = { path = "logwise_proc", version = "0.5.0" }
 # to ../wasm_lite for the dev cycle, which is what keeps the graph on one copy.
 wasm_lite_std = "0.1.1"
 
-[dev-dependencies]
-# Range, not "0.5": dev-dependency cycle. test_executors depends on logwise, so
-# it cannot publish 0.5.0 until logwise 0.6.0 is on crates.io -- while
-# `cargo publish` insists every dev-dependency resolve from the registry, and
-# ignores [patch] when doing so. A range accepts the published 0.4.1 at publish
-# time and the patched local 0.5.0 during development.
-test_executors = ">=0.4.1, <0.6"
-
 [features]
 logwise_internal = []
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
-# Registry dependency for the same reason as wasm_lite_std above; the patch
-# below points it at the local checkout during development.
+# Also what the tests get `#[wasm_lite_test]` from, so there is no separate
+# dev-dependency: off wasm32 the `cfg_attr` holding that attribute is false and
+# the tests are plain `#[test]`s, so nothing there needs the crate.
 wasm_lite = "0.1.1"
-
-
-[target.'cfg(target_arch="wasm32")'.dev-dependencies]
-# for print_demo
 
 [[test]]
 name = "wasm_stderr_logger"

@@ -47,7 +47,8 @@ impl Logger for RemoteLogger {
     fn prepare_to_die(&self) {}
 }
 
-#[test]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+#[cfg_attr(not(target_arch = "wasm32"), test)]
 fn test_private_values_are_redacted_before_reaching_remote_loggers() {
     let _restore = RestoreLoggers(global_loggers());
     let remote_sink = Arc::new(RemoteLogger::default());

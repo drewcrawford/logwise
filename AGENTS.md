@@ -8,10 +8,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CI runs the `scripts/` wrappers, not bare cargo. Use them — they set `RUSTFLAGS=-D warnings`, pass `--all` (so `logwise_proc` is covered too), and supply the nightly/wasm flags.
 
+`--all` means *the workspace*, and `logwise_proc` is only in it because the root `Cargo.toml` lists it under `[workspace] members`. A path dependency is not a workspace member: before that entry existed, `--all` resolved to `logwise` alone, `cargo test -p logwise_proc` refused to run ("not a member of the workspace"), and the proc-macro crate's clippy lints and doctests had never once been checked. Don't drop it.
+
 - `scripts/check_all` — fmt, check, clippy, tests, docs across both targets. The pre-PR gate.
 - `scripts/fmt` — `cargo fmt --check`.
 - `scripts/native/check` | `clippy` | `tests` | `docs` — native only.
-- `scripts/wasm32/check` | `clippy` | `tests` | `docs` — wasm32 via `cargo +nightly`, `wasm-bindgen-test-runner`, and the atomics/shared-memory flags in `.cargo/config.toml`. Needs `rustup +nightly target add wasm32-unknown-unknown`, `cargo +nightly install wasm-bindgen-cli`, and nightly `rust-src`.
+- `scripts/wasm32/check` | `clippy` | `tests` | `docs` — wasm32 via `cargo +nightly`, the `wasm_lite run` browser runner, and the atomics/shared-memory flags in `.cargo/config.toml`. Needs `rustup +nightly target add wasm32-unknown-unknown`, `cargo install wasm_lite_cli`, and nightly `rust-src`.
 - Any script accepts `--relaxed` to drop `-D warnings` while iterating.
 
 Single test, iterating locally:
@@ -24,11 +26,11 @@ cargo test --test perfwarn_if -- --nocapture
 
 `tests/wasm_stderr_logger.rs` is `harness = false`; it is wired up explicitly in `Cargo.toml`.
 
-### Local path dependencies
+### There are no dev-dependencies, and that is the point
 
-The root `Cargo.toml` depends on `../wasm_lite/crates/wasm_lite_std` by path and carries a `[patch.crates-io]` block pointing `some_executor`, `test_executors`, `wasm_lite`, `wasm_lite_std`, and `logwise` itself at sibling checkouts. If any sibling is missing, **every** cargo command fails during resolution with `failed to load source for dependency`, before compiling anything. Clone the siblings, or temporarily swap the missing one for its crates.io release — and restore `Cargo.toml`/`Cargo.lock` before committing.
+Every dependency resolves from the registry; there is no `[patch.crates-io]` block and no path dependency outside this checkout. Keep it that way. The last dev-dependency was `test_executors`, and it cost more than it was worth: it depends on `logwise`, so the two could not be released independently, and its published expansion is `#[wasm_bindgen_test]`, which dragged the whole `wasm-bindgen`/`web-sys` tree — plus a *second, registry copy of `logwise`* — into the wasm32 test graph. Because `wasm_lite` exports `#[no_mangle]` symbols (`__wl_thread_entry`, `__wl_closure_call_0`, ...), a second copy of it in one graph is a wasm32 `duplicate symbol` link failure rather than a silent duplicate, so a stray dev-dependency pulling its own `wasm_lite` breaks the link outright.
 
-Each entry earns its place; check before adding or removing one. `some_executor`, `test_executors`, and `logwise` are patched because their published releases still carry `wasm-bindgen`/`web-sys` on a wasm32 *normal* dependency, and the `Instant` flag-day is all-or-nothing. `wasm_lite` and `wasm_lite_std` are patched for a different reason: we take them by path while `some_executor` takes them from the registry, and because `wasm_lite` exports `#[no_mangle]` symbols (`__wl_thread_entry`, `__wl_closure_call_0`, ...), two copies in one graph is a wasm32 `duplicate symbol` link failure rather than a silent duplicate. `continue` needs no patch as of its 0.1.3 release. To check whether a patch is still needed, read the published entry's *normal* deps rather than guessing — `cargo info` reports the patched copy, so it cannot tell you.
+The tests get everything they need from `wasm_lite`, which is already a wasm32 *normal* dependency. Off wasm32 the `cfg_attr` holding `#[wasm_lite_test]` is false and the cases are plain `#[test]`s, so the host build never needs the crate at all — which is why it is not also listed as a dev-dependency.
 
 ## Architecture
 
@@ -76,6 +78,14 @@ Complex types have no blanket impl; callers must opt in through `privacy::LogIt`
 
 - Rust edition 2024, `rust-version` 1.85.1. Default rustfmt is the source of truth.
 - Unit tests live beside the code; macro and end-to-end behavior goes in `tests/`. Name them `test_*`.
+- **Every test runs on both targets.** A bare `#[test]` is a native-only test that compiles for wasm32 and then silently never runs — which is how the whole wasm32 suite went dark once already. Write the pair instead:
+
+  ```rust
+  #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+  #[cfg_attr(not(target_arch = "wasm32"), test)]
+  ```
+
+  Use `wasm_lite_test(worker)` when the body blocks — `thread::sleep`, `join`, a contended lock — because those are `Atomics.wait`, which traps on the browser main thread. `std::thread::sleep` works on wasm32, but **`std::thread::spawn` does not**; go through `wasm_lite_std` for that, as `inmemory_logger.rs` and `heartbeat.rs` do. A test that genuinely cannot run in a browser (a subprocess, the filesystem) gets a file-level `#![cfg(not(target_arch = "wasm32"))]` **with a comment saying why** — the gap should be stated, not merely absent. `scripts/wasm32/tests` prints the case list; compare it against `scripts/native/tests` when adding a file.
 - Tests touching global state call `Context::reset(...)`; tests that replace global loggers should restore them on drop (see `tests/unused_structured_fields.rs`) since test files share a process.
 - Keep `perfwarn`/`heartbeat` thresholds generous — those tests are timing-sensitive.
 - Changelog entries go under `Unreleased`, in commit order, in the existing conversational voice.

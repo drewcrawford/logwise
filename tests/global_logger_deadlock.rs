@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+// Native only: the deadlock is only observable as a hang, so the test re-runs
+// itself as a subprocess and lets a watchdog thread `process::exit` out of it.
+// The browser has neither `current_exe` nor a subprocess to re-enter, and a
+// genuine deadlock there would hang the runner rather than fail a case.
 #![cfg(not(target_arch = "wasm32"))]
 
 use logwise::{InMemoryLogger, LogRecord, Logger, global_loggers, set_global_loggers};

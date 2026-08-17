@@ -2,7 +2,7 @@
 build-std = ["std", "panic_abort"]
 
 [target.'cfg(target_arch="wasm32")']
-runner = "wasm-bindgen-test-runner"
+runner = "wasm_lite run"
 rustflags = ["-C", "target-feature=+atomics",
     # see https://github.com/wasm-bindgen/wasm-bindgen/issues/4727
     # and
@@ -13,6 +13,8 @@ rustflags = ["-C", "target-feature=+atomics",
     "-Clink-arg=--max-memory=4294967296",
     "-Clink-arg=--import-memory",
     "-Clink-arg=--export=__wasm_init_tls",
+    # wasm_lite's worker bootstrap reads this to place each worker's stack.
+    "-Clink-arg=--export=__stack_pointer",
     "-Clink-arg=--export=__tls_size",
     "-Clink-arg=--export=__tls_align",
     "-Clink-arg=--export=__tls_base",
@@ -34,6 +36,8 @@ rustdocflags = ["-C", "target-feature=+atomics",
     "-Clink-arg=--max-memory=4294967296",
     "-Clink-arg=--import-memory",
     "-Clink-arg=--export=__wasm_init_tls",
+    # wasm_lite's worker bootstrap reads this to place each worker's stack.
+    "-Clink-arg=--export=__stack_pointer",
     "-Clink-arg=--export=__tls_size",
     "-Clink-arg=--export=__tls_align",
     "-Clink-arg=--export=__tls_base",

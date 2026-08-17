@@ -8,7 +8,8 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn test_escapes_turbofish_and_call_site_bindings() {
         logwise::context::Context::reset("test_macro_hygiene".to_string());
         let logger = Arc::new(InMemoryLogger::new());
@@ -42,7 +43,8 @@ mod tests {
         );
     }
 
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn test_perfwarn_block_sees_call_site_bindings() {
         // `interval` and `result` used to name the expansion's own bindings, so a
         // block referring to call-site bindings of those names did not compile.

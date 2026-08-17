@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-#![cfg(not(target_arch = "wasm32"))]
-
 use logwise::global_logger::{global_loggers, set_global_loggers};
 use logwise::{InMemoryLogger, Level, Logger};
 use std::sync::Arc;
@@ -18,7 +16,10 @@ impl Drop for RestoreLoggers {
     }
 }
 
-#[test]
+// `thread::sleep` is `Atomics.wait`, which traps on the browser main thread, so
+// this runs in a worker there — the same shape as `tests/heartbeat.rs`.
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test(worker))]
+#[cfg_attr(not(target_arch = "wasm32"), test)]
 fn test_missed_heartbeat_uses_the_creating_context() {
     let origin = logwise::context::Context::new_task(
         None,

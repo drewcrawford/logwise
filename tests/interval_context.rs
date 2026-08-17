@@ -14,7 +14,8 @@ impl Drop for RestoreLoggers {
     }
 }
 
-#[test]
+#[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+#[cfg_attr(not(target_arch = "wasm32"), test)]
 fn test_interval_end_uses_the_context_where_the_interval_started() {
     let origin =
         logwise::context::Context::new_task(None, "origin".to_string(), Level::Info, false);
