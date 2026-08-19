@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Context is durable across executors without living in the facade.** Tasks now own fixed-size copyable context tokens, while scoped non-send guards let the runtime install them only around a poll and restore the prior thread/worker-local token afterward. The runtime records distinct parents and links, supports expiring descendant-targeted interest, and owns wall-time, active-time, and wake-latency clocks. Performance-warning spans retain their originating context and report threshold violations when dropped.
 
+- **Sinks see capabilities, not promises.** The runtime unions interest across hierarchical metadata/context selectors, then constructs separate `ProjectedEvent` views for remote-safe, retained-local, and explicitly trusted ephemeral sinks. Remote code cannot receive local-only or secret values, retained sinks cannot receive secrets, opaque ad-hoc text never reaches remote views, and TTL activation distinguishes unavailable targets, omitted instrumentation, and unknown selectors.
+
 ## [0.6.1] - 2026-08-17
 
 ### Fixed

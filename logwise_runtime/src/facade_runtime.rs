@@ -4,14 +4,15 @@
 
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 
 use logwise::{
-    ContextToken, Dispatch, EventRef, InstallError, Interest, Metadata, SpanRef, SpanTiming,
-    SpanToken, install_dispatcher,
+    Class, ContextToken, Detail, Dispatch, EventRef, InstallError, Interest, Metadata, Privacy,
+    Severity, SpanRef, SpanTiming, SpanToken, install_dispatcher,
 };
 
+use crate::projection::{Capability, DetailLevel, EventSink, ProjectedEvent, ProjectedField};
 use crate::spinlock::Spinlock;
 use crate::sys::{Duration, Instant};
 
@@ -38,6 +39,74 @@ pub struct CompletedSpan {
     pub threshold_exceeded: bool,
 }
 
+/// Platform constraint for an activation request.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Target {
+    Native,
+    Wasm,
+}
+
+/// Runtime selector over static metadata and causal context.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct Filter {
+    domain: Option<String>,
+    event_name: Option<String>,
+    class: Option<Class>,
+    minimum_severity: Option<Severity>,
+    context: Option<ContextToken>,
+    descendants: bool,
+    target: Option<Target>,
+}
+
+impl Filter {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn domain(mut self, domain: impl Into<String>) -> Self {
+        self.domain = Some(domain.into());
+        self
+    }
+
+    pub fn event(mut self, event_name: impl Into<String>) -> Self {
+        self.event_name = Some(event_name.into());
+        self
+    }
+
+    pub const fn class(mut self, class: Class) -> Self {
+        self.class = Some(class);
+        self
+    }
+
+    pub const fn minimum_severity(mut self, severity: Severity) -> Self {
+        self.minimum_severity = Some(severity);
+        self
+    }
+
+    pub const fn context(mut self, context: ContextToken, descendants: bool) -> Self {
+        self.context = Some(context);
+        self.descendants = descendants;
+        self
+    }
+
+    pub const fn target(mut self, target: Target) -> Self {
+        self.target = Some(target);
+        self
+    }
+}
+
+/// Result of asking the runtime to activate an observed selector.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ActivationResult {
+    Enabled,
+    UnavailableTarget,
+    NotCompiled,
+    UnknownSelector,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct SinkId(u64);
+
 #[derive(Debug)]
 struct ActiveSpan {
     event_name: &'static str,
@@ -49,17 +118,28 @@ struct ActiveSpan {
 
 #[derive(Debug)]
 struct Activation {
-    root: ContextToken,
+    filter: Filter,
     interest: Interest,
     expires: Instant,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone)]
+struct SinkRegistration {
+    id: SinkId,
+    sink: Arc<dyn EventSink>,
+    capability: Capability,
+    detail: DetailLevel,
+    filter: Filter,
+}
+
+#[derive(Default)]
 struct State {
     contexts: HashMap<u64, ContextSnapshot>,
     active_spans: HashMap<u64, ActiveSpan>,
     completed_spans: Vec<CompletedSpan>,
     activations: Vec<Activation>,
+    sinks: Vec<SinkRegistration>,
+    catalog: Vec<&'static Metadata>,
 }
 
 /// The mutable runtime installed behind logwise's stable facade dispatcher.
@@ -68,6 +148,7 @@ pub struct Runtime {
     baseline_interest: AtomicUsize,
     next_context: AtomicU64,
     next_span: AtomicU64,
+    next_sink: AtomicU64,
     state: Spinlock<State>,
 }
 
@@ -78,6 +159,7 @@ impl Runtime {
             baseline_interest: AtomicUsize::new(Interest::NONE.bits()),
             next_context: AtomicU64::new(1),
             next_span: AtomicU64::new(1),
+            next_sink: AtomicU64::new(1),
             state: Spinlock::new(State::default()),
         }
     }
@@ -91,19 +173,82 @@ impl Runtime {
 
     /// Enables additional detail for a context and its descendants until TTL.
     pub fn activate_context(&self, root: ContextToken, interest: Interest, ttl: Duration) {
+        let _ = self.activate(Filter::new().context(root, true), interest, ttl);
+    }
+
+    /// Activates a selector over the observed call-site catalog.
+    pub fn activate(&self, filter: Filter, interest: Interest, ttl: Duration) -> ActivationResult {
+        if filter
+            .target
+            .is_some_and(|target| target != current_target())
+        {
+            return ActivationResult::UnavailableTarget;
+        }
+
+        let availability = self.selector_availability(&filter);
+        if availability != ActivationResult::Enabled && filter.context.is_none() {
+            return availability;
+        }
+
         let expires = Instant::now() + ttl;
         self.state.with_mut(|state| {
             state.activations.push(Activation {
-                root,
+                filter,
                 interest: interest.without_contextual(),
                 expires,
             });
         });
         self.advance_generation();
+        ActivationResult::Enabled
+    }
+
+    pub fn add_remote_sink(
+        &self,
+        sink: Arc<dyn EventSink>,
+        filter: Filter,
+        detail: DetailLevel,
+    ) -> SinkId {
+        self.add_sink(sink, Capability::Remote, filter, detail)
+    }
+
+    pub fn add_local_sink(
+        &self,
+        sink: Arc<dyn EventSink>,
+        filter: Filter,
+        detail: DetailLevel,
+    ) -> SinkId {
+        self.add_sink(sink, Capability::LocalRetained, filter, detail)
+    }
+
+    /// Registers an explicitly trusted synchronous view. This is the only sink
+    /// capability that can receive secret fields.
+    pub fn add_ephemeral_sink(
+        &self,
+        sink: Arc<dyn EventSink>,
+        filter: Filter,
+        detail: DetailLevel,
+    ) -> SinkId {
+        self.add_sink(sink, Capability::TrustedEphemeral, filter, detail)
+    }
+
+    pub fn remove_sink(&self, id: SinkId) -> bool {
+        let removed = self.state.with_mut(|state| {
+            let before = state.sinks.len();
+            state.sinks.retain(|registration| registration.id != id);
+            before != state.sinks.len()
+        });
+        if removed {
+            self.advance_generation();
+        }
+        removed
+    }
+
+    pub fn catalog(&self) -> Vec<&'static Metadata> {
+        self.state.with(|state| state.catalog.clone())
     }
 
     pub fn context_is_active(&self, context: ContextToken) -> bool {
-        self.contextual_activation(context).any()
+        self.activation_interest(None, context).any()
     }
 
     pub fn context(&self, token: ContextToken) -> Option<ContextSnapshot> {
@@ -121,7 +266,58 @@ impl Runtime {
         assert_ne!(previous, usize::MAX - 1, "logwise generation exhausted");
     }
 
-    fn contextual_activation(&self, context: ContextToken) -> Interest {
+    fn add_sink(
+        &self,
+        sink: Arc<dyn EventSink>,
+        capability: Capability,
+        filter: Filter,
+        detail: DetailLevel,
+    ) -> SinkId {
+        let raw = self.next_sink.fetch_add(1, Ordering::Relaxed);
+        assert_ne!(raw, u64::MAX, "logwise sink IDs exhausted");
+        let id = SinkId(raw);
+        self.state.with_mut(|state| {
+            state.sinks.push(SinkRegistration {
+                id,
+                sink,
+                capability,
+                detail,
+                filter,
+            });
+        });
+        self.advance_generation();
+        id
+    }
+
+    fn selector_availability(&self, filter: &Filter) -> ActivationResult {
+        self.state.with(|state| {
+            if state
+                .catalog
+                .iter()
+                .any(|metadata| filter.matches_static(metadata))
+            {
+                return ActivationResult::Enabled;
+            }
+            if filter.event_name.is_some()
+                && state.catalog.iter().any(|metadata| {
+                    filter
+                        .domain
+                        .as_deref()
+                        .is_none_or(|domain| domain_matches(metadata, domain))
+                })
+            {
+                ActivationResult::NotCompiled
+            } else {
+                ActivationResult::UnknownSelector
+            }
+        })
+    }
+
+    fn activation_interest(
+        &self,
+        metadata: Option<&'static Metadata>,
+        context: ContextToken,
+    ) -> Interest {
         let now = Instant::now();
         let (interest, removed_expired) = self.state.with_mut(|state| {
             let before = state.activations.len();
@@ -130,7 +326,9 @@ impl Runtime {
                 .retain(|activation| activation.expires > now);
             let mut interest = Interest::NONE;
             for activation in &state.activations {
-                if is_descendant(&state.contexts, context, activation.root) {
+                if metadata.is_none_or(|metadata| activation.filter.matches_static(metadata))
+                    && activation.filter.matches_context(&state.contexts, context)
+                {
                     interest = interest.union(activation.interest);
                 }
             }
@@ -140,6 +338,23 @@ impl Runtime {
             self.advance_generation();
         }
         interest
+    }
+
+    fn prune_expired_activations(&self) {
+        if self.state.with(|state| state.activations.is_empty()) {
+            return;
+        }
+        let now = Instant::now();
+        let removed = self.state.with_mut(|state| {
+            let before = state.activations.len();
+            state
+                .activations
+                .retain(|activation| activation.expires > now);
+            before != state.activations.len()
+        });
+        if removed {
+            self.advance_generation();
+        }
     }
 }
 
@@ -170,26 +385,192 @@ fn is_descendant(
     false
 }
 
+impl Filter {
+    fn matches_static(&self, metadata: &'static Metadata) -> bool {
+        self.target.is_none_or(|target| target == current_target())
+            && self
+                .domain
+                .as_deref()
+                .is_none_or(|domain| domain_matches(metadata, domain))
+            && self
+                .event_name
+                .as_deref()
+                .is_none_or(|event| hierarchy_matches(metadata.event_name, event))
+            && self.class.is_none_or(|class| metadata.class == class)
+            && self
+                .minimum_severity
+                .is_none_or(|severity| metadata.severity as u8 >= severity as u8)
+    }
+
+    fn matches_context(
+        &self,
+        contexts: &HashMap<u64, ContextSnapshot>,
+        context: ContextToken,
+    ) -> bool {
+        let Some(selected) = self.context else {
+            return true;
+        };
+        if self.descendants {
+            is_descendant(contexts, context, selected)
+        } else {
+            context == selected
+        }
+    }
+}
+
+fn hierarchy_matches(value: &str, selector: &str) -> bool {
+    value == selector
+        || value
+            .strip_prefix(selector)
+            .is_some_and(|suffix| suffix.starts_with('.') || suffix.starts_with("::"))
+}
+
+fn domain_matches(metadata: &Metadata, selector: &str) -> bool {
+    metadata
+        .domain
+        .is_some_and(|domain| hierarchy_matches(domain.name, selector))
+        || hierarchy_matches(metadata.package, selector)
+        || hierarchy_matches(metadata.target, selector)
+        || hierarchy_matches(metadata.module, selector)
+}
+
+const fn current_target() -> Target {
+    if cfg!(target_arch = "wasm32") {
+        Target::Wasm
+    } else {
+        Target::Native
+    }
+}
+
+fn sink_interest(capability: Capability, detail: DetailLevel) -> Interest {
+    let core = match capability {
+        Capability::Remote => Interest::CORE_SUPPORT,
+        Capability::LocalRetained => Interest::CORE_SUPPORT.union(Interest::CORE_LOCAL),
+        Capability::TrustedEphemeral => Interest::CORE_SUPPORT
+            .union(Interest::CORE_LOCAL)
+            .union(Interest::CORE_SECRET),
+    };
+    if detail == DetailLevel::Core {
+        return core;
+    }
+    core.union(match capability {
+        Capability::Remote => Interest::DETAIL_SUPPORT,
+        Capability::LocalRetained => Interest::DETAIL_SUPPORT.union(Interest::DETAIL_LOCAL),
+        Capability::TrustedEphemeral => Interest::DETAIL_SUPPORT
+            .union(Interest::DETAIL_LOCAL)
+            .union(Interest::DETAIL_SECRET),
+    })
+}
+
+fn privacy_allowed(capability: Capability, privacy: Privacy) -> bool {
+    match capability {
+        Capability::Remote => privacy == Privacy::SupportSafe,
+        Capability::LocalRetained => privacy != Privacy::Secret,
+        Capability::TrustedEphemeral => true,
+    }
+}
+
+fn project_event(
+    event: EventRef<'_>,
+    capability: Capability,
+    detail: DetailLevel,
+) -> ProjectedEvent<'_> {
+    let fields: Vec<_> = event
+        .fields
+        .iter()
+        .flatten()
+        .filter(|field| {
+            privacy_allowed(capability, field.metadata.privacy)
+                && (detail == DetailLevel::Full || field.metadata.detail == Detail::Core)
+        })
+        .map(|field| ProjectedField {
+            name: field.metadata.name,
+            value: field.value,
+        })
+        .collect();
+    let omitted_fields = event.metadata.fields.len().saturating_sub(fields.len());
+    ProjectedEvent {
+        metadata: event.metadata,
+        context: event.context,
+        fields,
+        message: (capability != Capability::Remote)
+            .then_some(event.message)
+            .flatten(),
+        omitted_fields,
+    }
+}
+
 impl Dispatch for Runtime {
     fn generation(&self) -> usize {
         self.generation.load(Ordering::Acquire)
     }
 
-    fn interest(&self, _metadata: &'static Metadata) -> Interest {
-        let baseline = Interest::from_bits(self.baseline_interest.load(Ordering::Acquire));
-        if self.state.with(|state| state.activations.is_empty()) {
-            baseline
-        } else {
-            baseline.union(Interest::CONTEXTUAL)
+    fn interest(&self, metadata: &'static Metadata) -> Interest {
+        self.prune_expired_activations();
+        let mut interest = Interest::from_bits(self.baseline_interest.load(Ordering::Acquire));
+        self.state.with_mut(|state| {
+            if !state
+                .catalog
+                .iter()
+                .any(|known| core::ptr::eq(*known, metadata))
+            {
+                state.catalog.push(metadata);
+            }
+            for sink in &state.sinks {
+                if sink.filter.matches_static(metadata) {
+                    interest = interest.union(if sink.filter.context.is_some() {
+                        Interest::CONTEXTUAL
+                    } else {
+                        sink_interest(sink.capability, sink.detail)
+                    });
+                }
+            }
+            for activation in &state.activations {
+                if activation.filter.matches_static(metadata) {
+                    // TTL activation is always refined dynamically. Otherwise
+                    // a direct field mask could remain in the call-site cache
+                    // after its deadline with no event to advance generation.
+                    interest = interest.union(Interest::CONTEXTUAL);
+                }
+            }
+        });
+        interest
+    }
+
+    fn contextual_interest(&self, metadata: &'static Metadata, context: ContextToken) -> Interest {
+        let mut interest = Interest::from_bits(self.baseline_interest.load(Ordering::Acquire))
+            .union(self.activation_interest(Some(metadata), context));
+        self.state.with(|state| {
+            for sink in &state.sinks {
+                if sink.filter.matches_static(metadata)
+                    && sink.filter.matches_context(&state.contexts, context)
+                {
+                    interest = interest.union(sink_interest(sink.capability, sink.detail));
+                }
+            }
+        });
+        interest
+    }
+
+    fn emit(&self, event: EventRef<'_>) {
+        let sinks: Vec<_> = self.state.with(|state| {
+            state
+                .sinks
+                .iter()
+                .filter(|sink| {
+                    !(event.metadata.kind == logwise::Kind::AdHocText
+                        && sink.capability == Capability::Remote)
+                        && sink.filter.matches_static(event.metadata)
+                        && sink.filter.matches_context(&state.contexts, event.context)
+                })
+                .cloned()
+                .collect()
+        });
+        for sink in sinks {
+            sink.sink
+                .emit(project_event(event, sink.capability, sink.detail));
         }
     }
-
-    fn contextual_interest(&self, _metadata: &'static Metadata, context: ContextToken) -> Interest {
-        Interest::from_bits(self.baseline_interest.load(Ordering::Acquire))
-            .union(self.contextual_activation(context))
-    }
-
-    fn emit(&self, _event: EventRef<'_>) {}
 
     fn capture_context(&self) -> ContextToken {
         CURRENT_CONTEXT.get()
@@ -390,5 +771,17 @@ mod tests {
         drop(disabled);
         assert!(!threshold_evaluated.load(Ordering::Relaxed));
         assert!(runtime.take_completed_spans().is_empty());
+
+        let isolated = Runtime::new();
+        assert_eq!(isolated.interest(&METADATA), Interest::NONE);
+        assert_eq!(
+            isolated.activate(
+                Filter::new().event(METADATA.event_name),
+                Interest::DETAIL_LOCAL,
+                Duration::ZERO,
+            ),
+            ActivationResult::Enabled
+        );
+        assert_eq!(isolated.interest(&METADATA), Interest::NONE);
     }
 }

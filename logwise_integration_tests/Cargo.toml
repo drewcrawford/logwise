@@ -9,6 +9,7 @@ rust-version = "1.95.0"
 
 [dependencies]
 logwise = { path = ".." }
+logwise_runtime = { path = "../logwise_runtime" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm_lite = "0.1.1"

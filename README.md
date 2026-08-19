@@ -153,6 +153,31 @@ threshold violation when the guard drops. The guard captures its originating
 context, so completion remains correctly attributed across later context
 switches.
 
+## Runtime views and privacy
+
+The standard runtime registers destinations through three capability-specific
+entry points: remote-safe, retained-local, and explicitly trusted ephemeral.
+All implement the same `EventSink` contract, but they receive only a
+`ProjectedEvent` assembled after authorization:
+
+- remote views contain `SupportSafe` fields only and never receive ad-hoc text;
+- retained-local views contain support-safe and local-only fields;
+- trusted ephemeral views may additionally inspect secret fields during the
+  synchronous call;
+- secret fields are never copied into a runtime-owned retained event.
+
+Each view chooses core-only or full detail and may filter by hierarchical
+domain, stable event name, class, minimum severity, and context/descendants.
+The call-site interest mask is the union of those authorized views, so a field
+needed by three sinks is still evaluated once, while a field needed by none is
+not evaluated at all.
+
+TTL activation uses the same selectors and reports `Enabled`,
+`UnavailableTarget`, `NotCompiled`, or `UnknownSelector`. Activations retain a
+dynamic refinement bit in the call-site cache, so expiry takes effect without
+waiting for unrelated configuration changes. The runtime catalog reports the
+call sites observed in this build.
+
 Static removal belongs to the crate containing the call site. Put its local
 feature or target condition directly on the invocation; logwise transcribes it
 as `#[cfg]` elimination, so values and schema strings are absent:
