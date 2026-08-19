@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Logwise is now split at the dependency boundary.** The `logwise` package is a `no_std`, no-allocation-by-default facade with no dependencies; the previous implementation lives in `logwise_runtime` while it is migrated onto the new contract. A no-alloc fixture and dependency-tree gate keep the facade tiny on native and wasm targets.
+
+- **The new facade dispatches borrowed observations synchronously.** Call sites now carry static schema metadata, privacy and detail policy, opaque context tokens, typed borrowed values, and a generation-cached interest mask. With no runtime installed, dispatch is a no-op and field work is skipped; runtimes install one process dispatcher and copy only what they retain.
+
 ## [0.6.1] - 2026-08-17
 
 ### Fixed

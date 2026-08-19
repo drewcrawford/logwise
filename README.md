@@ -44,6 +44,18 @@ Its default build uses neither `std` nor `alloc`. Optional convenience layers
 may enable `alloc`, or `std` (which includes `alloc`), without changing the
 default foundational graph.
 
+## Dispatch contract
+
+Each static `Callsite` owns a generation-keyed `Interest` cache. Call-site
+macros check that interest before constructing fields, then synchronously pass a
+borrowed `EventRef` to the single installed dispatcher. Interest distinguishes
+core/detail cost and support-safe/local-only/secret privacy groups.
+
+An application does not install this ABI directly. Its chosen runtime installs
+one dispatcher and mutates filters or sinks behind that stable pointer,
+advancing its configuration generation whenever interest changes. With no
+runtime installed, interest is empty and dispatch is a non-allocating no-op.
+
 Run the complete workspace gate with:
 
 ```console

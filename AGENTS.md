@@ -38,6 +38,8 @@ The tests get everything they need from `wasm_lite`, which is already a wasm32 *
 
 The root `logwise` package is the zero-dependency, `#![no_std]`, no-alloc-by-default facade. It must never regain clocks, TLS, threads, files, networking, wasm bindings, executors, owned records, concrete sinks, or implicit runtime behavior.
 
+The facade's source is split by contract: `metadata.rs` owns the stable static schema axes; `value.rs` owns borrowed event/field values; `dispatch.rs` owns install-once dispatch and the generation-keyed call-site cache; `context.rs` owns only the opaque fixed-size token. A macro must call `Callsite::interest()` before evaluating any dynamic field, and all enabled observations use the one synchronous borrowed `EventRef` path. Targets without pointer-width atomics deliberately remain no-runtime no-ops.
+
 `logwise_runtime/` contains the old implementation while it is ported to the new borrowed facade contract. `logwise_runtime/logwise_runtime_proc/` is temporary legacy machinery and must disappear when the declarative call-site macros land. `logwise_runtime_wasm/` owns the reserved host transport without depending on wasm_lite, and `logwise_integration_tests/` owns cross-package tests. Runtime and cross-package integration code may depend on the facade; the facade may depend on nothing. No runtime may depend on an executor.
 
 ### The legacy runtime contract
