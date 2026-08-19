@@ -1,0 +1,462 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Macro definitions and support types for the logwise logging library.
+//!
+//! This module provides the macros and supporting types used by the logging system.
+//! The actual dispatch functions that handle log record creation and delivery are
+//! in the [`dispatch`](crate::dispatch) module.
+//!
+//! # Architecture
+//!
+//! The logging flow follows this pattern:
+//! 1. A `*_pre` function in [`dispatch`](crate::dispatch) creates a [`LogRecord`] with appropriate metadata
+//! 2. The procedural macro uses [`PrivateFormatter`] to add the formatted message
+//! 3. A `*_post` function in [`dispatch`](crate::dispatch) dispatches the record to all global loggers
+//!
+//! # Privacy
+//!
+//! The [`PrivateFormatter`] builds both full and redacted representations of each
+//! value. Logger destinations receive the representation selected by their
+//! [`LogPrivacy`](crate::LogPrivacy) policy.
+//!
+//! # Example
+//!
+//! These functions are not intended to be called directly. Instead, use the macros:
+//!
+//! ```rust
+//! logwise_runtime::declare_logging_domain!();
+//! # fn main() {
+//! # use logwise_runtime::context::Context;
+//! # Context::reset("example".to_string());
+//! // Use the macro, not the implementation functions
+//! logwise_runtime::info_sync!("Operation completed", count=42);
+//! # }
+//! ```
+
+use crate::log_record::LogRecord;
+use crate::privacy::Loggable;
+use std::sync::atomic::AtomicBool;
+
+/// Controls whether internal logging is enabled for a crate.
+///
+/// This struct manages the internal logging domain for a crate, determining
+/// whether `debuginternal` log messages are displayed. The domain is configured
+/// at compile time by [`declare_logging_domain!`](crate::declare_logging_domain).
+///
+/// # Example
+///
+/// ```rust
+/// # use logwise_runtime::LoggingDomain;
+/// // Create a domain that's enabled
+/// let domain = LoggingDomain::new(true);
+/// assert!(domain.is_internal());
+///
+/// // Create a domain that's disabled
+/// let domain = LoggingDomain::new(false);
+/// assert!(!domain.is_internal());
+/// ```
+pub struct LoggingDomain {
+    is_internal: AtomicBool,
+}
+
+impl LoggingDomain {
+    /// Creates a new `LoggingDomain` with the specified internal logging state.
+    ///
+    /// # Arguments
+    ///
+    /// * `enabled` - Whether internal logging should be enabled for this domain
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use logwise_runtime::LoggingDomain;
+    /// let domain = LoggingDomain::new(true);
+    /// ```
+    #[inline]
+    pub const fn new(enabled: bool) -> Self {
+        Self {
+            is_internal: AtomicBool::new(enabled),
+        }
+    }
+
+    /// Returns whether internal logging is enabled for this domain.
+    ///
+    /// This determines whether `debuginternal` log messages will be displayed
+    /// when logging from this crate.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use logwise_runtime::LoggingDomain;
+    /// let domain = LoggingDomain::new(true);
+    /// assert!(domain.is_internal());
+    /// ```
+    #[inline]
+    pub fn is_internal(&self) -> bool {
+        self.is_internal.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
+// ============================================================================
+// Boilerplate trait implementations for LoggingDomain
+// ============================================================================
+
+impl std::fmt::Debug for LoggingDomain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoggingDomain")
+            .field("is_internal", &self.is_internal())
+            .finish()
+    }
+}
+
+impl Default for LoggingDomain {
+    /// Creates a new `LoggingDomain` with internal logging disabled.
+    ///
+    /// This is the safe default for most use cases where internal logging
+    /// should be explicitly enabled rather than accidentally left on.
+    fn default() -> Self {
+        Self::new(false)
+    }
+}
+
+impl std::fmt::Display for LoggingDomain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "LoggingDomain(internal={})", self.is_internal())
+    }
+}
+
+impl From<bool> for LoggingDomain {
+    /// Creates a `LoggingDomain` from a boolean value.
+    ///
+    /// # Arguments
+    ///
+    /// * `enabled` - Whether internal logging should be enabled
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use logwise_runtime::LoggingDomain;
+    /// let domain: LoggingDomain = true.into();
+    /// assert!(domain.is_internal());
+    /// ```
+    fn from(enabled: bool) -> Self {
+        Self::new(enabled)
+    }
+}
+
+/// Compares two strings for equality at compile time.
+///
+/// This is used by [`declare_logging_domain!`] to determine if the current
+/// compilation unit is the "current crate" (where `debuginternal` should be
+/// enabled by default) or a downstream crate.
+#[doc(hidden)]
+pub const fn const_str_eq(a: &str, b: &str) -> bool {
+    let a = a.as_bytes();
+    let b = b.as_bytes();
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
+/// Declares the logging domain for the current crate.
+///
+/// This macro sets up the internal logging configuration for a crate, determining
+/// whether `debuginternal` log messages will be displayed. It must be declared at
+/// the crate root (typically in `lib.rs` or `main.rs`) to enable the use of
+/// `debuginternal_sync!` and `debuginternal_async!` macros.
+///
+/// # Two Invocation Patterns
+///
+/// ## 1. Default Invocation
+///
+/// When called without arguments, the macro compares `CARGO_CRATE_NAME` against
+/// `module_path!()` and enables internal logging when they match — that is, when
+/// the macro is invoked at the root of the crate being compiled:
+///
+/// ```rust
+/// # #[macro_use] extern crate logwise_runtime;
+/// // At crate root (lib.rs or main.rs)
+/// declare_logging_domain!();
+/// ```
+///
+/// Note that this comparison is made while compiling *your* crate, so it holds
+/// whether your crate is the top-level build target or a dependency of someone
+/// else's. If you want internal logging gated on something — a Cargo feature, an
+/// environment variable, a profile — use the explicit form below and say so.
+///
+/// ## 2. Explicit Invocation
+///
+/// You can explicitly control internal logging by passing a boolean value:
+///
+/// ```rust
+/// # #[macro_use] extern crate logwise_runtime;
+/// // Always enable internal logging for this crate
+/// declare_logging_domain!(true);
+/// ```
+///
+/// Or conditionally based on other criteria:
+///
+/// ```rust
+/// # #[macro_use] extern crate logwise_runtime;
+/// // Enable based on custom logic or configuration
+/// declare_logging_domain!(cfg!(debug_assertions));
+/// ```
+///
+/// # Important Notes
+///
+/// - **Required for debuginternal macros**: Without this macro at the crate root,
+///   attempting to use `debuginternal_sync!` or `debuginternal_async!` will result
+///   in a compile error about `__CALL_LOGWISE_DECLARE_LOGGING_DOMAIN` not being found.
+///
+/// - **Crate-level scope**: This affects only the current crate. Each crate using
+///   logwise must declare its own logging domain.
+///
+/// - **Performance**: When internal logging is disabled, `debuginternal` macros
+///   have minimal runtime overhead as they check the domain state early.
+///
+/// # Examples
+///
+/// ## Basic Setup
+///
+/// `src/lib.rs`:
+/// ```rust
+/// # #[macro_use] extern crate logwise_runtime;
+/// declare_logging_domain!();
+/// # fn main() { }
+///
+/// pub fn my_function() {
+///     // Logs in debug builds; compiled out in release builds
+///     logwise_runtime::debuginternal_sync!("Debug output: {value}", value=42);
+/// }
+/// ```
+///
+/// ## Gating on a Cargo Feature
+///
+/// `Cargo.toml`:
+/// ```toml
+/// [features]
+/// logwise_internal = []
+/// ```
+///
+/// `src/lib.rs`:
+/// ```rust
+/// # #[macro_use] extern crate logwise_runtime;
+/// // Only enabled when built with --features logwise_internal
+/// declare_logging_domain!(cfg!(feature = "logwise_internal"));
+/// # fn main() { }
+/// ```
+///
+/// ## Always-Enabled Internal Logging
+///
+/// ```rust
+/// # #[macro_use] extern crate logwise_runtime;
+/// // Enable internal logging for all builds of this crate
+/// declare_logging_domain!(true);
+///
+/// fn main() {
+///     // This will always log in debug builds
+///     logwise_runtime::debuginternal_sync!("Application starting");
+/// }
+/// ```
+///
+/// ## Conditional Based on Environment
+///
+/// ```rust
+/// # #[macro_use] extern crate logwise_runtime;
+/// // Enable internal logging based on an environment variable
+/// declare_logging_domain!(option_env!("ENABLE_INTERNAL_LOGS").is_some());
+/// ```
+#[macro_export]
+macro_rules! declare_logging_domain {
+    () => {
+        #[doc(hidden)]
+        pub(crate) static __CALL_LOGWISE_DECLARE_LOGGING_DOMAIN: $crate::LoggingDomain =
+            $crate::LoggingDomain::new($crate::const_str_eq(
+                env!("CARGO_CRATE_NAME"),
+                module_path!(),
+            ));
+    };
+    ($enabled:expr) => {
+        #[doc(hidden)]
+        pub static __CALL_LOGWISE_DECLARE_LOGGING_DOMAIN: $crate::LoggingDomain =
+            $crate::LoggingDomain::new($enabled);
+    };
+}
+
+/// Returns whether logging is enabled for a given [`Level`](crate::Level).
+///
+/// This macro centralizes the enablement logic used by the logging macros so the
+/// same checks are available both inside and outside of the macros themselves.
+#[macro_export]
+#[allow(clippy::crate_in_macro_def)]
+macro_rules! log_enabled {
+    ($level:expr) => {
+        $crate::log_enabled!($level, crate::__CALL_LOGWISE_DECLARE_LOGGING_DOMAIN)
+    };
+    ($level:expr, $domain:expr) => {{
+        #[allow(unreachable_patterns)]
+        match $level {
+            $crate::Level::Trace => {
+                #[cfg(debug_assertions)]
+                {
+                    $crate::context::Context::currently_tracing()
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    false
+                }
+            }
+            $crate::Level::DebugInternal => {
+                #[cfg(debug_assertions)]
+                {
+                    ($domain.is_internal()) || $crate::context::Context::currently_tracing()
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    false
+                }
+            }
+            $crate::Level::Info => {
+                #[cfg(debug_assertions)]
+                {
+                    true
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    false
+                }
+            }
+            $crate::Level::PerfWarn
+            | $crate::Level::Warning
+            | $crate::Level::Error
+            | $crate::Level::Panic
+            | $crate::Level::Analytics
+            | $crate::Level::Mandatory
+            | $crate::Level::Profile => true,
+            _ => true,
+        }
+    }};
+}
+
+/// Formatter for writing log messages with private and redacted representations.
+///
+/// This formatter is used by the procedural macros to write both literal strings
+/// and formatted values to a log record. It ensures that all values are logged
+/// with both their complete information and the safe representation produced by
+/// [`Loggable::log_redacting_private_info`](crate::privacy::Loggable::log_redacting_private_info).
+///
+/// # Example
+///
+/// This is typically used internally by the procedural macros:
+///
+/// ```rust
+/// # use logwise_runtime::{LogRecord, Level};
+/// # use logwise_runtime::hidden::PrivateFormatter;
+/// # use logwise_runtime::privacy::Loggable;
+/// let mut record = LogRecord::new(Level::Info);
+/// let mut formatter = PrivateFormatter::new(&mut record);
+/// formatter.write_literal("Count: ");
+/// formatter.write_val(42u8);
+/// ```
+pub struct PrivateFormatter<'a> {
+    record: &'a mut LogRecord,
+}
+
+impl<'a> PrivateFormatter<'a> {
+    /// Creates a new `PrivateFormatter` for the given log record.
+    ///
+    /// # Arguments
+    ///
+    /// * `record` - The log record to write to
+    #[inline]
+    pub fn new(record: &'a mut LogRecord) -> Self {
+        Self { record }
+    }
+    /// Writes a literal string to the log record.
+    ///
+    /// This is used for the static parts of log messages that don't contain
+    /// any variable data.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The literal string to write
+    #[inline]
+    pub fn write_literal(&mut self, s: &str) {
+        self.record.log(s);
+    }
+    /// Writes a loggable value to the log record.
+    ///
+    /// This method captures both [`Loggable::log_all`] and
+    /// [`Loggable::log_redacting_private_info`] so each logger can receive the
+    /// representation allowed by its privacy policy.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The value to log (must implement [`Loggable`](crate::privacy::Loggable))
+    #[inline]
+    pub fn write_val<Val: Loggable>(&mut self, s: Val) {
+        self.write_val_ref(&s);
+    }
+    /// Writes a borrowed loggable value to the log record.
+    ///
+    /// Behaves exactly like [`write_val`](Self::write_val), but does not consume
+    /// the value. The macros use this when a `{key}` placeholder appears more than
+    /// once in a format string: the value expression is bound once and then logged
+    /// by reference for each occurrence, so it is evaluated exactly once no matter
+    /// how many times it is interpolated.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The value to log (must implement [`Loggable`](crate::privacy::Loggable))
+    #[inline]
+    pub fn write_val_ref<Val: Loggable + ?Sized>(&mut self, s: &Val) {
+        let mut private = LogRecord::new(self.record.level());
+        s.log_all(&mut private);
+
+        let mut redacted = LogRecord::new(self.record.level());
+        s.log_redacting_private_info(&mut redacted);
+
+        self.record.append_variants(private.parts, redacted.parts);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+    fn test_logging_domain_trait_implementations() {
+        use crate::LoggingDomain;
+
+        // Test Debug implementation
+        let domain_enabled = LoggingDomain::new(true);
+        let domain_disabled = LoggingDomain::new(false);
+        let debug_enabled = format!("{:?}", domain_enabled);
+        let debug_disabled = format!("{:?}", domain_disabled);
+        assert!(debug_enabled.contains("LoggingDomain"));
+        assert!(debug_disabled.contains("LoggingDomain"));
+
+        // Test Display implementation
+        let display_enabled = format!("{}", domain_enabled);
+        let display_disabled = format!("{}", domain_disabled);
+        assert_eq!(display_enabled, "LoggingDomain(internal=true)");
+        assert_eq!(display_disabled, "LoggingDomain(internal=false)");
+
+        // Test Default implementation
+        let default_domain = LoggingDomain::default();
+        assert!(!default_domain.is_internal());
+
+        // Test From<bool> implementation
+        let domain_from_true: LoggingDomain = true.into();
+        let domain_from_false: LoggingDomain = false.into();
+        assert!(domain_from_true.is_internal());
+        assert!(!domain_from_false.is_internal());
+    }
+}

@@ -3,6 +3,8 @@ set -e
 
 echo "fmt check"
 scripts/fmt
+echo "facade boundary"
+scripts/facade_boundary
 echo "check"
 scripts/check "$@"
 echo "clippy"

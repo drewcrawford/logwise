@@ -1,0 +1,242 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Log record type for the logwise logging system.
+//!
+//! This module defines [`LogRecord`], the core data structure that accumulates log message
+//! parts during the logging process. Log records retain private and redacted
+//! representations, then select the appropriate form for each logger destination.
+//!
+//! # Design Philosophy
+//!
+//! The `LogRecord` type is designed to minimize allocations during logging. Instead of
+//! concatenating strings, it stores parts separately and only joins them when needed for
+//! final output. This approach:
+//!
+//! - Reduces memory allocation overhead
+//! - Enables efficient pass-by-value to loggers
+//! - Supports thread-safe logging without shared buffers
+//!
+//! # Usage Pattern
+//!
+//! 1. Create a new `LogRecord` with a log level
+//! 2. Progressively add message parts using `log()` or `log_owned()`
+//! 3. Submit the complete record to loggers via `Logger::finish_log_record()`
+//!
+//! # Example
+//!
+//! ```rust
+//! use logwise_runtime::{LogRecord, Level};
+//!
+//! // Create a new record
+//! let mut record = LogRecord::new(Level::Info);
+//!
+//! // Add message parts
+//! record.log("Processing request ");
+//! record.log_owned(format!("#{}", 42));
+//! record.log(" completed");
+//!
+//! // The record can now be sent to loggers
+//! // println!("{}", record); // Output: "Processing request #42 completed"
+//! ```
+
+use crate::Level;
+use crate::logger::{LogPrivacy, Logger};
+use std::fmt::{Debug, Display};
+use std::sync::OnceLock;
+
+static INITIAL_TIMESTAMP: OnceLock<crate::sys::Instant> = OnceLock::new();
+
+fn initial_timestamp() -> crate::sys::Instant {
+    *INITIAL_TIMESTAMP.get_or_init(crate::sys::Instant::now)
+}
+
+/**
+A log record.
+
+We'd like to construct our API in a way that we don't need to allocate memory by concatenating strings, etc.
+
+So instead our API assumes you progressively write a lot into somewhere.  However, due to the multithreaded
+nature of logging, we need to be able to write to a buffer that is not shared between threads.
+
+Instead, the design is as follows:
+
+1.  Create a new [LogRecord].
+2.  Progressively write to the [LogRecord].
+3.  Finish the [LogRecord] and submit it to the [logwise_runtime::logger::Logger].
+
+*/
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LogRecord {
+    pub(crate) parts: Vec<String>,
+    redacted_parts: Vec<String>,
+    level: Level,
+}
+impl LogRecord {
+    /**
+    Append the message to the record.
+
+    This is called in the case that a message is not already owned.
+    */
+    pub fn log(&mut self, message: &str) {
+        self.parts.push(message.to_string());
+        self.redacted_parts.push(message.to_string());
+    }
+
+    /**
+    Append the message to the record, taking ownership of the message.
+
+    This is useful for messages that are already owned, such as those that are constructed in the process of logging.
+    Logging implementations may choose to copy and drop the value if desired.
+    */
+    pub fn log_owned(&mut self, message: String) {
+        self.redacted_parts.push(message.clone());
+        self.parts.push(message);
+    }
+
+    /// Creates a new log record with the specified level.
+    ///
+    /// The record is created with an empty message buffer that can be populated
+    /// using [`log`](LogRecord::log) and [`log_owned`](LogRecord::log_owned).
+    ///
+    /// # Arguments
+    ///
+    /// * `level` - The severity level for this log record
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use logwise_runtime::{LogRecord, Level};
+    ///
+    /// let mut record = LogRecord::new(Level::Info);
+    /// record.log("Hello, world!");
+    /// ```
+    pub fn new(level: Level) -> Self {
+        Self {
+            parts: Vec::new(),
+            redacted_parts: Vec::new(),
+            level,
+        }
+    }
+
+    /**
+    Log the current time to the record, followed by a space.
+    */
+    pub fn log_timestamp(&mut self) -> crate::sys::Instant {
+        let time = crate::sys::Instant::now();
+        let duration = time.duration_since(initial_timestamp());
+        self.log_owned(format!("[{:?}] ", duration));
+        time
+    }
+
+    /// Stamps an already-captured instant onto the record.
+    ///
+    /// This is [`log_timestamp`](LogRecord::log_timestamp) for a moment that has
+    /// already passed: it appends `instant`'s offset from the application's initial
+    /// timestamp, in the format `[duration] `. It does *not* measure the time
+    /// elapsed since `instant` — for that, subtract two instants yourself and log
+    /// the difference.
+    ///
+    /// Use it when the moment worth reporting is not the moment you are writing the
+    /// record, such as an interval's start time captured before the prelude was
+    /// built.
+    ///
+    /// # Arguments
+    ///
+    /// * `instant` - The instant to stamp onto the record
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use logwise_runtime::{LogRecord, Level};
+    ///
+    /// let mut opening = LogRecord::new(Level::Info);
+    /// let began = opening.log_timestamp();
+    ///
+    /// // ... perform some operation ...
+    ///
+    /// // Report when the work began, not when this record is being written.
+    /// let mut closing = LogRecord::new(Level::Info);
+    /// closing.log_time_since(began);
+    /// ```
+    pub fn log_time_since(&mut self, start: crate::sys::Instant) {
+        let duration = start.duration_since(initial_timestamp());
+        self.log_owned(format!("[{:?}] ", duration));
+    }
+
+    /// Returns the log level associated with this record.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use logwise_runtime::{LogRecord, Level};
+    ///
+    /// let record = LogRecord::new(Level::Warning);
+    /// assert_eq!(record.level(), Level::Warning);
+    /// ```
+    pub fn level(&self) -> Level {
+        self.level
+    }
+
+    pub(crate) fn append_variants(
+        &mut self,
+        private_parts: Vec<String>,
+        redacted_parts: Vec<String>,
+    ) {
+        self.parts.extend(private_parts);
+        self.redacted_parts.extend(redacted_parts);
+    }
+
+    pub(crate) fn insert_shared_part(&mut self, index: usize, part: String) {
+        self.parts.insert(index, part.clone());
+        self.redacted_parts.insert(index, part);
+    }
+
+    pub(crate) fn clone_for_logger(&self, logger: &dyn Logger) -> Self {
+        match logger.privacy() {
+            LogPrivacy::Private => self.clone(),
+            LogPrivacy::Redacted => Self {
+                parts: self.redacted_parts.clone(),
+                redacted_parts: self.redacted_parts.clone(),
+                level: self.level,
+            },
+        }
+    }
+}
+
+impl Default for LogRecord {
+    fn default() -> Self {
+        Self::new(Level::Info)
+    }
+}
+
+impl Display for LogRecord {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for part in &self.parts {
+            write!(f, "{}", part)?;
+        }
+        Ok(())
+    }
+}
+/*
+Boilerplate notes for LogRecord:
+
+IMPLEMENTED:
+- Debug: Derived - essential for diagnostics
+- Clone: Derived - useful for record duplication/forwarding
+- PartialEq/Eq: Derived - enables record comparison and deduplication
+- Hash: Derived - consistent with Eq, enables use in hash collections
+- Default: Implemented - provides sensible zero-value (Info level, empty parts)
+- Display: Implemented - formats record parts for output
+
+NOT IMPLEMENTED:
+- Copy: Vec<String> contains heap-allocated data, not suitable for Copy
+- Ord/PartialOrd: No meaningful ordering for log records
+- From/Into: No obvious conversions to/from other types
+- AsRef/AsMut: No clear underlying type to reference
+- Deref: Must deref to a pointer type, which LogRecord doesn't naturally provide
+
+AUTOMATIC:
+- Send: Automatically implemented - Vec<String> and Level are Send
+- Sync: NOT automatically implemented - Vec<String> is not Sync (but records
+  are typically owned by single threads during construction anyway)
+*/

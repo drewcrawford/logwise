@@ -1,0 +1,34 @@
+[package]
+name = "logwise_runtime"
+version = "0.6.1"
+authors = ["Drew Crawford <drew@sealedabstract.com>"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "runtime implementation for the logwise facade"
+homepage = "https://sealedabstract.com/code/logwise"
+repository = "https://github.com/drewcrawford/logwise"
+keywords = ["logging"]
+categories = ["development-tools::debugging", "development-tools::profiling"]
+rust-version = "1.95.0"
+
+exclude = [".*"]
+
+[dependencies]
+logwise_runtime_proc = { path = "logwise_runtime_proc", version = "0.5.0" }
+# Taken from the registry, not by path, so the runtime package remains
+# independently publishable once the rewrite is ready for release.
+wasm_lite_std = "0.1.1"
+
+[features]
+logwise_internal = []
+
+[target.'cfg(target_arch="wasm32")'.dependencies]
+# Also what the tests get `#[wasm_lite_test]` from, so there is no separate
+# dev-dependency: off wasm32 the `cfg_attr` holding that attribute is false and
+# the tests are plain `#[test]`s, so nothing there needs the crate.
+wasm_lite = "0.1.1"
+
+[[test]]
+name = "wasm_stderr_logger"
+path = "tests/wasm_stderr_logger.rs"
+harness = false

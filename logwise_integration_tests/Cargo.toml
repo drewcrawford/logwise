@@ -1,0 +1,10 @@
+[package]
+name = "logwise_integration_tests"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "cross-package acceptance tests for logwise"
+publish = false
+rust-version = "1.95.0"
+
+[dependencies]

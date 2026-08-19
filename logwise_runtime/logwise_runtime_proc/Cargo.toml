@@ -1,0 +1,14 @@
+[package]
+name = "logwise_runtime_proc"
+version = "0.5.1"
+edition = "2024"
+description = "legacy proc macros for logwise_runtime"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+
+[dev-dependencies]
+logwise_runtime = { path = "../" }
+
+[lib]
+proc-macro =  true

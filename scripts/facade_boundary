@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+
+tree="$(cargo tree -p logwise --edges normal,build --prefix none)"
+if [[ "$(printf '%s\n' "$tree" | wc -l)" -ne 1 ]]; then
+    echo "logwise must have no normal or build dependencies:" >&2
+    printf '%s\n' "$tree" >&2
+    exit 1
+fi
+
+CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-target/facade-boundary}" \
+    cargo check --manifest-path fixtures/no_std_no_alloc/Cargo.toml

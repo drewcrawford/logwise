@@ -6,11 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-CI runs the `scripts/` wrappers, not bare cargo. Use them — they set `RUSTFLAGS=-D warnings`, pass `--all` (so `logwise_proc` is covered too), and supply the nightly/wasm flags.
+CI runs the `scripts/` wrappers, not bare cargo. Use them — they set `RUSTFLAGS=-D warnings`, pass `--all` (so `logwise_runtime` and its temporary proc-macro crate are covered too), and supply the nightly/wasm flags. `scripts/check_all` also runs `scripts/facade_boundary`, which enforces the root facade's zero-dependency and no-alloc boundary.
 
-`--all` means *the workspace*, and `logwise_proc` is only in it because the root `Cargo.toml` lists it under `[workspace] members`. A path dependency is not a workspace member: before that entry existed, `--all` resolved to `logwise` alone, `cargo test -p logwise_proc` refused to run ("not a member of the workspace"), and the proc-macro crate's clippy lints and doctests had never once been checked. Don't drop it.
+`--all` means *the workspace*. The root manifest must continue to list `logwise_runtime` and `logwise_runtime/logwise_runtime_proc` explicitly: a path dependency is not automatically a workspace member, and dropping either member silently removes its clippy/tests/docs from the gate.
 
-- `scripts/check_all` — fmt, check, clippy, tests, docs across both targets. The pre-PR gate.
+- `scripts/check_all` — facade boundary, fmt, check, clippy, tests, docs across both targets. The pre-PR gate.
 - `scripts/fmt` — `cargo fmt --check`.
 - `scripts/native/check` | `clippy` | `tests` | `docs` — native only.
 - `scripts/wasm32/check` | `clippy` | `tests` | `docs` — wasm32 via `cargo +nightly`, the `wasm_lite run` browser runner, and the atomics/shared-memory flags in `.cargo/config.toml`. Needs `rustup +nightly target add wasm32-unknown-unknown`, `cargo install wasm_lite_cli`, and nightly `rust-src`.
@@ -34,19 +34,25 @@ The tests get everything they need from `wasm_lite`, which is already a wasm32 *
 
 ## Architecture
 
-### Two crates, one contract
+### The 0.7 package boundary
 
-`logwise_proc/` generates the macro bodies; `src/dispatch.rs` provides the functions they call, re-exported through `logwise::hidden` in `src/lib.rs`. Every macro expands to the same three phases:
+The root `logwise` package is the zero-dependency, `#![no_std]`, no-alloc-by-default facade. It must never regain clocks, TLS, threads, files, networking, wasm bindings, executors, owned records, concrete sinks, or implicit runtime behavior.
 
-1. `logwise::hidden::<level>_pre(file!(), line!(), column!())` builds a `LogRecord` and stamps the context prelude onto it.
+`logwise_runtime/` contains the old implementation while it is ported to the new borrowed facade contract. `logwise_runtime/logwise_runtime_proc/` is temporary legacy machinery and must disappear when the declarative call-site macros land. `logwise_runtime_wasm/` owns the reserved host transport without depending on wasm_lite, and `logwise_integration_tests/` owns cross-package tests. Runtime and cross-package integration code may depend on the facade; the facade may depend on nothing. No runtime may depend on an executor.
+
+### The legacy runtime contract
+
+`logwise_runtime/logwise_runtime_proc/` generates the legacy macro bodies; `logwise_runtime/src/dispatch.rs` provides the functions they call, re-exported through `logwise_runtime::hidden` in `logwise_runtime/src/lib.rs`. Every legacy macro expands to the same three phases:
+
+1. `logwise_runtime::hidden::<level>_pre(file!(), line!(), column!())` builds a `LogRecord` and stamps the context prelude onto it.
 2. `PrivateFormatter` writes the message: `write_literal` for static text, `write_val` for each `{key}`.
-3. `logwise::hidden::<level>_post(record)` fans the record out to the global loggers.
+3. `logwise_runtime::hidden::<level>_post(record)` fans the record out to the global loggers.
 
-Adding or renaming a macro means touching three places: the `logwise_proc` module that emits the source, `dispatch.rs` for the `_pre`/`_post` pair, and the `hidden` re-export list in `lib.rs`.
+Adding or renaming a legacy macro means touching three places: the `logwise_runtime_proc` module that emits the source, `dispatch.rs` for the `_pre`/`_post` pair, and the `hidden` re-export list in `lib.rs`.
 
-### The proc macros build source strings, not token streams
+### The temporary runtime proc macros build source strings, not token streams
 
-`logwise_proc` assembles Rust as a `String` and calls `.parse()`. Consequences that have already caused bugs:
+`logwise_runtime_proc` assembles Rust as a `String` and calls `.parse()`. Consequences that have already caused bugs:
 
 - **No hygiene.** Every binding the expansion introduces is visible to call-site code spliced into it. Internal bindings are therefore `__logwise_`-prefixed (`__logwise_record`, `__logwise_formatter`, `__logwise_interval`, ...). Keep that convention for anything new.
 - **`compile_error!` needs a terminating `;`.** It is spliced into statement position; without the semicolon it runs into the following statement and the user sees a syntax error pointing at generated code instead of the real message.

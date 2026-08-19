@@ -1,43 +1,31 @@
 [package]
 name = "logwise"
-version = "0.6.1"
+version = "0.7.0"
 authors = ["Drew Crawford <drew@sealedabstract.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
-description = "an opinionated logging library for Rust"
+description = "a zero-dependency structured observability facade"
 homepage = "https://sealedabstract.com/code/logwise"
 repository = "https://github.com/drewcrawford/logwise"
-keywords = ["logging"]
-categories = ["development-tools::debugging", "development-tools::profiling"]
+keywords = ["logging", "observability"]
+categories = ["development-tools::debugging", "no-std"]
 rust-version = "1.95.0"
-
 exclude = [".*"]
 
-# `logwise_proc` is a path dependency, which is not the same as a workspace
-# member: without this it is outside the workspace, `--all` silently skips it,
-# and `cargo test -p logwise_proc` refuses to run at all. Its doctests --- the
-# documented expansion of every macro this crate exports --- had never executed.
 [workspace]
-members = [".", "logwise_proc"]
+resolver = "3"
+members = [
+    ".",
+    "logwise_integration_tests",
+    "logwise_runtime",
+    "logwise_runtime/logwise_runtime_proc",
+    "logwise_runtime_wasm",
+]
+exclude = ["fixtures/no_std_no_alloc"]
 
 [dependencies]
-logwise_proc = { path = "logwise_proc", version = "0.5.0" }
-# Taken from the registry, not by path: a published crate may not carry a path
-# dependency without a version, and a path pointing outside this checkout would
-# not survive packaging anyway. The [patch.crates-io] block below redirects this
-# to ../wasm_lite for the dev cycle, which is what keeps the graph on one copy.
-wasm_lite_std = "0.1.1"
 
 [features]
-logwise_internal = []
-
-[target.'cfg(target_arch="wasm32")'.dependencies]
-# Also what the tests get `#[wasm_lite_test]` from, so there is no separate
-# dev-dependency: off wasm32 the `cfg_attr` holding that attribute is false and
-# the tests are plain `#[test]`s, so nothing there needs the crate.
-wasm_lite = "0.1.1"
-
-[[test]]
-name = "wasm_stderr_logger"
-path = "tests/wasm_stderr_logger.rs"
-harness = false
+default = []
+alloc = []
+std = ["alloc"]

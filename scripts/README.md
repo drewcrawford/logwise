@@ -1,4 +1,11 @@
-# Metropolis Scripts
+# logwise development scripts
+
+`scripts/check_all` is the pre-PR gate. It verifies formatting, the physical
+zero-dependency/no-alloc facade boundary, native and wasm checks, clippy, tests,
+and documentation for every workspace package.
+
+The dependency-order notes below describe an older ecosystem helper and are
+retained for historical context.
 
 This directory contains utility scripts for the Metropolis project.
 

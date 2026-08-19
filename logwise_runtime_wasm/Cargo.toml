@@ -1,0 +1,11 @@
+[package]
+name = "logwise_runtime_wasm"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "structured wasm host transport for logwise"
+publish = false
+rust-version = "1.95.0"
+
+[dependencies]
+logwise = { path = ".." }

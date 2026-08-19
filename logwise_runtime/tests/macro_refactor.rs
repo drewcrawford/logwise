@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+logwise_runtime::declare_logging_domain!();
+
+#[cfg(test)]
+mod tests {
+    use logwise_runtime::{Level, log_enabled};
+
+    #[cfg_attr(target_arch = "wasm32", wasm_lite::wasm_lite_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn test_log_enabled() {
+        // In test environment (debug build), Info should be enabled
+        assert!(log_enabled!(Level::Info));
+
+        // Trace depends on context, initially false
+        assert!(!log_enabled!(Level::Trace));
+
+        // Enable trace
+        logwise_runtime::context::Context::begin_trace();
+        assert!(log_enabled!(Level::Trace));
+
+        // Error is always enabled
+        assert!(log_enabled!(Level::Error));
+    }
+}
