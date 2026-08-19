@@ -8,5 +8,19 @@ if [[ "$(printf '%s\n' "$tree" | wc -l)" -ne 1 ]]; then
     exit 1
 fi
 
-CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-target/facade-boundary}" \
-    cargo check --manifest-path fixtures/no_std_no_alloc/Cargo.toml
+boundary_target="$(mktemp -d)"
+trap 'rm -rf "$boundary_target"' EXIT
+export CARGO_TARGET_DIR="$boundary_target"
+
+cargo check --manifest-path fixtures/no_std_no_alloc/Cargo.toml
+cargo rustc --release --manifest-path fixtures/no_std_no_alloc/Cargo.toml -- --emit=obj
+
+if rg -a -l "LOGWISE_STATICALLY_EXCLUDED_SENTINEL_3FC0A730" "$boundary_target/release"; then
+    echo "statically excluded logwise metadata was retained in an object" >&2
+    exit 1
+fi
+
+if ! rg -a -q "answer=" "$boundary_target/release"; then
+    echo "ordinary optimized builds stripped ad-hoc logwise instrumentation" >&2
+    exit 1
+fi

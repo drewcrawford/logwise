@@ -83,7 +83,7 @@ fn dispatcher_is_installed_once_and_interest_is_generation_cached() {
     assert_eq!(CALLSITE.interest(), Interest::CORE_SUPPORT);
     assert_eq!(DISPATCHER.interest_calls.load(Ordering::Relaxed), 1);
 
-    let fields = [FieldRef::new(&FIELD, ValueRef::U64(42))];
+    let fields = [Some(FieldRef::new(&FIELD, ValueRef::U64(42)))];
     CALLSITE.emit(EventRef::structured(&METADATA, ContextToken::NONE, &fields));
     assert_eq!(DISPATCHER.emitted.load(Ordering::Relaxed), 1);
 

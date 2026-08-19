@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Call sites now have a small path and a durable path.** `log!` provides private-by-default Rust formatting that stays available in optimized builds, while `event!`, `span!`, `counter!`, and `measurement!` attach stable metadata and independently gated privacy/detail fields. Crates can remove a site completely with their own `#[cfg]`, and no crate-root domain declaration is required.
+
 ### Changed
 
 - **Logwise is now split at the dependency boundary.** The `logwise` package is a `no_std`, no-allocation-by-default facade with no dependencies; the previous implementation lives in `logwise_runtime` while it is migrated onto the new contract. A no-alloc fixture and dependency-tree gate keep the facade tiny on native and wasm targets.

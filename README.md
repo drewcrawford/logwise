@@ -56,6 +56,77 @@ one dispatcher and mutates filters or sinks behind that stable pointer,
 advancing its configuration generation whenever interest changes. With no
 runtime installed, interest is empty and dispatch is a non-allocating no-op.
 
+## Call-site macros
+
+For temporary, portable printf-style debugging, use ordinary Rust formatting:
+
+```rust
+# let task_id = 42;
+logwise::log!("spawned task {task_id}");
+```
+
+`log!` is a diagnostic, debug-severity ad-hoc text event. It remains compiled
+in ordinary optimized builds, inherits the active context, and is local-only
+because formatting erases field boundaries. Its arguments are not evaluated
+unless a local observer requests the call site.
+
+Durable instrumentation uses a stable event name and privacy-labelled fields:
+
+```rust
+# let task_id = 42_u64;
+# let parent_id = 7_u64;
+logwise::event!(
+    "some_executor.task.spawned",
+    task_id = support(task_id),
+    parent_id = support(parent_id),
+    detail task_name = local("worker"),
+);
+```
+
+Unlabelled fields default to `LocalOnly`. The supported labels are `support`,
+`local`, and `secret`; prefixing a field with `detail` keeps its expression
+unevaluated until an observer explicitly asks for expensive detail. For custom
+values, pass `ValueRef::debug(&value)` or `ValueRef::display(&value)`.
+
+The short event form defaults to operational, info-severity event metadata. An
+unusual durable site can spell its policy explicitly:
+
+```rust
+# let task_id = 42_u64;
+logwise::event!(
+    class: forensic,
+    severity: debug,
+    name: "some_executor.task.polled",
+    task_id = support(task_id),
+);
+```
+
+`span!`, `counter!`, and `measurement!` use the same field grammar. A domain
+override is a static value and is rarely needed:
+
+```rust
+# let task_id = 42_u64;
+const SCHEDULER: logwise::Domain = logwise::domain!("some_executor.scheduler");
+logwise::event!(
+    domain: SCHEDULER,
+    name: "some_executor.task.queued",
+    task_id = support(task_id),
+);
+```
+
+Static removal belongs to the crate containing the call site. Put its local
+feature or target condition directly on the invocation; logwise transcribes it
+as `#[cfg]` elimination, so values and schema strings are absent:
+
+```rust
+# let task_id = 42_u64;
+logwise::event!(
+    #[cfg(any())] // for example: feature = "logwise-forensic" in this crate
+    "some_executor.task.woken",
+    task_id = support(task_id),
+);
+```
+
 Run the complete workspace gate with:
 
 ```console

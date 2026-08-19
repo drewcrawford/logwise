@@ -13,6 +13,7 @@ extern crate alloc;
 
 mod context;
 mod dispatch;
+mod macros;
 mod metadata;
 mod value;
 

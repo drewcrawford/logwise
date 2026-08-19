@@ -19,6 +19,18 @@ pub enum ValueRef<'a> {
     Display(&'a dyn fmt::Display),
 }
 
+impl<'a> ValueRef<'a> {
+    /// Borrows a value through its `Debug` representation.
+    pub const fn debug(value: &'a dyn fmt::Debug) -> Self {
+        Self::Debug(value)
+    }
+
+    /// Borrows a value through its `Display` representation.
+    pub const fn display(value: &'a dyn fmt::Display) -> Self {
+        Self::Display(value)
+    }
+}
+
 impl fmt::Debug for ValueRef<'_> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -98,7 +110,11 @@ impl<'a> FieldRef<'a> {
 pub struct EventRef<'a> {
     pub metadata: &'static Metadata,
     pub context: ContextToken,
-    pub fields: &'a [FieldRef<'a>],
+    /// Materialized fields in metadata order.
+    ///
+    /// Entries that no active view requested remain `None`, so call sites can
+    /// construct the borrowed set on the stack without allocation.
+    pub fields: &'a [Option<FieldRef<'a>>],
     pub message: Option<fmt::Arguments<'a>>,
 }
 
@@ -106,7 +122,7 @@ impl<'a> EventRef<'a> {
     pub const fn structured(
         metadata: &'static Metadata,
         context: ContextToken,
-        fields: &'a [FieldRef<'a>],
+        fields: &'a [Option<FieldRef<'a>>],
     ) -> Self {
         Self {
             metadata,

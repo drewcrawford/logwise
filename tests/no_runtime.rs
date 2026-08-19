@@ -60,6 +60,17 @@ fn no_runtime_rejects_before_evaluation_without_allocating() {
         if interest.any() {
             evaluations += 1;
         }
+        logwise::log!("value={}", {
+            evaluations += 1;
+            1
+        });
+        logwise::event!(
+            "logwise.test.no_runtime.macro",
+            value = support({
+                evaluations += 1;
+                1_u64
+            }),
+        );
     }
 
     let after = ALLOCATIONS.load(Ordering::Relaxed);
