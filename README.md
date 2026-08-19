@@ -178,6 +178,31 @@ dynamic refinement bit in the call-site cache, so expiry takes effect without
 waiting for unrelated configuration changes. The runtime catalog reports the
 call sites observed in this build.
 
+## Sinks and durability
+
+Console and in-memory sinks consume projected events synchronously. Retaining
+or I/O destinations copy that projection into an `OwnedProjectedEvent` with an
+explicit per-string truncation limit; they still never see fields excluded by
+their capability.
+
+`AsyncSink` puts those owned events into a bounded runtime queue and returns
+from the log call immediately. Its default overflow policy drops the newest
+record and counts it; overwrite-oldest is available for history-style queues.
+Accepted, dropped, overwritten, truncated, and writer-error totals are
+observable. An outstanding durability barrier protects earlier accepted
+records from later overwrite.
+
+Creating `AsyncSink::flush()` yields a future barrier, while
+`flush_blocking()` and `emergency_drain()` are explicit blocking operations.
+The worker writes and flushes every accepted sequence through the barrier;
+normal instrumentation never creates a future or waits for I/O.
+
+Runtime fan-out snapshots sink handles before invoking user code. Removing a
+sink drops it after the configuration lock is released, recursive sink logging
+is counted and dropped, and unwind-capable targets isolate sink panics so the
+remaining views still run. Panic-abort targets retain their platform's normal
+abort semantics.
+
 Static removal belongs to the crate containing the call site. Put its local
 feature or target condition directly on the invocation; logwise transcribes it
 as `#[cfg]` elimination, so values and schema strings are absent:

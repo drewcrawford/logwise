@@ -4,6 +4,7 @@
 
 use std::cell::Cell;
 use std::collections::HashMap;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 
@@ -18,6 +19,7 @@ use crate::sys::{Duration, Instant};
 
 std::thread_local! {
     static CURRENT_CONTEXT: Cell<ContextToken> = const { Cell::new(ContextToken::NONE) };
+    static IN_DISPATCH: Cell<bool> = const { Cell::new(false) };
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -107,6 +109,12 @@ pub enum ActivationResult {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct SinkId(u64);
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct RuntimeDeliveryStats {
+    pub sink_panics: u64,
+    pub reentrant_events_dropped: u64,
+}
+
 #[derive(Debug)]
 struct ActiveSpan {
     event_name: &'static str,
@@ -149,6 +157,8 @@ pub struct Runtime {
     next_context: AtomicU64,
     next_span: AtomicU64,
     next_sink: AtomicU64,
+    sink_panics: AtomicU64,
+    reentrant_events_dropped: AtomicU64,
     state: Spinlock<State>,
 }
 
@@ -160,6 +170,8 @@ impl Runtime {
             next_context: AtomicU64::new(1),
             next_span: AtomicU64::new(1),
             next_sink: AtomicU64::new(1),
+            sink_panics: AtomicU64::new(0),
+            reentrant_events_dropped: AtomicU64::new(0),
             state: Spinlock::new(State::default()),
         }
     }
@@ -233,18 +245,31 @@ impl Runtime {
 
     pub fn remove_sink(&self, id: SinkId) -> bool {
         let removed = self.state.with_mut(|state| {
-            let before = state.sinks.len();
-            state.sinks.retain(|registration| registration.id != id);
-            before != state.sinks.len()
+            state
+                .sinks
+                .iter()
+                .position(|registration| registration.id == id)
+                .map(|position| state.sinks.remove(position))
         });
-        if removed {
+        let did_remove = removed.is_some();
+        if did_remove {
             self.advance_generation();
         }
-        removed
+        // Sink destructors are user code and may log. Drop only after the
+        // configuration lock has been released.
+        drop(removed);
+        did_remove
     }
 
     pub fn catalog(&self) -> Vec<&'static Metadata> {
         self.state.with(|state| state.catalog.clone())
+    }
+
+    pub fn delivery_stats(&self) -> RuntimeDeliveryStats {
+        RuntimeDeliveryStats {
+            sink_panics: self.sink_panics.load(Ordering::Relaxed),
+            reentrant_events_dropped: self.reentrant_events_dropped.load(Ordering::Relaxed),
+        }
     }
 
     pub fn context_is_active(&self, context: ContextToken) -> bool {
@@ -553,6 +578,19 @@ impl Dispatch for Runtime {
     }
 
     fn emit(&self, event: EventRef<'_>) {
+        if IN_DISPATCH.replace(true) {
+            self.reentrant_events_dropped
+                .fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+        struct ResetDispatch;
+        impl Drop for ResetDispatch {
+            fn drop(&mut self) {
+                IN_DISPATCH.set(false);
+            }
+        }
+        let _reset = ResetDispatch;
+
         let sinks: Vec<_> = self.state.with(|state| {
             state
                 .sinks
@@ -567,8 +605,14 @@ impl Dispatch for Runtime {
                 .collect()
         });
         for sink in sinks {
-            sink.sink
-                .emit(project_event(event, sink.capability, sink.detail));
+            if catch_unwind(AssertUnwindSafe(|| {
+                sink.sink
+                    .emit(project_event(event, sink.capability, sink.detail));
+            }))
+            .is_err()
+            {
+                self.sink_panics.fetch_add(1, Ordering::Relaxed);
+            }
         }
     }
 

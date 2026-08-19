@@ -13,3 +13,4 @@ logwise_runtime = { path = "../logwise_runtime" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm_lite = "0.1.1"
+wasm_lite_std = "0.1.1"

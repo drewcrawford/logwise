@@ -402,6 +402,7 @@ mod logger;
 mod macros;
 pub mod privacy;
 pub mod projection;
+pub mod sinks;
 mod spinlock;
 mod stderror_logger;
 mod sys;
@@ -409,7 +410,8 @@ declare_logging_domain!();
 
 // Re-export core types and functions for public API
 pub use facade_runtime::{
-    ActivationResult, CompletedSpan, ContextSnapshot, Filter, Runtime, SinkId, Target, init,
+    ActivationResult, CompletedSpan, ContextSnapshot, Filter, Runtime, RuntimeDeliveryStats,
+    SinkId, Target, init,
 };
 pub use global_logger::{add_global_logger, global_loggers, set_global_loggers};
 pub use heartbeat::{HeartbeatGuard, heartbeat};
@@ -418,6 +420,10 @@ pub use level::Level;
 pub use log_record::LogRecord;
 pub use logger::{LogPrivacy, Logger};
 pub use projection::{DetailLevel, EventSink, ProjectedEvent, ProjectedField};
+pub use sinks::{
+    AsyncSink, ConsoleSink, FlushBarrier, FlushError, InMemorySink, OverflowPolicy,
+    OwnedEventWriter, OwnedField, OwnedProjectedEvent, OwnedValue, SinkStats, StructuredWriter,
+};
 
 // Re-export logging macros from the procedural macro crate.
 // See individual macro documentation for usage details.

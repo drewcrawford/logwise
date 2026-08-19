@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Sinks see capabilities, not promises.** The runtime unions interest across hierarchical metadata/context selectors, then constructs separate `ProjectedEvent` views for remote-safe, retained-local, and explicitly trusted ephemeral sinks. Remote code cannot receive local-only or secret values, retained sinks cannot receive secrets, opaque ad-hoc text never reaches remote views, and TTL activation distinguishes unavailable targets, omitted instrumentation, and unknown selectors.
 
+- **Recording and durability are separate operations.** Console, bounded in-memory, structured-writer, and queued async sinks now live behind the runtime dispatcher. Queues report accepted, dropped, overwritten, truncated, and failed records; explicit future/blocking barriers flush through a captured sequence, while ordinary call sites never await. Sink callbacks run outside configuration locks, recursive logging is dropped and counted, and unwind-capable builds isolate a panicking sink from the rest of the fan-out.
+
 ## [0.6.1] - 2026-08-17
 
 ### Fixed
