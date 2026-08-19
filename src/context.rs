@@ -35,3 +35,65 @@ impl ContextToken {
         self.id == 0
     }
 }
+
+/// Captures the context currently entered by the runtime.
+pub fn capture() -> ContextToken {
+    dispatch::capture_context()
+}
+
+/// Creates a durable child token with an explicit causal parent.
+pub fn child(parent: ContextToken, name: &'static str) -> ContextToken {
+    dispatch::create_context(parent, name)
+}
+
+/// Adds a non-parent causal link to an existing context.
+pub fn link(context: ContextToken, related: ContextToken) {
+    dispatch::link_context(context, related);
+}
+
+/// Enters a durable token for the current synchronous scope.
+///
+/// Custom executors should create/store a task token at spawn time, then enter
+/// it immediately around every `Future::poll`.
+#[must_use = "the guard restores the previous context when dropped"]
+pub fn enter(context: ContextToken) -> ContextGuard {
+    let Some(previous) = dispatch::enter_context(context) else {
+        return ContextGuard::inactive();
+    };
+    ContextGuard {
+        previous,
+        active: true,
+        not_send: PhantomData,
+    }
+}
+
+/// Restores the previously entered context on drop.
+#[must_use]
+pub struct ContextGuard {
+    previous: ContextToken,
+    active: bool,
+    // Entered state is thread/worker-local, so moving a live guard would make
+    // its restoration target ambiguous.
+    not_send: PhantomData<*mut ()>,
+}
+
+impl ContextGuard {
+    const fn inactive() -> Self {
+        Self {
+            previous: ContextToken::NONE,
+            active: false,
+            not_send: PhantomData,
+        }
+    }
+}
+
+impl Drop for ContextGuard {
+    fn drop(&mut self) {
+        if self.active {
+            dispatch::exit_context(self.previous);
+        }
+    }
+}
+use core::marker::PhantomData;
+
+use crate::dispatch;

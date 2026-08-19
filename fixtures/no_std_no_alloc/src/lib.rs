@@ -8,6 +8,9 @@ pub fn facade_is_linkable() {
         answer = support(answer),
         detail rendered = local(logwise::ValueRef::display(&answer)),
     );
+    let token = logwise::context::child(logwise::ContextToken::NONE, "fixture");
+    let _entered = logwise::context::enter(token);
+    let _span = logwise::span!("logwise.fixture.span", answer = support(answer));
 
     logwise::event!(
         #[cfg(any())]

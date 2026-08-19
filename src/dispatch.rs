@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use crate::{Detail, EventRef, Metadata, Privacy};
+use crate::{ContextToken, Detail, EventRef, Metadata, Privacy, SpanGuard, SpanRef, SpanToken};
 
 #[cfg(target_has_atomic = "ptr")]
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -18,8 +18,11 @@ impl Interest {
     pub const DETAIL_SUPPORT: Self = Self(1 << 3);
     pub const DETAIL_LOCAL: Self = Self(1 << 4);
     pub const DETAIL_SECRET: Self = Self(1 << 5);
+    /// The runtime must refine this call site's interest against the current
+    /// context before any fields are evaluated.
+    pub const CONTEXTUAL: Self = Self(1 << 6);
 
-    const ALL_BITS: usize = (1 << 6) - 1;
+    const ALL_BITS: usize = (1 << 7) - 1;
 
     pub const fn from_bits(bits: usize) -> Self {
         Self(bits & Self::ALL_BITS)
@@ -35,6 +38,14 @@ impl Interest {
 
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
+    }
+
+    pub const fn is_contextual(self) -> bool {
+        self.0 & Self::CONTEXTUAL.0 != 0
+    }
+
+    pub const fn without_contextual(self) -> Self {
+        Self(self.0 & !Self::CONTEXTUAL.0)
     }
 
     pub const fn wants(self, privacy: Privacy, detail: Detail) -> bool {
@@ -60,7 +71,33 @@ impl Interest {
 pub trait Dispatch: Sync + 'static {
     fn generation(&self) -> usize;
     fn interest(&self, metadata: &'static Metadata) -> Interest;
+    fn contextual_interest(&self, metadata: &'static Metadata, _context: ContextToken) -> Interest {
+        self.interest(metadata).without_contextual()
+    }
     fn emit(&self, event: EventRef<'_>);
+
+    fn capture_context(&self) -> ContextToken {
+        ContextToken::NONE
+    }
+
+    fn create_context(&self, _parent: ContextToken, _name: &'static str) -> ContextToken {
+        ContextToken::NONE
+    }
+
+    fn link_context(&self, _context: ContextToken, _related: ContextToken) {}
+
+    fn enter_context(&self, _context: ContextToken) -> ContextToken {
+        ContextToken::NONE
+    }
+
+    fn exit_context(&self, _previous: ContextToken) {}
+
+    fn start_span(&self, span: SpanRef<'_>) -> SpanToken {
+        self.emit(span.event);
+        SpanToken::NONE
+    }
+
+    fn end_span(&self, _span: SpanToken, _context: ContextToken) {}
 }
 
 /// Failure to install the process dispatcher.
@@ -151,6 +188,26 @@ impl Callsite {
             dispatcher.emit(event);
         }
     }
+
+    /// Refines a cached mask when a runtime has context-targeted activation.
+    pub fn contextual_interest(&self, interest: Interest, context: ContextToken) -> Interest {
+        if !interest.is_contextual() {
+            return interest;
+        }
+        global::dispatcher().map_or(Interest::NONE, |dispatcher| {
+            dispatcher.contextual_interest(self.metadata, context)
+        })
+    }
+
+    /// Starts a runtime-owned span from a borrowed observation.
+    pub fn start_span(&self, span: SpanRef<'_>) -> SpanGuard {
+        debug_assert!(core::ptr::eq(self.metadata, span.event.metadata));
+        let context = span.event.context;
+        let Some(dispatcher) = global::dispatcher() else {
+            return SpanGuard::disabled();
+        };
+        SpanGuard::new(dispatcher.start_span(span), context)
+    }
 }
 
 /// Installs the process dispatcher once.
@@ -159,6 +216,38 @@ impl Callsite {
 /// pointer itself is never replaced.
 pub fn install_dispatcher(dispatcher: &'static dyn Dispatch) -> Result<(), InstallError> {
     global::install(dispatcher)
+}
+
+pub(crate) fn capture_context() -> ContextToken {
+    global::dispatcher().map_or(ContextToken::NONE, Dispatch::capture_context)
+}
+
+pub(crate) fn create_context(parent: ContextToken, name: &'static str) -> ContextToken {
+    global::dispatcher().map_or(ContextToken::NONE, |dispatcher| {
+        dispatcher.create_context(parent, name)
+    })
+}
+
+pub(crate) fn link_context(context: ContextToken, related: ContextToken) {
+    if let Some(dispatcher) = global::dispatcher() {
+        dispatcher.link_context(context, related);
+    }
+}
+
+pub(crate) fn enter_context(context: ContextToken) -> Option<ContextToken> {
+    global::dispatcher().map(|dispatcher| dispatcher.enter_context(context))
+}
+
+pub(crate) fn exit_context(previous: ContextToken) {
+    if let Some(dispatcher) = global::dispatcher() {
+        dispatcher.exit_context(previous);
+    }
+}
+
+pub(crate) fn end_span(span: SpanToken, context: ContextToken) {
+    if let Some(dispatcher) = global::dispatcher() {
+        dispatcher.end_span(span, context);
+    }
 }
 
 #[cfg(target_has_atomic = "ptr")]

@@ -11,15 +11,19 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-mod context;
+pub mod context;
 mod dispatch;
 mod macros;
 mod metadata;
+mod span;
 mod value;
 
-pub use context::ContextToken;
+pub use context::link as link_context;
+pub use context::{ContextGuard, ContextToken};
+pub use context::{capture as capture_context, child as child_context, enter as enter_context};
 pub use dispatch::{Callsite, Dispatch, InstallError, Interest, install_dispatcher};
 pub use metadata::{
     Class, Detail, Domain, FieldMetadata, Kind, Location, Metadata, Privacy, Severity,
 };
+pub use span::{SpanGuard, SpanRef, SpanTiming, SpanToken};
 pub use value::{EventRef, FieldRef, ValueRef};

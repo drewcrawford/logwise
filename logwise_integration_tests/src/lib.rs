@@ -37,6 +37,7 @@ mod tests {
             assert!(event.metadata.module.ends_with("tests"));
             if event.metadata.event_name != "logwise.integration.dispatch" {
                 assert!(event.metadata.location.is_some());
+                assert_eq!(event.context, ContextToken::from_parts(77, 0));
             }
             if event.metadata.kind == Kind::AdHocText {
                 assert_eq!(
@@ -74,6 +75,10 @@ mod tests {
                 .store(event.metadata.class as usize, Ordering::Relaxed);
             self.last_severity
                 .store(event.metadata.severity as usize, Ordering::Relaxed);
+        }
+
+        fn capture_context(&self) -> ContextToken {
+            ContextToken::from_parts(77, 0)
         }
     }
 
@@ -197,7 +202,7 @@ mod tests {
             Severity::Warn as usize
         );
 
-        logwise::span!("logwise.integration.span");
+        drop(logwise::span!("logwise.integration.span"));
         assert_eq!(
             DISPATCHER.last_kind.load(Ordering::Relaxed),
             Kind::Span as usize

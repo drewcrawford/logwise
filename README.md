@@ -114,6 +114,45 @@ logwise::event!(
 );
 ```
 
+## Context and timing
+
+Durable context belongs to the task, not the thread that happens to poll it.
+Capture a parent when work is spawned, store the child token in the task, and
+enter it only around each poll:
+
+```rust
+let parent = logwise::context::capture();
+let task = logwise::context::child(parent, "some_executor.task");
+
+// Immediately around Future::poll:
+let _entered = logwise::context::enter(task);
+```
+
+`ContextToken` is a fixed-size copyable value. The runtime stores its parent
+lineage and separate non-parent links; the enter guard is deliberately not
+sendable and restores the previous thread/worker-local token on drop. With no
+runtime installed, capture/child/link/enter are harmless no-ops.
+
+`span!` measures wall time from creation to guard drop. Performance-specific
+helpers make the other timing questions explicit:
+
+```rust
+# use core::time::Duration;
+let _wall = logwise::span!("some_executor.task.wall");
+let _poll = logwise::active_span!("some_executor.task.poll");
+let _wake = logwise::wake_latency_span!("some_executor.task.wake_latency");
+let _warning = logwise::perfwarn!(
+    threshold: Duration::from_millis(100),
+    name: "some_executor.task.slow",
+);
+```
+
+The facade never reads a clock. It starts a runtime span only after interest
+accepts the call site, and the runtime records elapsed monotonic time and any
+threshold violation when the guard drops. The guard captures its originating
+context, so completion remains correctly attributed across later context
+switches.
+
 Static removal belongs to the crate containing the call site. Put its local
 feature or target condition directly on the invocation; logwise transcribes it
 as `#[cfg]` elimination, so values and schema strings are absent:

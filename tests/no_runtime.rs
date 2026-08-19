@@ -52,6 +52,8 @@ static CALLSITE: Callsite = Callsite::new(&METADATA);
 
 #[test]
 fn no_runtime_rejects_before_evaluation_without_allocating() {
+    assert_eq!(core::mem::size_of::<logwise::ContextToken>(), 16);
+    assert_eq!(core::mem::size_of::<logwise::SpanToken>(), 16);
     let before = ALLOCATIONS.load(Ordering::Relaxed);
     let mut evaluations = 0;
 
@@ -76,4 +78,10 @@ fn no_runtime_rejects_before_evaluation_without_allocating() {
     let after = ALLOCATIONS.load(Ordering::Relaxed);
     assert_eq!(evaluations, 0);
     assert_eq!(after, before, "no-runtime interest checks allocated");
+
+    assert!(logwise::context::capture().is_none());
+    let child = logwise::context::child(logwise::ContextToken::NONE, "no-runtime");
+    assert!(child.is_none());
+    let _entered = logwise::context::enter(child);
+    assert!(logwise::context::capture().is_none());
 }

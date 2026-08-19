@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The new facade dispatches borrowed observations synchronously.** Call sites now carry static schema metadata, privacy and detail policy, opaque context tokens, typed borrowed values, and a generation-cached interest mask. With no runtime installed, dispatch is a no-op and field work is skipped; runtimes install one process dispatcher and copy only what they retain.
 
+- **Context is durable across executors without living in the facade.** Tasks now own fixed-size copyable context tokens, while scoped non-send guards let the runtime install them only around a poll and restore the prior thread/worker-local token afterward. The runtime records distinct parents and links, supports expiring descendant-targeted interest, and owns wall-time, active-time, and wake-latency clocks. Performance-warning spans retain their originating context and report threshold violations when dropped.
+
 ## [0.6.1] - 2026-08-17
 
 ### Fixed

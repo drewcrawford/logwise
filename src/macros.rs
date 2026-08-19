@@ -309,17 +309,24 @@ macro_rules! __logwise_structured {
         static __LOGWISE_CALLSITE: $crate::Callsite =
             $crate::Callsite::new(&__LOGWISE_METADATA);
 
-        let __logwise_interest = __LOGWISE_CALLSITE.interest();
-        if __logwise_interest.any() {
-            let mut __logwise_metadata = __LOGWISE_FIELDS.iter();
-            let __logwise_fields = $crate::__logwise_field_values!(
-                @accum [] __logwise_metadata __logwise_interest; $($fields)*
+        let __logwise_cached_interest = __LOGWISE_CALLSITE.interest();
+        if __logwise_cached_interest.any() {
+            let __logwise_context = $crate::context::capture();
+            let __logwise_interest = __LOGWISE_CALLSITE.contextual_interest(
+                __logwise_cached_interest,
+                __logwise_context,
             );
-            __LOGWISE_CALLSITE.emit($crate::EventRef::structured(
-                &__LOGWISE_METADATA,
-                $crate::ContextToken::NONE,
-                &__logwise_fields,
-            ));
+            if __logwise_interest.any() {
+                let mut __logwise_metadata = __LOGWISE_FIELDS.iter();
+                let __logwise_fields = $crate::__logwise_field_values!(
+                    @accum [] __logwise_metadata __logwise_interest; $($fields)*
+                );
+                __LOGWISE_CALLSITE.emit($crate::EventRef::structured(
+                    &__LOGWISE_METADATA,
+                    __logwise_context,
+                    &__logwise_fields,
+                ));
+            }
         }
     }};
 }
@@ -348,13 +355,74 @@ macro_rules! log {
         static __LOGWISE_CALLSITE: $crate::Callsite =
             $crate::Callsite::new(&__LOGWISE_METADATA);
 
-        let __logwise_interest = __LOGWISE_CALLSITE.interest();
-        if __logwise_interest.wants($crate::Privacy::LocalOnly, $crate::Detail::Core) {
-            __LOGWISE_CALLSITE.emit($crate::EventRef::text(
-                &__LOGWISE_METADATA,
-                $crate::ContextToken::NONE,
-                core::format_args!($($args)+),
-            ));
+        let __logwise_cached_interest = __LOGWISE_CALLSITE.interest();
+        if __logwise_cached_interest.any() {
+            let __logwise_context = $crate::context::capture();
+            let __logwise_interest = __LOGWISE_CALLSITE.contextual_interest(
+                __logwise_cached_interest,
+                __logwise_context,
+            );
+            if __logwise_interest.wants($crate::Privacy::LocalOnly, $crate::Detail::Core) {
+                __LOGWISE_CALLSITE.emit($crate::EventRef::text(
+                    &__LOGWISE_METADATA,
+                    __logwise_context,
+                    core::format_args!($($args)+),
+                ));
+            }
+        }
+    }};
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __logwise_span {
+    ($timing:ident, $threshold:expr; $class:ident, $severity:ident, $name:literal) => {
+        $crate::__logwise_span!($timing, $threshold; $class, $severity, $name,)
+    };
+    ($timing:ident, $threshold:expr; $class:ident, $severity:ident, $name:literal, $($fields:tt)*) => {{
+        static __LOGWISE_FIELDS: &[$crate::FieldMetadata] =
+            $crate::__logwise_field_metadata!(@accum [] $($fields)*);
+        static __LOGWISE_METADATA: $crate::Metadata = $crate::Metadata {
+            event_name: $name,
+            package: env!("CARGO_PKG_NAME"),
+            target: env!("CARGO_CRATE_NAME"),
+            module: module_path!(),
+            domain: None,
+            severity: $crate::__logwise_severity!($severity),
+            class: $crate::__logwise_class!($class),
+            kind: $crate::Kind::Span,
+            location: Some($crate::Location::new(file!(), line!(), column!())),
+            fields: __LOGWISE_FIELDS,
+        };
+        static __LOGWISE_CALLSITE: $crate::Callsite =
+            $crate::Callsite::new(&__LOGWISE_METADATA);
+
+        let __logwise_cached_interest = __LOGWISE_CALLSITE.interest();
+        if __logwise_cached_interest.any() {
+            let __logwise_context = $crate::context::capture();
+            let __logwise_interest = __LOGWISE_CALLSITE.contextual_interest(
+                __logwise_cached_interest,
+                __logwise_context,
+            );
+            if __logwise_interest.any() {
+                let mut __logwise_metadata = __LOGWISE_FIELDS.iter();
+                let __logwise_fields = $crate::__logwise_field_values!(
+                    @accum [] __logwise_metadata __logwise_interest; $($fields)*
+                );
+                __LOGWISE_CALLSITE.start_span($crate::SpanRef {
+                    event: $crate::EventRef::structured(
+                        &__LOGWISE_METADATA,
+                        __logwise_context,
+                        &__logwise_fields,
+                    ),
+                    timing: $crate::SpanTiming::$timing,
+                    warning_threshold: $threshold,
+                })
+            } else {
+                $crate::SpanGuard::disabled()
+            }
+        } else {
+            $crate::SpanGuard::disabled()
         }
     }};
 }
@@ -414,11 +482,61 @@ macro_rules! span {
         $(#[$site_attr])*
         { $crate::span!($($event)+) }
     }};
+    (class: $class:ident, severity: $severity:ident, name: $name:literal) => {
+        $crate::__logwise_span!(WallTime, None; $class, $severity, $name)
+    };
+    (class: $class:ident, severity: $severity:ident, name: $name:literal, $($fields:tt)*) => {
+        $crate::__logwise_span!(WallTime, None; $class, $severity, $name, $($fields)*)
+    };
     ($name:literal) => {
-        $crate::__logwise_structured!(None; operational, info, Span, $name)
+        $crate::__logwise_span!(WallTime, None; operational, info, $name)
     };
     ($name:literal, $($fields:tt)*) => {
-        $crate::__logwise_structured!(None; operational, info, Span, $name, $($fields)*)
+        $crate::__logwise_span!(WallTime, None; operational, info, $name, $($fields)*)
+    };
+}
+
+/// Measures time spent actively polling or executing work.
+#[macro_export]
+macro_rules! active_span {
+    ($name:literal) => {
+        $crate::__logwise_span!(ActiveTime, None; performance, debug, $name)
+    };
+    ($name:literal, $($fields:tt)*) => {
+        $crate::__logwise_span!(ActiveTime, None; performance, debug, $name, $($fields)*)
+    };
+}
+
+/// Measures time from a wake signal to the next poll.
+#[macro_export]
+macro_rules! wake_latency_span {
+    ($name:literal) => {
+        $crate::__logwise_span!(WakeLatency, None; performance, debug, $name)
+    };
+    ($name:literal, $($fields:tt)*) => {
+        $crate::__logwise_span!(WakeLatency, None; performance, debug, $name, $($fields)*)
+    };
+}
+
+/// Starts a performance span that records a threshold violation on completion.
+#[macro_export]
+macro_rules! perfwarn {
+    (threshold: $threshold:expr, name: $name:literal) => {
+        $crate::__logwise_span!(WallTime, Some($threshold); performance, warn, $name)
+    };
+    (threshold: $threshold:expr, name: $name:literal, $($fields:tt)*) => {
+        $crate::__logwise_span!(WallTime, Some($threshold); performance, warn, $name, $($fields)*)
+    };
+}
+
+/// Starts an unthresholded performance profile span.
+#[macro_export]
+macro_rules! profile {
+    ($name:literal) => {
+        $crate::__logwise_span!(WallTime, None; performance, debug, $name)
+    };
+    ($name:literal, $($fields:tt)*) => {
+        $crate::__logwise_span!(WallTime, None; performance, debug, $name, $($fields)*)
     };
 }
 
