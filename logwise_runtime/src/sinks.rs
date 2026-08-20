@@ -198,7 +198,11 @@ pub struct ConsoleSink;
 
 impl EventSink for ConsoleSink {
     fn emit(&self, event: ProjectedEvent<'_>) {
-        eprintln!("{}", RenderedEvent(&event));
+        // `eprintln!` panics when stderr will not take a write, and a sink is
+        // the wrong place to learn that the terminal went away: the record is
+        // lost either way, but a panic also costs an unwind through the
+        // runtime's fan-out on every subsequent event.
+        let _ = writeln!(io::stderr().lock(), "{}", RenderedEvent(&event));
     }
 }
 

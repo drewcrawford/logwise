@@ -231,7 +231,10 @@ impl InMemoryLogger {
     ///
     /// # Platform Behavior
     ///
-    /// - On native platforms: Logs are written to stderr using `eprintln!`
+    /// - On native platforms: Logs are written straight to the process's
+    ///   stderr, so they appear even where `eprintln!` would be redirected into
+    ///   a test harness's capture buffer. A write that fails is dropped rather
+    ///   than reported.
     /// - On WASM: Logs are written using `wasm_lite::console::log`
     ///
     /// # Example
@@ -255,11 +258,21 @@ impl InMemoryLogger {
     /// ```
     pub fn drain_to_console(&self) {
         let mut logs = self.logs.lock().unwrap();
+        // Writes are allowed to fail. `eprintln!` panics when they do, and
+        // panicking here would poison the buffer lock -- turning one broken
+        // pipe into a logger that panics on every record it is handed
+        // afterwards.
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use std::io::Write;
+            let mut stderr = std::io::stderr().lock();
+            for log in logs.iter() {
+                let _ = writeln!(stderr, "{log}");
+            }
+        }
+        #[cfg(target_arch = "wasm32")]
         for log in logs.iter() {
-            #[cfg(target_arch = "wasm32")]
             wasm_lite::console::log(log);
-            #[cfg(not(target_arch = "wasm32"))]
-            eprintln!("{}", log);
         }
         logs.clear();
     }
