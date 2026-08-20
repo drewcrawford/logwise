@@ -9,3 +9,9 @@ rust-version = "1.95.0"
 
 [dependencies]
 logwise = { path = ".." }
+
+[features]
+default = []
+# Enabling this feature makes the reserved import mandatory at wasm module
+# instantiation. Hosts that do not supply logwise_v1.emit leave it disabled.
+host-abi = []

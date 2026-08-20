@@ -263,6 +263,22 @@ replace the structured `logwise_v1` event transport, and `console.trace` is not
 treated as an ordinary trace-level line because browsers assign it stack-trace
 semantics.
 
+## Structured wasm transport
+
+`logwise_runtime_wasm` encodes first-party events as allocation-free,
+versioned `logwise_v1` binary envelopes. The wire preserves stable call-site
+metadata, typed fields and their privacy/detail policy, context links,
+test/worker identity, and sequence/drop/truncation/omission accounting. Secret
+fields are defensively excluded. Each call is a complete frame, so hosts can
+mirror it incrementally instead of waiting to query a guest that may be hung.
+
+The `host-abi` feature imports `logwise_v1.emit(ptr, len)`. It is opt-in because
+WebAssembly imports are resolved at instantiation: embedders without the ABI
+leave the feature disabled and receive `HostStatus::Unavailable`; embedders
+that enable it must supply the import. Accepted, unavailable, version-mismatch,
+dropped, and host-error results are distinct. The complete layout and canonical
+host vector live in `logwise_runtime_wasm/LOGWISE_V1.md`.
+
 Static removal belongs to the crate containing the call site. Put its local
 feature or target condition directly on the invocation; logwise transcribes it
 as `#[cfg]` elimination, so values and schema strings are absent:
