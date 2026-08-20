@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Privacy-conservative log facade ingestion for logwise"
+homepage = "https://sealedabstract.com/code/logwise"
 repository = "https://github.com/drewcrawford/logwise"
+keywords = ["logging", "observability"]
+categories = ["development-tools::debugging"]
 rust-version = "1.95.0"
 
 [dependencies]

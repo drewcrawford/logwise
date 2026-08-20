@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Privacy-conservative tracing ingestion for logwise"
+homepage = "https://sealedabstract.com/code/logwise"
 repository = "https://github.com/drewcrawford/logwise"
+keywords = ["logging", "tracing", "observability"]
+categories = ["development-tools::debugging", "development-tools::profiling"]
 rust-version = "1.95.0"
 
 [dependencies]

@@ -3,6 +3,7 @@ name = "logwise_no_std_no_alloc_fixture"
 version = "0.0.0"
 edition = "2024"
 publish = false
+license = "MIT OR Apache-2.0"
 
 [workspace]
 

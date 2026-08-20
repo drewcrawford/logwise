@@ -1,5 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! The static schema a call site carries, and the axes it is classified on.
+//!
+//! Every value here is `'static` and built at the call site, so describing an
+//! event costs no work at runtime. The axes are deliberately independent:
+//! [`Class`] says *why* a site was instrumented (operational, diagnostic,
+//! forensic, performance, metric) while [`Severity`] says how serious this
+//! particular occurrence is — the pair answers questions that a single
+//! `debug`-versus-`info` scale cannot.
+//!
+//! [`Privacy`] is the axis sinks are gated on. It is a property of a field,
+//! not of a destination, so a runtime can decide what a remote sink is
+//! permitted to see without asking the call site to know where its data goes.
+//! [`Detail`] is orthogonal again: it defers an expensive field expression
+//! until an observer explicitly asks for it.
+
 /// How serious an event is.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[repr(u8)]

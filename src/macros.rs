@@ -1,5 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! The call-site macros, and the keyword-to-type mapping behind them.
+//!
+//! [`domain!`](crate::domain) is the only public macro defined here; the rest
+//! are `#[doc(hidden)]` helpers that turn the bare keywords a call site writes
+//! — `diagnostic`, `warn`, `support`, `detail` — into the `'static`
+//! [`Class`](crate::Class), [`Severity`](crate::Severity) and
+//! [`Privacy`](crate::Privacy) values that make up its metadata.
+//!
+//! The privacy keywords are matched by *name* rather than as a generic
+//! identifier. That is not a stylistic choice: matching `$p:ident($v:expr)`
+//! and checking the name afterwards makes `size = compute(3)` parse as a
+//! privacy tag, and the error then points into macro internals instead of at
+//! the caller's code.
+
 /// Creates a hierarchical domain override.
 #[macro_export]
 macro_rules! domain {

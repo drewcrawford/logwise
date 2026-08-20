@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2026-08-20
 
 ### Added
 
@@ -51,9 +51,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`ConsoleSink` and `InMemoryLogger::drain_to_console` went through `eprintln!`, which is neither reliable nor visible.** `eprintln!` panics when the write fails, so a closed pipe turned every console record into a panic -- caught and counted by the runtime for the sink, but not for `drain_to_console`, which held the buffer lock across the write and so *poisoned* it: one broken pipe, and the in-memory logger panicked on every record handed to it afterwards. `eprintln!` is also intercepted by libtest's per-thread capture, so console output never reached fd 2 at all under a test harness -- the one place people reach for `drain_to_console` when they cannot see their logs. Both now write straight to the process's stderr and drop a failed write, which is what `StdErrorLogger` already did.
 
-- **A call site's cached interest could be paired with the wrong generation.** The generation-keyed cache is two words, and a call site is filled by whichever thread misses it first. Two threads missing at different generations interleave four stores, and one of those interleavings leaves the newer generation sitting next to the older mask -- a stale interest that then looks current, and stays that way until the generation moves again. Depending on which way it went, the call site either evaluated fields no view had asked for or stopped materializing fields a view was waiting on; the runtime's per-sink projection still applied, so nothing crossed a privacy boundary. The cached mask now carries the generation it was computed for in its upper bits, so a mismatched pair is detectable and simply recomputes. The window is a few instructions wide and cannot be forced from a test, so this one is fixed by construction rather than by regression test.
+- **A call site's cached interest could be paired with the wrong generation.** The generation-keyed cache is two words, and a call site is filled by whichever thread misses it first. Two threads missing at different generations interleave four stores, and one of those interleavings leaves the newer generation sitting next to the older mask -- a stale interest that then looks current, and stays that way until the generation moves again. Depending on which way it went, the call site either evaluated fields no view had asked for or stopped materializing fields a view was waiting on; the runtime's per-sink projection still applied, so nothing crossed a privacy boundary. The cached mask now carries the generation it was computed for in its upper bits, so a mismatched pair is detectable and simply recomputes. How many bits that leaves is derived from the interest mask itself rather than written down as a constant next to it: the first version hardcoded 7, so the next interest bit anyone added would have silently overlapped the generation tag and turned every call site into a permanent cache miss -- correct output, and the cache doing nothing at all. The window is a few instructions wide and cannot be forced from a test, so this one is fixed by construction rather than by regression test.
 
 - **CI never ran the facade boundary gate.** `AGENTS.md` says the root facade's zero-dependency, no-alloc boundary is enforced by `scripts/facade_boundary`, and `scripts/check_all` does run it -- but the workflow calls the individual `scripts/<target>/*` wrappers, so nothing in CI ever did. A pull request that gave the facade a dependency, or that made an ordinary optimized build strip its instrumentation, would have gone green. The workflow now runs the gate on the native leg, and the gate itself uses `grep` instead of `rg` so it cannot quietly fail for want of a tool on a bare runner.
+
+## [0.1.0] - 2026-08-20
+
+First release of the two optional compatibility packages, `logwise_compat_log`
+and `logwise_compat_tracing`. They are versioned independently of the facade
+because they track the `log` and `tracing` crates, not this one; the behaviour
+they add is described under 0.7.0 above.
+
+### Added
+
+- **`logwise_compat_log`** installs a `log::Log` implementation that imports
+  levels, targets, and rendered messages as origin-marked, local-only events.
+  Nothing it imports can reach a remote sink.
+
+- **`logwise_compat_tracing`** installs a `tracing_subscriber` layer that
+  imports events, span parents, links, and IDs the same way, and carries a
+  durable logwise context token across thread entry so a span's events keep
+  their attribution when a task moves.
+
+Neither package is reachable from the zero-dependency facade unless an
+application depends on it directly.
 
 ## [0.6.1] - 2026-08-17
 

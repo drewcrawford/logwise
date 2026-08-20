@@ -1,5 +1,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! Opaque causal context, and the facade side of propagating it.
+//!
+//! A [`ContextToken`] is two runtime-minted words a task can copy freely, so a
+//! continuation that resumes on another thread still reports the lineage it
+//! was spawned under. The facade never mints one and never interprets one: it
+//! only carries it. With no dispatcher installed, [`capture`] returns
+//! [`ContextToken::NONE`] and the entering functions do nothing.
+//!
+//! [`ContextGuard`] is deliberately not `Send`. The runtime installs a token
+//! around a single poll and restores the previous one on drop, which is what
+//! makes context correct under an executor that interleaves tasks on a thread.
+
 /// Opaque causal context propagated by tasks and continuations.
 ///
 /// IDs are minted by an installed runtime. The all-zero token is the no-runtime

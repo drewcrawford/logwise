@@ -1,76 +1,77 @@
 # logwise
 
-`logwise` is a zero-dependency, `no_std`, no-allocation-by-default facade for
-structured observability.
+![logo](https://github.com/drewcrawford/logwise/raw/main/art/logo.png)
 
-The 0.7 rewrite keeps call sites tiny and moves filtering, clocks, context
-storage, privacy projection, buffering, rendering, I/O, and agent integration
-into runtime packages. With no runtime installed, facade operations are no-ops.
-
-The facade contract is built around:
-
-- static call-site metadata and stable event names;
-- borrowed event values;
-- cached interest checked before field evaluation;
-- explicit privacy and detail policies per field;
-- opaque context and span tokens;
-- declarative ad-hoc and structured instrumentation macros.
-
-The workspace currently contains:
-
-- `logwise`: the foundational facade;
-- `logwise_runtime`: the legacy implementation moved behind the new package
-  boundary while it is ported to the facade contract;
-- `logwise_runtime_proc`: temporary legacy procedural macros, which will be
-  removed when the declarative facade macros land;
-- `logwise_runtime_wasm`: the dependency-light reserved wasm host transport;
-- `logwise_compat_log` and `logwise_compat_tracing`: optional,
-  privacy-conservative foreign-ingress bridges;
-- `logwise_integration_tests`: cross-package acceptance tests kept above the
-  facade.
-
-The redesign is intentionally breaking. The public 0.7 facade API is being
-introduced in dependency order; applications will explicitly install a runtime
-instead of receiving implicit logging behavior.
-
-## Physical boundary
-
-The facade declares no dependencies:
+A privacy-first structured observability facade for Rust. Zero dependencies,
+`no_std`, no allocation, and no behavior at all until an application installs a
+runtime.
 
 ```console
 $ cargo tree -p logwise
 logwise v0.7.0
 ```
 
-Its default build uses neither `std` nor `alloc`. Optional convenience layers
-may enable `alloc`, or `std` (which includes `alloc`), without changing the
-default foundational graph.
+That is the whole dependency tree, and a CI gate keeps it that way.
 
-## Dispatch contract
+## Why logwise
 
-Each static `Callsite` owns a generation-keyed `Interest` cache. Call-site
-macros check that interest before constructing fields, then synchronously pass a
-borrowed `EventRef` to the single installed dispatcher. Interest distinguishes
-core/detail cost and support-safe/local-only/secret privacy groups.
+Instrumentation has a cost problem and a trust problem, and most logging
+crates solve neither.
 
-An application does not install this ABI directly. Its chosen runtime installs
-one dispatcher and mutates filters or sinks behind that stable pointer,
-advancing its configuration generation whenever interest changes. With no
-runtime installed, interest is empty and dispatch is a non-allocating no-op.
+**The cost problem.** Instrumenting a library normally taxes everyone who
+compiles it, whether or not they ever read a log line: a dependency tree, an
+allocator, formatting work for fields nobody asked for. The `logwise` facade
+depends on nothing, builds without `std` or `alloc`, and checks a cached
+per-call-site interest mask *before* evaluating any field expression. With no
+runtime installed, every operation is a non-allocating no-op. With a runtime
+installed, a field is evaluated only if some destination is actually
+authorized to receive it — once, even when three sinks want it, and never when
+none do.
 
-## Call-site macros
+**The trust problem.** Conventional logging treats privacy as a deployment
+concern: whatever you log goes wherever your sinks go, and keeping user data
+out of a remote crash reporter is a matter of discipline. logwise makes
+privacy a per-field schema axis with three tiers — `support` (safe to leave
+the machine), `local` (retained locally only), and `secret` (never retained at
+all) — and gives sinks *capabilities*, not promises. A remote sink is handed a
+projection that support-safe fields are copied into; local-only and secret
+values are not withheld by convention, they are never materialized into the
+view that remote code receives.
 
-For temporary, portable printf-style debugging, use ordinary Rust formatting:
+**The vocabulary problem.** `debug`-versus-`info` says nothing about why an
+event exists. logwise separates *class* (operational, diagnostic, forensic,
+performance, metric) from *severity*, separates throwaway printf-debugging
+from durable events with stable names and schemas, and makes timing questions
+precise: wall time, active poll time, and wake latency are different
+measurements with different macros.
+
+## Status
+
+The 0.7 series is a substantial, intentionally breaking rewrite. The public
+contract described here — the facade package boundary, the call-site macros,
+the privacy model, and the dispatch ABI — is the new design. The previous
+implementation lives on in `logwise_runtime` while it is ported onto that
+contract, and its legacy macros (`info_sync!` and friends) remain available
+from there during the migration. Applications now explicitly install a runtime
+instead of receiving implicit logging behavior. The API may still change.
+
+## Quick start
+
+### Instrumenting a crate
+
+A library depends on the facade alone. For temporary printf-style debugging,
+use ordinary Rust formatting:
 
 ```rust
 # let task_id = 42;
 logwise::log!("spawned task {task_id}");
 ```
 
-`log!` is a diagnostic, debug-severity ad-hoc text event. It remains compiled
-in ordinary optimized builds, inherits the active context, and is local-only
-because formatting erases field boundaries. Its arguments are not evaluated
-unless a local observer requests the call site.
+`log!` is a diagnostic, debug-severity, ad-hoc text event. It stays compiled
+in ordinary optimized builds, inherits the active context, and is local-only —
+formatting erases field boundaries, so its text can never be relabelled safe
+for remote destinations. Its arguments are not evaluated unless a local
+observer requests the call site.
 
 Durable instrumentation uses a stable event name and privacy-labelled fields:
 
@@ -85,13 +86,57 @@ logwise::event!(
 );
 ```
 
-Unlabelled fields default to `LocalOnly`. The supported labels are `support`,
-`local`, and `secret`; prefixing a field with `detail` keeps its expression
-unevaluated until an observer explicitly asks for expensive detail. For custom
-values, pass `ValueRef::debug(&value)` or `ValueRef::display(&value)`.
+Unlabelled fields default to local-only. Prefixing a field with `detail`
+keeps its expression unevaluated until an observer explicitly asks for
+expensive detail.
 
-The short event form defaults to operational, info-severity event metadata. An
-unusual durable site can spell its policy explicitly:
+### Observing from an application
+
+The application picks a runtime, installs it, and registers destinations
+(application-side setup; the runtime is a separate package):
+
+```text
+use std::sync::Arc;
+use logwise_runtime::{ConsoleSink, DetailLevel, Filter};
+
+fn main() {
+    let runtime = logwise_runtime::init().expect("install logwise runtime");
+    runtime.add_local_sink(Arc::new(ConsoleSink), Filter::new(), DetailLevel::Full);
+
+    logwise::event!("app.started", pid = support(std::process::id()));
+}
+```
+
+Each registered view narrows what it receives by hierarchical domain, stable
+event name, class, minimum severity, or context lineage — and its entry point
+(`add_remote_sink`, `add_local_sink`, `add_ephemeral_sink`) fixes the privacy
+tier it is even capable of observing.
+
+## The workspace
+
+| Package | Role |
+|---|---|
+| `logwise` | The zero-dependency, `no_std`, no-alloc facade. Everything a library needs. |
+| `logwise_runtime` | The standard runtime: dispatch, context storage, clocks, filtering, projection, sinks, the flight recorder. Hosts the legacy 0.6 implementation while it is ported to the facade contract. |
+| `logwise_runtime/logwise_runtime_proc` | Temporary legacy procedural macros; removed when the port completes. |
+| `logwise_runtime_wasm` | The structured `logwise_v1` wasm host transport, without depending on any wasm binding crate. |
+| `logwise_compat_log` | Optional bridge importing `log` records as quarantined local-only events. |
+| `logwise_compat_tracing` | Optional `tracing` layer importing spans, events, and causality the same way. |
+| `logwise_integration_tests` | Cross-package acceptance tests, kept above the facade so its own graph stays empty. |
+
+The facade may depend on nothing; runtimes may depend on the facade; no
+runtime may depend on an executor. `scripts/facade_boundary` enforces the
+first rule in CI, along with a detached `no_std`, no-alloc consumer fixture
+proving the default build needs neither `std` nor `alloc`. Optional `alloc`
+and `std` features exist for convenience layers without changing the default
+graph.
+
+## Call sites
+
+### Events
+
+The short `event!` form shown above defaults to operational, info-severity
+metadata. An unusual durable site spells its policy explicitly:
 
 ```rust
 # let task_id = 42_u64;
@@ -103,8 +148,14 @@ logwise::event!(
 );
 ```
 
-`span!`, `counter!`, and `measurement!` use the same field grammar. A domain
-override is a static value and is rarely needed:
+`forensic!` is shorthand for exactly that class/severity pair, and `counter!`
+and `measurement!` emit metric-class observations with the same field
+grammar. The supported privacy labels are `support`, `local`, and `secret`;
+primitive values and `&str` convert automatically, and custom types pass
+`ValueRef::debug(&value)` or `ValueRef::display(&value)`.
+
+A domain override is a static value and is rarely needed — event names are
+already hierarchical:
 
 ```rust
 # let task_id = 42_u64;
@@ -116,11 +167,31 @@ logwise::event!(
 );
 ```
 
-## Context and timing
+### Compile-time removal
+
+Static removal belongs to the crate containing the call site. Put its local
+feature or target condition directly on the invocation; logwise transcribes it
+as `#[cfg]` elimination, so values and schema strings are absent from the
+binary:
+
+```rust
+# let task_id = 42_u64;
+logwise::event!(
+    #[cfg(any())] // for example: feature = "logwise-forensic" in this crate
+    "some_executor.task.woken",
+    task_id = support(task_id),
+);
+```
+
+The boundary gate compiles a fixture to object code and greps it: excluded
+metadata must be gone, and ordinary optimized builds must *not* strip the
+instrumentation that was supposed to stay.
+
+### Context that follows the task
 
 Durable context belongs to the task, not the thread that happens to poll it.
-Capture a parent when work is spawned, store the child token in the task, and
-enter it only around each poll:
+An executor captures a parent when work is spawned, stores the child token in
+the task, and enters it only around each poll:
 
 ```rust
 let parent = logwise::context::capture();
@@ -130,10 +201,13 @@ let task = logwise::context::child(parent, "some_executor.task");
 let _entered = logwise::context::enter(task);
 ```
 
-`ContextToken` is a fixed-size copyable value. The runtime stores its parent
-lineage and separate non-parent links; the enter guard is deliberately not
-sendable and restores the previous thread/worker-local token on drop. With no
-runtime installed, capture/child/link/enter are harmless no-ops.
+`ContextToken` is a fixed-size copyable value, cheap to store in every task.
+The runtime stores its parent lineage and separate non-parent links
+(`logwise::context::link`); the enter guard is deliberately not sendable and
+restores the previous thread/worker-local token on drop. With no runtime
+installed, capture/child/link/enter are harmless no-ops.
+
+### Spans and timing
 
 `span!` measures wall time from creation to guard drop. Performance-specific
 helpers make the other timing questions explicit:
@@ -150,171 +224,155 @@ let _warning = logwise::perfwarn!(
 ```
 
 The facade never reads a clock. It starts a runtime span only after interest
-accepts the call site, and the runtime records elapsed monotonic time and any
-threshold violation when the guard drops. The guard captures its originating
-context, so completion remains correctly attributed across later context
-switches.
+accepts the call site, and the runtime records elapsed monotonic time — and
+any threshold violation — when the guard drops. The guard captures its
+originating context, so completion is attributed to where the work began even
+if the guard crosses threads or another context becomes current first.
 
-## Runtime views and privacy
+## How dispatch stays cheap
 
-The standard runtime registers destinations through three capability-specific
-entry points: remote-safe, retained-local, and explicitly trusted ephemeral.
-All implement the same `EventSink` contract, but they receive only a
-`ProjectedEvent` assembled after authorization:
+Each static `Callsite` owns a generation-keyed `Interest` cache. Call-site
+macros check that interest before constructing anything, then synchronously
+pass a borrowed `EventRef` to the single installed dispatcher — no owned
+record, no queue, no future. Interest distinguishes core/detail cost and
+support-safe/local-only/secret privacy groups, so the check that guards field
+evaluation is the same check that guards privacy tiers.
 
-- remote views contain `SupportSafe` fields only and never receive ad-hoc text;
+An application does not implement this ABI directly. Its chosen runtime
+installs one dispatcher and mutates filters and sinks behind that stable
+pointer, advancing its configuration generation whenever interest changes; a
+call site whose cached generation is stale simply recomputes. The interest
+mask at each call site is the union of every authorized view, so a field
+needed by three sinks is still evaluated once, and a field needed by none is
+not evaluated at all. Targets without pointer-width atomics deliberately
+remain no-runtime no-ops.
+
+## Privacy is a capability, not a configuration
+
+The standard runtime registers destinations through three entry points —
+remote-safe, retained-local, and explicitly trusted ephemeral. All implement
+the same `EventSink` contract, but each receives a `ProjectedEvent` assembled
+*after* authorization:
+
+- remote views contain support-safe fields only and never receive ad-hoc
+  text;
 - retained-local views contain support-safe and local-only fields;
 - trusted ephemeral views may additionally inspect secret fields during the
   synchronous call;
 - secret fields are never copied into a runtime-owned retained event.
 
-Each view chooses core-only or full detail and may filter by hierarchical
-domain, stable event name, class, minimum severity, and context/descendants.
-The call-site interest mask is the union of those authorized views, so a field
-needed by three sinks is still evaluated once, while a field needed by none is
-not evaluated at all.
+Each view also chooses core-only or full detail and may filter by domain,
+event name, class, minimum severity, and context descendants.
 
-TTL activation uses the same selectors and reports `Enabled`,
-`UnavailableTarget`, `NotCompiled`, or `UnknownSelector`. Activations retain a
-dynamic refinement bit in the call-site cache, so expiry takes effect without
-waiting for unrelated configuration changes. The runtime catalog reports the
-call sites observed in this build.
+TTL activation turns instrumentation up temporarily using the same selectors,
+and answers honestly: `Enabled`, `UnavailableTarget`, `NotCompiled`, or
+`UnknownSelector`. Activations retain a dynamic refinement bit in the
+call-site cache, so expiry takes effect without waiting for unrelated
+configuration changes. The runtime catalog reports every call site observed
+in this build.
 
 ## Sinks and durability
 
 Console and in-memory sinks consume projected events synchronously. Retaining
-or I/O destinations copy that projection into an `OwnedProjectedEvent` with an
+or I/O destinations copy the projection into an `OwnedProjectedEvent` with an
 explicit per-string truncation limit; they still never see fields excluded by
 their capability.
 
-`AsyncSink` puts those owned events into a bounded runtime queue and returns
-from the log call immediately. Its default overflow policy drops the newest
-record and counts it; overwrite-oldest is available for history-style queues.
-Accepted, dropped, overwritten, truncated, and writer-error totals are
-observable. An outstanding durability barrier protects earlier accepted
-records from later overwrite.
-
-Creating `AsyncSink::flush()` yields a future barrier, while
-`flush_blocking()` and `emergency_drain()` are explicit blocking operations.
-The worker writes and flushes every accepted sequence through the barrier;
-normal instrumentation never creates a future or waits for I/O.
+`AsyncSink` puts those owned events into a bounded queue and returns from the
+log call immediately. Its default overflow policy drops the newest record and
+counts it; overwrite-oldest is available for history-style queues. Accepted,
+dropped, overwritten, truncated, and writer-error totals are all observable —
+loss is accounted for, never silent. `flush()` yields a future barrier;
+`flush_blocking()` and `emergency_drain()` are explicit blocking operations
+for shutdown paths. Normal instrumentation never creates a future or waits
+for I/O.
 
 Runtime fan-out snapshots sink handles before invoking user code. Removing a
-sink drops it after the configuration lock is released, recursive sink logging
-is counted and dropped, and unwind-capable targets isolate sink panics so the
-remaining views still run. Panic-abort targets retain their platform's normal
-abort semantics.
+sink drops it after the configuration lock is released (sink destructors may
+themselves log), recursive sink logging is counted and dropped, and
+unwind-capable targets isolate a panicking sink so the remaining views still
+run.
 
 ## Flight recorder
 
 `FlightRecorder` is a retained-local, core-detail sink for recent structured
-history. Capacity is fixed, writes are distributed across thread/worker shards,
-and neither writers nor queries wait for a contended shard. Register it like
-any other runtime sink (application-side setup):
+history — the "what just happened" buffer you consult after a bug report.
+Capacity is fixed, writes are distributed across thread/worker shards, and
+neither writers nor queries wait for a contended shard.
 
-```text
-use std::sync::Arc;
-use logwise_runtime::{DetailLevel, Filter, FlightRecorder};
+`read_since` returns globally sequence-ordered records plus the next
+monotonic cursor, along with cumulative drop, overwrite, and truncation
+totals, per-record omissions, and the number of shards that were busy. A
+partial read does not advance its cursor, so a runner or platform mirror can
+retry instead of silently losing the unavailable shard. `tail` provides the
+newest bounded view.
 
-let runtime = logwise_runtime::Runtime::new();
-let recorder = Arc::new(FlightRecorder::new(1024, 256));
-runtime.add_local_sink(
-    recorder.clone(),
-    Filter::new(),
-    DetailLevel::Core,
-);
-```
-
-`read_since` returns globally sequence-ordered records plus the next monotonic
-cursor. It also returns cumulative drop, overwrite, and truncation totals,
-per-record omissions, and the number of shards that were busy. A partial read
-does not advance its cursor, so a runner or platform mirror can retry instead
-of silently losing the unavailable shard. `tail` provides the newest bounded
-view.
-
-Local reads contain support-safe and local-only fields. Remote reads clone and
-project retained records down to support-safe fields and remove opaque ad-hoc
-messages before the caller can serialize them. Secret fields are rejected at
-recorder ingress even if the sink is invoked outside the standard runtime.
-Rendering is deferred until a retrieved `FlightRecord` is displayed.
+Local reads contain support-safe and local-only fields. Remote reads clone
+and project retained records down to support-safe fields and strip opaque
+ad-hoc messages before the caller can serialize them. Secret fields are
+rejected at recorder ingress even if the sink is invoked outside the standard
+runtime.
 
 ## Foreign text ingress
 
 First-party `logwise` events are the portable contract. Text intercepted from
-Rust printing, native file descriptors, panic hooks, or JavaScript consoles is
-best-effort input. Every adapter emits the unstable-schema `foreign.text` event
-with local-only `origin` and `text` fields. Its ad-hoc kind is categorically
-excluded from remote sinks; callers cannot relabel imported text support-safe.
+anywhere else is best-effort input with no trusted privacy declaration, so it
+all lands in one quarantine lane: the unstable-schema `foreign.text` event,
+with local-only `origin` and `text` fields. Its kind is categorically
+excluded from remote sinks; callers cannot relabel imported text
+support-safe.
 
-`logwise_runtime::install_panic_hook()` chains a process-wide panic hook and
-returns the previous hook for explicit restoration. On Unix,
-`NativeFdCapture` can temporarily redirect stdout or stderr, but this is a
-process-global operation: it races parallel writers, has no logical-context
-boundary, and does not match libtest's thread-local Rust print capture.
+- `logwise_runtime::install_panic_hook()` chains a process-wide panic hook
+  and returns the previous hook for explicit restoration.
+- On Unix, `NativeFdCapture` can temporarily redirect stdout or stderr — a
+  process-global operation with documented races, not a logical-context
+  capture.
+- The `foreign-nightly-rust-print` feature exposes an adapter over nightly
+  Rust's unstable `internal_output_capture`, intended for test harnesses
+  only. Nothing in the default facade or runtime claims to intercept
+  arbitrary `println!` calls.
+- `logwise_runtime_wasm::ingest_console` accepts text a host's console
+  monkeypatch already intercepted, preserving origins such as
+  `js.console.warn`.
 
-The `foreign-nightly-rust-print` runtime feature exposes the separate
-`capture_nightly_rust_print` adapter. It requires nightly Rust's unstable
-`internal_output_capture` facility and is intended for test harnesses only.
-Nothing in the default facade or runtime claims to intercept arbitrary
-`println!` or `eprintln!` calls.
-
-`logwise_runtime_wasm::ingest_console` accepts text already intercepted by a
-host's console monkeypatch and preserves origins such as `js.console.warn`.
-The host remains responsible for the monkeypatch. This legacy ingress does not
-replace the structured `logwise_v1` event transport, and `console.trace` is not
-treated as an ordinary trace-level line because browsers assign it stack-trace
-semantics.
-
-The optional `logwise_compat_log` package installs a `log::Log` implementation.
-It maps levels, targets, messages, module/location data, and key-values into
+The optional `logwise_compat_log` package installs a `log::Log`
+implementation mapping levels, targets, messages, and key-values into
 origin-marked local-only records. `logwise_compat_tracing::LogwiseLayer` maps
-tracing span parentage to logwise context tokens, `follows_from` relationships
-to links, and events, levels, targets, IDs, and fields into the same quarantined
-lane. It can be composed into an existing subscriber or installed with its
-convenience `install()` function.
+tracing span parentage to logwise context tokens, `follows_from` to links,
+and events and fields into the same quarantined lane; compose it into an
+existing subscriber or call its `install()`. Both bridges carry thread-local
+reentrancy guards, so an outbound sink that itself logs cannot create
+`log → logwise → log` recursion.
 
-Both bridges use thread-local reentrancy guards, so an application-side lossy
-outbound sink cannot create `log -> logwise -> log` or
-`tracing -> logwise -> tracing` recursion. Imported dynamic fields have no
-trusted privacy declaration and therefore cannot be upgraded from `LocalOnly`.
 There is intentionally no built-in outbound bridge: flattening logwise into
-either ecosystem loses privacy projection, detail tiers, retention policy, and
-part of the causal model.
+either ecosystem would lose privacy projection, detail tiers, retention
+policy, and part of the causal model.
 
-## Structured wasm transport
+## WebAssembly
 
-`logwise_runtime_wasm` encodes first-party events as allocation-free,
-versioned `logwise_v1` binary envelopes. The wire preserves stable call-site
-metadata, typed fields and their privacy/detail policy, context links,
-test/worker identity, and sequence/drop/truncation/omission accounting. Secret
-fields are defensively excluded. Each call is a complete frame, so hosts can
-mirror it incrementally instead of waiting to query a guest that may be hung.
+wasm32 is a first-class target, not a port. `logwise_runtime_wasm` encodes
+first-party events as allocation-free, versioned `logwise_v1` binary
+envelopes preserving stable call-site metadata, typed fields and their
+privacy/detail policy, context links, test/worker identity, and
+sequence/drop/truncation accounting. Secret fields are defensively excluded.
+Each call is a complete frame, so hosts mirror events incrementally instead
+of waiting to query a guest that may be hung.
 
-The `host-abi` feature imports `logwise_v1.emit(ptr, len)`. It is opt-in because
-WebAssembly imports are resolved at instantiation: embedders without the ABI
-leave the feature disabled and receive `HostStatus::Unavailable`; embedders
-that enable it must supply the import. Accepted, unavailable, version-mismatch,
-dropped, and host-error results are distinct. The complete layout and canonical
-host vector live in `logwise_runtime_wasm/LOGWISE_V1.md`.
+The `host-abi` feature imports `logwise_v1.emit(ptr, len)`. It is opt-in
+because WebAssembly imports resolve at instantiation: embedders without the
+ABI leave it disabled and receive `HostStatus::Unavailable`; embedders that
+enable it must supply the import. The complete layout and a canonical host
+vector live in `logwise_runtime_wasm/LOGWISE_V1.md`, and every test in the
+workspace runs on both native and browser targets.
 
-Static removal belongs to the crate containing the call site. Put its local
-feature or target condition directly on the invocation; logwise transcribes it
-as `#[cfg]` elimination, so values and schema strings are absent:
-
-```rust
-# let task_id = 42_u64;
-logwise::event!(
-    #[cfg(any())] // for example: feature = "logwise-forensic" in this crate
-    "some_executor.task.woken",
-    task_id = support(task_id),
-);
-```
-
-Run the complete workspace gate with:
+## Development
 
 ```console
 scripts/check_all
 ```
 
-The gate checks the dependency tree and compiles a detached `no_std`, no-alloc
-consumer fixture in addition to the native and wasm workspace checks.
+runs the facade boundary gate, formatting, checks, clippy, tests, and docs
+across native and wasm32, including the `no_std`/no-alloc fixture and the
+dependency-tree check.
+
+MSRV is Rust 1.95.0, edition 2024. Licensed under MIT OR Apache-2.0.

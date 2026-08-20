@@ -1,5 +1,18 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! Spans, and the three different timing questions they answer.
+//!
+//! [`SpanTiming`] is the point of this module. Wall time, active poll time and
+//! wake latency are genuinely different measurements — an async task that
+//! takes a second of wall time may have polled for a microsecond — and
+//! collapsing them into one "duration" is how span data stops meaning
+//! anything. A call site picks the question it is asking.
+//!
+//! [`SpanToken`] is runtime-owned identity, opaque here in the same way
+//! [`ContextToken`](crate::ContextToken) is. [`SpanGuard`] closes the span on
+//! drop, including while unwinding, so a span cannot be left open by an early
+//! return or a panic.
+
 use core::marker::PhantomData;
 use core::time::Duration;
 

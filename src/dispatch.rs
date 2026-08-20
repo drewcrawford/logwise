@@ -1,5 +1,22 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! The dispatch ABI: the single seam between instrumented crates and a runtime.
+//!
+//! An application installs one process-wide [`Dispatch`] via
+//! [`install_dispatcher`]; every call site routes through it. Until that
+//! happens each operation is a non-allocating no-op, which is what lets a
+//! library instrument itself without taxing consumers who never read a log
+//! line.
+//!
+//! The performance contract lives here. [`Interest`] is a bitmask of the field
+//! groups some active view has actually asked for, and each [`Callsite`]
+//! caches the mask it was told alongside the runtime generation that mask was
+//! computed for. A call site consults the cache *before* evaluating any field
+//! expression, so unwanted work is never done rather than done and discarded.
+//! Packing the generation into the mask's upper bits is what makes a torn
+//! two-word update detectable: a mismatched pair recomputes instead of serving
+//! a stale interest forever.
+
 use crate::{ContextToken, Detail, EventRef, Metadata, Privacy, SpanGuard, SpanRef, SpanToken};
 
 #[cfg(target_has_atomic = "ptr")]

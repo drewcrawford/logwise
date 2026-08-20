@@ -1,5 +1,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! Privacy projection: the only event shape a sink is ever handed.
+//!
+//! Sinks never see the facade's [`EventRef`](logwise::EventRef). The trusted
+//! runtime reads it once, decides per field what this particular sink is
+//! authorized to observe, and materializes a [`ProjectedEvent`] containing
+//! only that. Local-only and secret values are not withheld from a remote sink
+//! by convention — they are never copied into the view that remote code
+//! receives, so there is no privacy boundary for a sink to cross.
+//!
+//! `omitted_fields` records how much a view did not get, so a sink can tell
+//! "nothing was logged" apart from "you were not allowed to see it".
+
 use core::fmt;
 
 use logwise::{ContextToken, Detail, Metadata, Privacy, ValueRef};

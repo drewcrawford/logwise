@@ -1,5 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! The `logwise_v1` wasm wire format.
+//!
+//! Encodes an [`Envelope`] — a projected event plus transport-owned ordering
+//! and loss counters — into independently framed, allocation-free records for
+//! a host to read through the reserved `logwise_v1` import. Each frame carries
+//! its own magic and length, so a host that loses or truncates one record can
+//! resynchronize on the next instead of losing the stream.
+//!
+//! [`ABI_VERSION`] is a real promise: version 1 is pinned by a documented
+//! golden vector and an independent parser, so a host implementation can be
+//! written against this format without reading the encoder. `sequence`,
+//! `dropped_before` and `truncated_before` let a reader reconstruct exactly
+//! what it did not receive.
+
 use core::fmt::{self, Write};
 use core::sync::atomic::{AtomicU64, Ordering};
 

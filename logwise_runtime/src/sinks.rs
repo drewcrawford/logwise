@@ -1,5 +1,21 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! The shipped destinations, and what each one does when it cannot keep up.
+//!
+//! Console, bounded in-memory, structured-writer and queued async sinks all
+//! sit behind the runtime dispatcher and receive
+//! [`ProjectedEvent`](crate::ProjectedEvent), never raw facade values. Every
+//! buffer here is bounded, and every one accounts for what it lost: accepted,
+//! dropped, overwritten, truncated and failed records are counted rather than
+//! silently discarded, because a sink that quietly drops is indistinguishable
+//! from a program that never logged.
+//!
+//! Two rules hold across all of them. A write that fails is dropped rather
+//! than panicked on — stderr breaks for reasons unrelated to the code being
+//! diagnosed, and these are called from destructors where a panic aborts. And
+//! sink callbacks run outside the configuration locks, so a slow or hostile
+//! sink cannot stall the call site or poison a lock for every sink after it.
+
 use std::collections::VecDeque;
 use std::fmt;
 use std::future::Future;

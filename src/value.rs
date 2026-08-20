@@ -1,5 +1,18 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+//! Borrowed structured values, and the borrowing rule that keeps them free.
+//!
+//! A [`ValueRef`] borrows from the call site's own stack frame and is valid
+//! only for the duration of the synchronous dispatch call. That is what makes
+//! emitting an event allocation-free: nothing is copied on the way out. A
+//! runtime that wants to *retain* an event must copy or serialize it before it
+//! returns, and this module's lifetimes are what force that decision to be
+//! made explicitly rather than by accident.
+//!
+//! [`EventRef`] bundles the static [`Metadata`](crate::Metadata) with the
+//! borrowed fields and the optional ad-hoc message; [`FieldRef`] pairs one
+//! value with its own privacy and detail policy.
+
 use core::fmt;
 
 use crate::{ContextToken, FieldMetadata, Metadata};
