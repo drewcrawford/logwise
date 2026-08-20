@@ -112,7 +112,9 @@ pub enum InstallError {
 #[cfg(target_has_atomic = "ptr")]
 struct Cache {
     generation: AtomicUsize,
-    interest: AtomicUsize,
+    /// The cached mask, carrying the generation it was computed for in its
+    /// upper bits. See [`Cache::tag`].
+    tagged_interest: AtomicUsize,
 }
 
 #[cfg(target_has_atomic = "ptr")]
@@ -120,10 +122,32 @@ impl Cache {
     const fn new() -> Self {
         Self {
             generation: AtomicUsize::new(usize::MAX),
-            interest: AtomicUsize::new(0),
+            tagged_interest: AtomicUsize::new(0),
         }
     }
+
+    /// Pairs a mask with the generation it was computed for, in one word.
+    ///
+    /// The two cache words cannot be published together, and two threads that
+    /// miss at different generations can interleave their four stores so the
+    /// newer generation is left sitting next to the older mask -- a stale
+    /// interest that then looks current until the generation moves again. The
+    /// mask carries its own generation so that pairing is detectable; a
+    /// mismatch is treated as a miss and recomputed.
+    ///
+    /// Only the low `usize::BITS - 7` bits of the generation survive, so this
+    /// detects everything except a collision between two generations that are
+    /// exactly a multiple of `2^(usize::BITS - 7)` apart. The dispatcher
+    /// contract already forbids reusing a generation while stale entries can
+    /// exist; this is the same requirement, one shift weaker.
+    const fn tag(generation: usize, interest: Interest) -> usize {
+        (generation << INTEREST_WIDTH) | interest.bits()
+    }
 }
+
+/// Number of low bits [`Interest`] occupies in a tagged cache word.
+#[cfg(target_has_atomic = "ptr")]
+const INTEREST_WIDTH: u32 = 7;
 
 #[cfg(not(target_has_atomic = "ptr"))]
 struct Cache;
@@ -164,14 +188,20 @@ impl Callsite {
         };
 
         let generation = dispatcher.generation();
+        // Acquire here pairs with the Release below, so a matching generation
+        // also publishes the mask stored before it.
         if self.cache.generation.load(Ordering::Acquire) == generation {
-            return Interest::from_bits(self.cache.interest.load(Ordering::Relaxed));
+            let cached = self.cache.tagged_interest.load(Ordering::Relaxed);
+            let interest = Interest::from_bits(cached);
+            if Cache::tag(generation, interest) == cached {
+                return interest;
+            }
         }
 
         let interest = dispatcher.interest(self.metadata);
         self.cache
-            .interest
-            .store(interest.bits(), Ordering::Relaxed);
+            .tagged_interest
+            .store(Cache::tag(generation, interest), Ordering::Relaxed);
         self.cache.generation.store(generation, Ordering::Release);
         interest
     }
