@@ -510,6 +510,8 @@ fn project_event(
         })
         .map(|field| ProjectedField {
             name: field.metadata.name,
+            privacy: field.metadata.privacy,
+            detail: field.metadata.detail,
             value: field.value,
         })
         .collect();

@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Recording and durability are separate operations.** Console, bounded in-memory, structured-writer, and queued async sinks now live behind the runtime dispatcher. Queues report accepted, dropped, overwritten, truncated, and failed records; explicit future/blocking barriers flush through a captured sequence, while ordinary call sites never await. Sink callbacks run outside configuration locks, recursive logging is dropped and counted, and unwind-capable builds isolate a panicking sink from the rest of the fan-out.
 
+- **The flight recorder remembers structure, not prose.** Its fixed-slot shards keep recent core events behind monotonic cursors without making writers wait. Reads explicitly report overwrites, contention drops, truncation, omissions, and temporarily busy shards; local queries retain local-only fields, while remote queries receive a fresh support-safe projection and never an opaque ad-hoc message.
+
 ## [0.6.1] - 2026-08-17
 
 ### Fixed

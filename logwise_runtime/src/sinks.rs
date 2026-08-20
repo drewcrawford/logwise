@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::task::{Context, Poll, Waker};
 
-use logwise::{ContextToken, Metadata, ValueRef};
+use logwise::{ContextToken, Detail, Metadata, Privacy, ValueRef};
 
 use crate::{EventSink, ProjectedEvent};
 
@@ -26,6 +26,8 @@ pub enum OwnedValue {
 #[derive(Clone, Debug, PartialEq)]
 pub struct OwnedField {
     pub name: &'static str,
+    pub privacy: Privacy,
+    pub detail: Detail,
     pub value: OwnedValue,
 }
 
@@ -47,6 +49,8 @@ impl OwnedProjectedEvent {
             .into_iter()
             .map(|field| OwnedField {
                 name: field.name,
+                privacy: field.privacy,
+                detail: field.detail,
                 value: own_value(field.value, max_string_bytes, &mut truncated_fields),
             })
             .collect();

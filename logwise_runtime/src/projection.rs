@@ -2,12 +2,14 @@
 
 use core::fmt;
 
-use logwise::{ContextToken, Metadata, ValueRef};
+use logwise::{ContextToken, Detail, Metadata, Privacy, ValueRef};
 
 /// A field already authorized for one sink view.
 #[derive(Clone, Copy, Debug)]
 pub struct ProjectedField<'a> {
     pub name: &'static str,
+    pub privacy: Privacy,
+    pub detail: Detail,
     pub value: ValueRef<'a>,
 }
 

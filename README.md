@@ -203,6 +203,39 @@ is counted and dropped, and unwind-capable targets isolate sink panics so the
 remaining views still run. Panic-abort targets retain their platform's normal
 abort semantics.
 
+## Flight recorder
+
+`FlightRecorder` is a retained-local, core-detail sink for recent structured
+history. Capacity is fixed, writes are distributed across thread/worker shards,
+and neither writers nor queries wait for a contended shard. Register it like
+any other runtime sink (application-side setup):
+
+```text
+use std::sync::Arc;
+use logwise_runtime::{DetailLevel, Filter, FlightRecorder};
+
+let runtime = logwise_runtime::Runtime::new();
+let recorder = Arc::new(FlightRecorder::new(1024, 256));
+runtime.add_local_sink(
+    recorder.clone(),
+    Filter::new(),
+    DetailLevel::Core,
+);
+```
+
+`read_since` returns globally sequence-ordered records plus the next monotonic
+cursor. It also returns cumulative drop, overwrite, and truncation totals,
+per-record omissions, and the number of shards that were busy. A partial read
+does not advance its cursor, so a runner or platform mirror can retry instead
+of silently losing the unavailable shard. `tail` provides the newest bounded
+view.
+
+Local reads contain support-safe and local-only fields. Remote reads clone and
+project retained records down to support-safe fields and remove opaque ad-hoc
+messages before the caller can serialize them. Secret fields are rejected at
+recorder ingress even if the sink is invoked outside the standard runtime.
+Rendering is deferred until a retrieved `FlightRecord` is displayed.
+
 Static removal belongs to the crate containing the call site. Put its local
 feature or target condition directly on the invocation; logwise transcribes it
 as `#[cfg]` elimination, so values and schema strings are absent:
