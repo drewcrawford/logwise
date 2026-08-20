@@ -53,40 +53,41 @@ macro_rules! __logwise_severity {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! __logwise_privacy {
-    (support) => {
-        $crate::Privacy::SupportSafe
-    };
-    (local) => {
-        $crate::Privacy::LocalOnly
-    };
-    (secret) => {
-        $crate::Privacy::Secret
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
 macro_rules! __logwise_field_metadata {
+    // The caller appends a `,` to the field list so every field is consumed by
+    // the same shape, whether or not the call site wrote a trailing comma.
     (@accum [$($output:expr,)*]) => { &[$($output,)*] };
     (@accum [$($output:expr,)*] ,) => { &[$($output,)*] };
 
-    (@accum [$($output:expr,)*] detail $name:ident = $privacy:ident($value:expr), $($rest:tt)*) => {
+    (@accum [$($output:expr,)*] detail $name:ident = support($value:expr), $($rest:tt)*) => {
         $crate::__logwise_field_metadata!(@accum [
             $($output,)*
             $crate::FieldMetadata::new(
                 stringify!($name),
-                $crate::__logwise_privacy!($privacy),
+                $crate::Privacy::SupportSafe,
                 $crate::Detail::Detail,
             ),
         ] $($rest)*)
     };
-    (@accum [$($output:expr,)*] detail $name:ident = $privacy:ident($value:expr)) => {
-        &[$($output,)* $crate::FieldMetadata::new(
-            stringify!($name),
-            $crate::__logwise_privacy!($privacy),
-            $crate::Detail::Detail,
-        )]
+    (@accum [$($output:expr,)*] detail $name:ident = local($value:expr), $($rest:tt)*) => {
+        $crate::__logwise_field_metadata!(@accum [
+            $($output,)*
+            $crate::FieldMetadata::new(
+                stringify!($name),
+                $crate::Privacy::LocalOnly,
+                $crate::Detail::Detail,
+            ),
+        ] $($rest)*)
+    };
+    (@accum [$($output:expr,)*] detail $name:ident = secret($value:expr), $($rest:tt)*) => {
+        $crate::__logwise_field_metadata!(@accum [
+            $($output,)*
+            $crate::FieldMetadata::new(
+                stringify!($name),
+                $crate::Privacy::Secret,
+                $crate::Detail::Detail,
+            ),
+        ] $($rest)*)
     };
     (@accum [$($output:expr,)*] detail $name:ident = $value:expr, $($rest:tt)*) => {
         $crate::__logwise_field_metadata!(@accum [
@@ -98,29 +99,35 @@ macro_rules! __logwise_field_metadata {
             ),
         ] $($rest)*)
     };
-    (@accum [$($output:expr,)*] detail $name:ident = $value:expr) => {
-        &[$($output,)* $crate::FieldMetadata::new(
-            stringify!($name),
-            $crate::Privacy::LocalOnly,
-            $crate::Detail::Detail,
-        )]
-    };
-    (@accum [$($output:expr,)*] $name:ident = $privacy:ident($value:expr), $($rest:tt)*) => {
+    (@accum [$($output:expr,)*] $name:ident = support($value:expr), $($rest:tt)*) => {
         $crate::__logwise_field_metadata!(@accum [
             $($output,)*
             $crate::FieldMetadata::new(
                 stringify!($name),
-                $crate::__logwise_privacy!($privacy),
+                $crate::Privacy::SupportSafe,
                 $crate::Detail::Core,
             ),
         ] $($rest)*)
     };
-    (@accum [$($output:expr,)*] $name:ident = $privacy:ident($value:expr)) => {
-        &[$($output,)* $crate::FieldMetadata::new(
-            stringify!($name),
-            $crate::__logwise_privacy!($privacy),
-            $crate::Detail::Core,
-        )]
+    (@accum [$($output:expr,)*] $name:ident = local($value:expr), $($rest:tt)*) => {
+        $crate::__logwise_field_metadata!(@accum [
+            $($output,)*
+            $crate::FieldMetadata::new(
+                stringify!($name),
+                $crate::Privacy::LocalOnly,
+                $crate::Detail::Core,
+            ),
+        ] $($rest)*)
+    };
+    (@accum [$($output:expr,)*] $name:ident = secret($value:expr), $($rest:tt)*) => {
+        $crate::__logwise_field_metadata!(@accum [
+            $($output,)*
+            $crate::FieldMetadata::new(
+                stringify!($name),
+                $crate::Privacy::Secret,
+                $crate::Detail::Core,
+            ),
+        ] $($rest)*)
     };
     (@accum [$($output:expr,)*] $name:ident = $value:expr, $($rest:tt)*) => {
         $crate::__logwise_field_metadata!(@accum [
@@ -132,31 +139,23 @@ macro_rules! __logwise_field_metadata {
             ),
         ] $($rest)*)
     };
-    (@accum [$($output:expr,)*] $name:ident = $value:expr) => {
-        &[$($output,)* $crate::FieldMetadata::new(
-            stringify!($name),
-            $crate::Privacy::LocalOnly,
-            $crate::Detail::Core,
-        )]
-    };
 }
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __logwise_field_values {
+    // Field shapes are matched in the same order as `__logwise_field_metadata`,
+    // so the two stay in lockstep and the metadata iterator never desynchronizes.
     (@accum [$($output:expr,)*] $metadata:ident $interest:ident;) => { [$($output,)*] };
     (@accum [$($output:expr,)*] $metadata:ident $interest:ident; ,) => { [$($output,)*] };
 
     (@accum [$($output:expr,)*] $metadata:ident $interest:ident;
-        detail $name:ident = $privacy:ident($value:expr), $($rest:tt)*) => {
+        detail $name:ident = support($value:expr), $($rest:tt)*) => {
         $crate::__logwise_field_values!(@accum [
             $($output,)*
             {
                 let __logwise_field_metadata = $metadata.next().expect("field metadata");
-                if $interest.wants(
-                    $crate::__logwise_privacy!($privacy),
-                    $crate::Detail::Detail,
-                ) {
+                if $interest.wants($crate::Privacy::SupportSafe, $crate::Detail::Detail) {
                     Some($crate::FieldRef::new(
                         __logwise_field_metadata,
                         $crate::ValueRef::from($value),
@@ -168,21 +167,38 @@ macro_rules! __logwise_field_values {
         ] $metadata $interest; $($rest)*)
     };
     (@accum [$($output:expr,)*] $metadata:ident $interest:ident;
-        detail $name:ident = $privacy:ident($value:expr)) => {
-        [$($output,)* {
-            let __logwise_field_metadata = $metadata.next().expect("field metadata");
-            if $interest.wants(
-                $crate::__logwise_privacy!($privacy),
-                $crate::Detail::Detail,
-            ) {
-                Some($crate::FieldRef::new(
-                    __logwise_field_metadata,
-                    $crate::ValueRef::from($value),
-                ))
-            } else {
-                None
-            }
-        }]
+        detail $name:ident = local($value:expr), $($rest:tt)*) => {
+        $crate::__logwise_field_values!(@accum [
+            $($output,)*
+            {
+                let __logwise_field_metadata = $metadata.next().expect("field metadata");
+                if $interest.wants($crate::Privacy::LocalOnly, $crate::Detail::Detail) {
+                    Some($crate::FieldRef::new(
+                        __logwise_field_metadata,
+                        $crate::ValueRef::from($value),
+                    ))
+                } else {
+                    None
+                }
+            },
+        ] $metadata $interest; $($rest)*)
+    };
+    (@accum [$($output:expr,)*] $metadata:ident $interest:ident;
+        detail $name:ident = secret($value:expr), $($rest:tt)*) => {
+        $crate::__logwise_field_values!(@accum [
+            $($output,)*
+            {
+                let __logwise_field_metadata = $metadata.next().expect("field metadata");
+                if $interest.wants($crate::Privacy::Secret, $crate::Detail::Detail) {
+                    Some($crate::FieldRef::new(
+                        __logwise_field_metadata,
+                        $crate::ValueRef::from($value),
+                    ))
+                } else {
+                    None
+                }
+            },
+        ] $metadata $interest; $($rest)*)
     };
     (@accum [$($output:expr,)*] $metadata:ident $interest:ident;
         detail $name:ident = $value:expr, $($rest:tt)*) => {
@@ -202,29 +218,12 @@ macro_rules! __logwise_field_values {
         ] $metadata $interest; $($rest)*)
     };
     (@accum [$($output:expr,)*] $metadata:ident $interest:ident;
-        detail $name:ident = $value:expr) => {
-        [$($output,)* {
-            let __logwise_field_metadata = $metadata.next().expect("field metadata");
-            if $interest.wants($crate::Privacy::LocalOnly, $crate::Detail::Detail) {
-                Some($crate::FieldRef::new(
-                    __logwise_field_metadata,
-                    $crate::ValueRef::from($value),
-                ))
-            } else {
-                None
-            }
-        }]
-    };
-    (@accum [$($output:expr,)*] $metadata:ident $interest:ident;
-        $name:ident = $privacy:ident($value:expr), $($rest:tt)*) => {
+        $name:ident = support($value:expr), $($rest:tt)*) => {
         $crate::__logwise_field_values!(@accum [
             $($output,)*
             {
                 let __logwise_field_metadata = $metadata.next().expect("field metadata");
-                if $interest.wants(
-                    $crate::__logwise_privacy!($privacy),
-                    $crate::Detail::Core,
-                ) {
+                if $interest.wants($crate::Privacy::SupportSafe, $crate::Detail::Core) {
                     Some($crate::FieldRef::new(
                         __logwise_field_metadata,
                         $crate::ValueRef::from($value),
@@ -236,21 +235,38 @@ macro_rules! __logwise_field_values {
         ] $metadata $interest; $($rest)*)
     };
     (@accum [$($output:expr,)*] $metadata:ident $interest:ident;
-        $name:ident = $privacy:ident($value:expr)) => {
-        [$($output,)* {
-            let __logwise_field_metadata = $metadata.next().expect("field metadata");
-            if $interest.wants(
-                $crate::__logwise_privacy!($privacy),
-                $crate::Detail::Core,
-            ) {
-                Some($crate::FieldRef::new(
-                    __logwise_field_metadata,
-                    $crate::ValueRef::from($value),
-                ))
-            } else {
-                None
-            }
-        }]
+        $name:ident = local($value:expr), $($rest:tt)*) => {
+        $crate::__logwise_field_values!(@accum [
+            $($output,)*
+            {
+                let __logwise_field_metadata = $metadata.next().expect("field metadata");
+                if $interest.wants($crate::Privacy::LocalOnly, $crate::Detail::Core) {
+                    Some($crate::FieldRef::new(
+                        __logwise_field_metadata,
+                        $crate::ValueRef::from($value),
+                    ))
+                } else {
+                    None
+                }
+            },
+        ] $metadata $interest; $($rest)*)
+    };
+    (@accum [$($output:expr,)*] $metadata:ident $interest:ident;
+        $name:ident = secret($value:expr), $($rest:tt)*) => {
+        $crate::__logwise_field_values!(@accum [
+            $($output,)*
+            {
+                let __logwise_field_metadata = $metadata.next().expect("field metadata");
+                if $interest.wants($crate::Privacy::Secret, $crate::Detail::Core) {
+                    Some($crate::FieldRef::new(
+                        __logwise_field_metadata,
+                        $crate::ValueRef::from($value),
+                    ))
+                } else {
+                    None
+                }
+            },
+        ] $metadata $interest; $($rest)*)
     };
     (@accum [$($output:expr,)*] $metadata:ident $interest:ident;
         $name:ident = $value:expr, $($rest:tt)*) => {
@@ -269,20 +285,6 @@ macro_rules! __logwise_field_values {
             },
         ] $metadata $interest; $($rest)*)
     };
-    (@accum [$($output:expr,)*] $metadata:ident $interest:ident;
-        $name:ident = $value:expr) => {
-        [$($output,)* {
-            let __logwise_field_metadata = $metadata.next().expect("field metadata");
-            if $interest.wants($crate::Privacy::LocalOnly, $crate::Detail::Core) {
-                Some($crate::FieldRef::new(
-                    __logwise_field_metadata,
-                    $crate::ValueRef::from($value),
-                ))
-            } else {
-                None
-            }
-        }]
-    };
 }
 
 #[doc(hidden)]
@@ -293,7 +295,7 @@ macro_rules! __logwise_structured {
     };
     ($domain:expr; $class:ident, $severity:ident, $kind:ident, $name:literal, $($fields:tt)*) => {{
         static __LOGWISE_FIELDS: &[$crate::FieldMetadata] =
-            $crate::__logwise_field_metadata!(@accum [] $($fields)*);
+            $crate::__logwise_field_metadata!(@accum [] $($fields)* ,);
         static __LOGWISE_METADATA: $crate::Metadata = $crate::Metadata {
             event_name: $name,
             package: env!("CARGO_PKG_NAME"),
@@ -319,7 +321,7 @@ macro_rules! __logwise_structured {
             if __logwise_interest.any() {
                 let mut __logwise_metadata = __LOGWISE_FIELDS.iter();
                 let __logwise_fields = $crate::__logwise_field_values!(
-                    @accum [] __logwise_metadata __logwise_interest; $($fields)*
+                    @accum [] __logwise_metadata __logwise_interest; $($fields)* ,
                 );
                 __LOGWISE_CALLSITE.emit($crate::EventRef::structured(
                     &__LOGWISE_METADATA,
@@ -381,7 +383,7 @@ macro_rules! __logwise_span {
     };
     ($timing:ident, $threshold:expr; $class:ident, $severity:ident, $name:literal, $($fields:tt)*) => {{
         static __LOGWISE_FIELDS: &[$crate::FieldMetadata] =
-            $crate::__logwise_field_metadata!(@accum [] $($fields)*);
+            $crate::__logwise_field_metadata!(@accum [] $($fields)* ,);
         static __LOGWISE_METADATA: $crate::Metadata = $crate::Metadata {
             event_name: $name,
             package: env!("CARGO_PKG_NAME"),
@@ -407,7 +409,7 @@ macro_rules! __logwise_span {
             if __logwise_interest.any() {
                 let mut __logwise_metadata = __LOGWISE_FIELDS.iter();
                 let __logwise_fields = $crate::__logwise_field_values!(
-                    @accum [] __logwise_metadata __logwise_interest; $($fields)*
+                    @accum [] __logwise_metadata __logwise_interest; $($fields)* ,
                 );
                 __LOGWISE_CALLSITE.start_span($crate::SpanRef {
                     event: $crate::EventRef::structured(
