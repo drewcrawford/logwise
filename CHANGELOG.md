@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The rewrite's promises now have one cross-package acceptance gate.** `logwise_integration_tests` drives the runtime, wasm wire, `some_executor`, and `test_executors` together while the facade's own graph stays empty. The matrix covers selective evaluation, privacy projection, task migration and restoration, expiring descendant activation, bounded loss-accounted history, hostile sinks, and wasm test/worker identity on both native and browser targets.
 
+### Fixed
+
+- **`StdErrorLogger` was documented as the logger you install, and could not be installed.** The type is `pub`, has a `pub const fn new()`, and the `Logger` docs point at `crate::StdErrorLogger` -- but `mod stderror_logger` is private and nothing re-exported it, so the name did not exist outside the crate. The practical cost is that `set_global_loggers` was a one-way door: once you replaced the default set, you could not put stderr back, or run your own logger *alongside* stderr, without having stashed the original `Vec` first. It is now exported at the crate root next to `InMemoryLogger`.
+
 ## [0.6.1] - 2026-08-17
 
 ### Fixed

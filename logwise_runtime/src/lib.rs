@@ -439,6 +439,7 @@ pub use sinks::{
     AsyncSink, ConsoleSink, FlushBarrier, FlushError, InMemorySink, OverflowPolicy,
     OwnedEventWriter, OwnedField, OwnedProjectedEvent, OwnedValue, SinkStats, StructuredWriter,
 };
+pub use stderror_logger::StdErrorLogger;
 
 // Re-export logging macros from the procedural macro crate.
 // See individual macro documentation for usage details.
