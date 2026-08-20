@@ -16,12 +16,13 @@ some_executor = { git = "ssh://gitea@gitea.mermaid-gecko.ts.net/Metropolis/some_
     "logwise-forensic",
     "logwise-performance",
 ] }
-test_executors = { git = "ssh://gitea@gitea.mermaid-gecko.ts.net/Metropolis/test_executors.git", rev = "2c71eb2ee3f764a0c43199fd6a1a0e332dfb8b51", features = [
-    "logwise-diagnostic",
-    "logwise-forensic",
-    "logwise-performance",
-] }
+# `block_on` drives the raw-executor case in `tests/executor_context.rs`, and
+# `wasm_lite_std as thread` gives that file a `spawn` on wasm32. Both targets
+# need it, so it is not under the `cfg` below.
+wasm_lite_std = "0.1.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# Where the tests get `#[wasm_lite_test]`. Off wasm32 the `cfg_attr` holding
+# that attribute is false and the cases are plain `#[test]`s, so nothing there
+# needs the crate.
 wasm_lite = "0.1.2"
-wasm_lite_std = "0.1.2"

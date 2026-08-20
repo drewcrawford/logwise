@@ -142,7 +142,7 @@ fn task_owned_context_migrates_and_restores_poll_threads() {
     let inside = observed.clone();
     {
         let _entered = logwise::context::enter(token);
-        test_executors::spin_on(async move {
+        wasm_lite_std::block_on(async move {
             *inside.lock().unwrap() = logwise::context::capture();
         });
     }

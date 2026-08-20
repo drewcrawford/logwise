@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **`logwise_integration_tests` no longer depends on `test_executors`.** It was there for one call — `spin_on`, driving the raw-executor case in `tests/executor_context.rs` — and `wasm_lite_std::block_on` does the same job from a crate the workspace already builds on both targets. That drops a git dependency, and with it the release-order knot `test_executors` carries: it depends on `logwise`, so neither could go first. The rest of the acceptance matrix is unchanged, and the case still asserts that a future polled inline under an entered context sees that context and leaves the thread clean afterwards.
+
 ## [0.7.0] - 2026-08-20
 
 ### Added
@@ -31,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`log` and `tracing` can come in without becoming the foundation.** The optional `logwise_compat_log` logger and `logwise_compat_tracing` layer import levels, targets, messages, fields, span parents, links, and IDs into origin-marked local-only events. Both guard against bridge recursion, tracing spans carry durable logwise context tokens across thread entry, and no compatibility dependency reaches the zero-dependency facade unless an application chooses the corresponding package.
 
-- **The rewrite's promises now have one cross-package acceptance gate.** `logwise_integration_tests` drives the runtime, wasm wire, `some_executor`, and `test_executors` together while the facade's own graph stays empty. The matrix covers selective evaluation, privacy projection, task migration and restoration, expiring descendant activation, bounded loss-accounted history, hostile sinks, and wasm test/worker identity on both native and browser targets.
+- **The rewrite's promises now have one cross-package acceptance gate.** `logwise_integration_tests` drives the runtime, wasm wire, and `some_executor` together while the facade's own graph stays empty. The matrix covers selective evaluation, privacy projection, task migration and restoration, expiring descendant activation, bounded loss-accounted history, hostile sinks, and wasm test/worker identity on both native and browser targets.
 
 ### Fixed
 
