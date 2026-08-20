@@ -6,8 +6,8 @@ use crate::Level;
 use std::cell::{Cell, OnceCell};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 
 use super::task::{Task, TaskID};
 
@@ -126,6 +126,30 @@ thread_local! {
     pub(crate) static CONTEXT: OnceCell<Cell<Context>> = const { OnceCell::new() };
 }
 
+/// The context handed out once a thread's context cell is gone.
+///
+/// Thread-local destructors run in an unspecified order, so a value that logs
+/// on drop can easily outlive this crate's own thread-local. Touching a
+/// destroyed thread-local panics, and a panic escaping a thread-local
+/// destructor aborts the process -- which is not an acceptable answer to
+/// "someone logged from a destructor". This shared, process-lived context
+/// stands in instead. It lives in a static so its `Task` is never dropped, and
+/// so never tries to log its own completion from the same doomed thread.
+fn detached_context() -> Context {
+    static DETACHED: OnceLock<Context> = OnceLock::new();
+    DETACHED
+        .get_or_init(|| {
+            Context::new_task_internal(
+                None,
+                "logwise detached".to_string(),
+                Level::DebugInternal,
+                false,
+                CONTEXT_ID.fetch_add(1, Ordering::Relaxed),
+            )
+        })
+        .clone()
+}
+
 /// Lazily initializes and returns the thread-local context cell.
 fn get_or_init_context(once: &OnceCell<Cell<Context>>) -> &Cell<Context> {
     once.get_or_init(|| {
@@ -156,11 +180,13 @@ impl Context {
     /// ```
     #[inline]
     pub fn current() -> Context {
-        CONTEXT.with(|once| {
-            let c = get_or_init_context(once);
-            //safety: we don't let anyone get a mutable reference to this
-            unsafe { &*c.as_ptr() }.clone()
-        })
+        CONTEXT
+            .try_with(|once| {
+                let c = get_or_init_context(once);
+                //safety: we don't let anyone get a mutable reference to this
+                unsafe { &*c.as_ptr() }.clone()
+            })
+            .unwrap_or_else(|_| detached_context())
     }
 
     /// Returns the task associated with this context.
@@ -449,7 +475,9 @@ impl Context {
     /// # }
     /// ```
     pub fn set_current(self) {
-        CONTEXT.with(|once| {
+        // A thread whose context cell is already destroyed has nowhere to put
+        // this, and is on its way out regardless.
+        let _ = CONTEXT.try_with(|once| {
             get_or_init_context(once).replace(self);
         });
     }
@@ -533,7 +561,7 @@ impl Context {
             if current.context_id() == id {
                 match current.inner.parent.clone() {
                     Some(parent) => {
-                        CONTEXT.with(|once| {
+                        let _ = CONTEXT.try_with(|once| {
                             get_or_init_context(once).replace(parent);
                         });
                     }
