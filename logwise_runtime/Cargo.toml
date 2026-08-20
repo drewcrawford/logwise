@@ -1,6 +1,6 @@
 [package]
 name = "logwise_runtime"
-version = "0.6.1"
+version = "0.7.0"
 authors = ["Drew Crawford <drew@sealedabstract.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
