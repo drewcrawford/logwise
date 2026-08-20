@@ -135,9 +135,10 @@ impl Cache {
     /// mask carries its own generation so that pairing is detectable; a
     /// mismatch is treated as a miss and recomputed.
     ///
-    /// Only the low `usize::BITS - 7` bits of the generation survive, so this
+    /// Only the upper `usize::BITS - INTEREST_WIDTH` bits are left for the
+    /// generation, so this
     /// detects everything except a collision between two generations that are
-    /// exactly a multiple of `2^(usize::BITS - 7)` apart. The dispatcher
+    /// exactly a multiple of `2^(usize::BITS - INTEREST_WIDTH)` apart. The dispatcher
     /// contract already forbids reusing a generation while stale entries can
     /// exist; this is the same requirement, one shift weaker.
     const fn tag(generation: usize, interest: Interest) -> usize {
@@ -145,9 +146,11 @@ impl Cache {
     }
 }
 
-/// Number of low bits [`Interest`] occupies in a tagged cache word.
+/// Number of low bits [`Interest`] occupies in a tagged cache word. Derived
+/// from the mask itself so adding an interest bit cannot silently start
+/// overlapping the generation tag.
 #[cfg(target_has_atomic = "ptr")]
-const INTEREST_WIDTH: u32 = 7;
+const INTEREST_WIDTH: u32 = usize::BITS - Interest::ALL_BITS.leading_zeros();
 
 #[cfg(not(target_has_atomic = "ptr"))]
 struct Cache;
