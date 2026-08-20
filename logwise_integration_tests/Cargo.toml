@@ -11,7 +11,7 @@ rust-version = "1.95.0"
 logwise = { path = ".." }
 logwise_runtime = { path = "../logwise_runtime" }
 logwise_runtime_wasm = { path = "../logwise_runtime_wasm" }
-some_executor = { git = "ssh://gitea@gitea.mermaid-gecko.ts.net/Metropolis/some_executor.git", rev = "45b02a16c410405867c6770144ae3168b58c532e", features = [
+some_executor = { version = "0.7.2", features = [
     "logwise-diagnostic",
     "logwise-forensic",
     "logwise-performance",
