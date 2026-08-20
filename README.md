@@ -236,6 +236,33 @@ messages before the caller can serialize them. Secret fields are rejected at
 recorder ingress even if the sink is invoked outside the standard runtime.
 Rendering is deferred until a retrieved `FlightRecord` is displayed.
 
+## Foreign text ingress
+
+First-party `logwise` events are the portable contract. Text intercepted from
+Rust printing, native file descriptors, panic hooks, or JavaScript consoles is
+best-effort input. Every adapter emits the unstable-schema `foreign.text` event
+with local-only `origin` and `text` fields. Its ad-hoc kind is categorically
+excluded from remote sinks; callers cannot relabel imported text support-safe.
+
+`logwise_runtime::install_panic_hook()` chains a process-wide panic hook and
+returns the previous hook for explicit restoration. On Unix,
+`NativeFdCapture` can temporarily redirect stdout or stderr, but this is a
+process-global operation: it races parallel writers, has no logical-context
+boundary, and does not match libtest's thread-local Rust print capture.
+
+The `foreign-nightly-rust-print` runtime feature exposes the separate
+`capture_nightly_rust_print` adapter. It requires nightly Rust's unstable
+`internal_output_capture` facility and is intended for test harnesses only.
+Nothing in the default facade or runtime claims to intercept arbitrary
+`println!` or `eprintln!` calls.
+
+`logwise_runtime_wasm::ingest_console` accepts text already intercepted by a
+host's console monkeypatch and preserves origins such as `js.console.warn`.
+The host remains responsible for the monkeypatch. This legacy ingress does not
+replace the structured `logwise_v1` event transport, and `console.trace` is not
+treated as an ordinary trace-level line because browsers assign it stack-trace
+semantics.
+
 Static removal belongs to the crate containing the call site. Put its local
 feature or target condition directly on the invocation; logwise transcribes it
 as `#[cfg]` elimination, so values and schema strings are absent:

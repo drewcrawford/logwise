@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The flight recorder remembers structure, not prose.** Its fixed-slot shards keep recent core events behind monotonic cursors without making writers wait. Reads explicitly report overwrites, contention drops, truncation, omissions, and temporarily busy shards; local queries retain local-only fields, while remote queries receive a fresh support-safe projection and never an opaque ad-hoc message.
 
+- **Foreign text has a quarantine lane.** Panic-hook, Unix stdout/stderr FD, nightly Rust print, and wasm console adapters import opaque text as `foreign.text` with an origin tag. Every dynamic value is local-only, the event kind is barred from remote sinks, and the docs call out the process-global, thread-local, test-harness, and wasm limitations instead of promising universal `println!` capture.
+
 ## [0.6.1] - 2026-08-17
 
 ### Fixed

@@ -1,4 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+#![cfg_attr(
+    feature = "foreign-nightly-rust-print",
+    feature(internal_output_capture)
+)]
+
 /*!
 # logwise
 
@@ -393,6 +398,7 @@ pub mod context;
 mod dispatch;
 pub mod facade_runtime;
 pub mod flight_recorder;
+pub mod foreign;
 pub mod global_logger;
 mod heartbeat;
 mod inmemory_logger;
@@ -417,6 +423,11 @@ pub use facade_runtime::{
 pub use flight_recorder::{
     FlightCursor, FlightRead, FlightRecord, FlightRecorder, FlightRecorderStats, RecorderView,
 };
+#[cfg(feature = "foreign-nightly-rust-print")]
+pub use foreign::capture_nightly_rust_print;
+pub use foreign::{ForeignOrigin, PanicHookRegistration, foreign_text, install_panic_hook};
+#[cfg(unix)]
+pub use foreign::{NativeFd, NativeFdCapture};
 pub use global_logger::{add_global_logger, global_loggers, set_global_loggers};
 pub use heartbeat::{HeartbeatGuard, heartbeat};
 pub use inmemory_logger::InMemoryLogger;

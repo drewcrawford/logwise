@@ -22,6 +22,7 @@ wasm_lite_std = "0.1.1"
 
 [features]
 logwise_internal = []
+foreign-nightly-rust-print = []
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
 # Also what the tests get `#[wasm_lite_test]` from, so there is no separate
