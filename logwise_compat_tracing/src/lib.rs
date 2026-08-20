@@ -237,14 +237,38 @@ where
         }
     }
 
-    fn on_exit(&self, id: &Id, _ctx: Context<'_, S>) {
+    fn on_exit(&self, id: &Id, ctx: Context<'_, S>) {
         if BridgeGuard::active() {
             return;
         }
         ENTERED.with(|entered| {
             let mut entered = entered.borrow_mut();
-            if entered.last().is_some_and(|entry| entry.0 == id.into_u64()) {
-                entered.pop();
+            let Some(position) = entered.iter().rposition(|entry| entry.0 == id.into_u64()) else {
+                // Entered on another thread, or never entered at all. Leave a
+                // stack we do not own alone.
+                return;
+            };
+            // `Entered` guards are ordinary values, so a span can be exited
+            // while spans entered after it are still entered. Each logwise
+            // guard restores the token that was current when it was created,
+            // which means the stack only comes apart correctly from the top
+            // down -- popping just this span's entry would strand every guard
+            // above it and leave a finished span's context entered for the rest
+            // of the thread's life.
+            let mut still_entered = Vec::new();
+            while entered.len() > position + 1 {
+                let (above, guard) = entered.pop().expect("length checked above");
+                drop(guard);
+                still_entered.push(above);
+            }
+            entered.pop();
+            // Those spans have not been exited yet, so put them back in the
+            // order they were entered, rebuilding the restoration chain.
+            for above in still_entered.into_iter().rev() {
+                let Some(state) = span_state(&ctx, &Id::from_u64(above)) else {
+                    continue;
+                };
+                entered.push((above, logwise::context::enter(state.context)));
             }
         });
     }
