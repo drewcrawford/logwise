@@ -1,0 +1,12 @@
+[package]
+name = "logwise_compat_log"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Privacy-conservative log facade ingestion for logwise"
+repository = "https://github.com/drewcrawford/logwise"
+rust-version = "1.95.0"
+
+[dependencies]
+log = { version = "0.4.33", features = ["kv"] }
+logwise = { path = "..", version = "0.7.0" }

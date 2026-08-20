@@ -17,6 +17,8 @@ resolver = "3"
 members = [
     ".",
     "logwise_integration_tests",
+    "logwise_compat_log",
+    "logwise_compat_tracing",
     "logwise_runtime",
     "logwise_runtime/logwise_runtime_proc",
     "logwise_runtime_wasm",

@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Wasm gets a real structured wire instead of a console-shaped hole.** `logwise_runtime_wasm` now encodes allocation-free, independently framed `logwise_v1` envelopes with stable metadata, typed and policy-labelled fields, contexts and links, test/worker identity, and sequence/loss/truncation accounting. The reserved import is opt-in so hosts without it still instantiate; a documented golden vector and independent parser pin version 1 for host implementations.
 
+- **`log` and `tracing` can come in without becoming the foundation.** The optional `logwise_compat_log` logger and `logwise_compat_tracing` layer import levels, targets, messages, fields, span parents, links, and IDs into origin-marked local-only events. Both guard against bridge recursion, tracing spans carry durable logwise context tokens across thread entry, and no compatibility dependency reaches the zero-dependency facade unless an application chooses the corresponding package.
+
 ## [0.6.1] - 2026-08-17
 
 ### Fixed

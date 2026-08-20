@@ -24,6 +24,8 @@ The workspace currently contains:
 - `logwise_runtime_proc`: temporary legacy procedural macros, which will be
   removed when the declarative facade macros land;
 - `logwise_runtime_wasm`: the dependency-light reserved wasm host transport;
+- `logwise_compat_log` and `logwise_compat_tracing`: optional,
+  privacy-conservative foreign-ingress bridges;
 - `logwise_integration_tests`: cross-package acceptance tests kept above the
   facade.
 
@@ -262,6 +264,22 @@ The host remains responsible for the monkeypatch. This legacy ingress does not
 replace the structured `logwise_v1` event transport, and `console.trace` is not
 treated as an ordinary trace-level line because browsers assign it stack-trace
 semantics.
+
+The optional `logwise_compat_log` package installs a `log::Log` implementation.
+It maps levels, targets, messages, module/location data, and key-values into
+origin-marked local-only records. `logwise_compat_tracing::LogwiseLayer` maps
+tracing span parentage to logwise context tokens, `follows_from` relationships
+to links, and events, levels, targets, IDs, and fields into the same quarantined
+lane. It can be composed into an existing subscriber or installed with its
+convenience `install()` function.
+
+Both bridges use thread-local reentrancy guards, so an application-side lossy
+outbound sink cannot create `log -> logwise -> log` or
+`tracing -> logwise -> tracing` recursion. Imported dynamic fields have no
+trusted privacy declaration and therefore cannot be upgraded from `LocalOnly`.
+There is intentionally no built-in outbound bridge: flattening logwise into
+either ecosystem loses privacy projection, detail tiers, retention policy, and
+part of the causal model.
 
 ## Structured wasm transport
 
