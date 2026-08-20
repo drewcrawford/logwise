@@ -11,7 +11,17 @@ rust-version = "1.95.0"
 logwise = { path = ".." }
 logwise_runtime = { path = "../logwise_runtime" }
 logwise_runtime_wasm = { path = "../logwise_runtime_wasm" }
+some_executor = { git = "ssh://gitea@gitea.mermaid-gecko.ts.net/Metropolis/some_executor.git", rev = "45b02a16c410405867c6770144ae3168b58c532e", features = [
+    "logwise-diagnostic",
+    "logwise-forensic",
+    "logwise-performance",
+] }
+test_executors = { git = "ssh://gitea@gitea.mermaid-gecko.ts.net/Metropolis/test_executors.git", rev = "2c71eb2ee3f764a0c43199fd6a1a0e332dfb8b51", features = [
+    "logwise-diagnostic",
+    "logwise-forensic",
+    "logwise-performance",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm_lite = "0.1.1"
-wasm_lite_std = "0.1.1"
+wasm_lite = "0.1.2"
+wasm_lite_std = "0.1.2"

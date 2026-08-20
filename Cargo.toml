@@ -25,6 +25,12 @@ members = [
 ]
 exclude = ["fixtures/no_std_no_alloc"]
 
+# The cross-package acceptance crate follows the coordinated pre-release pins
+# used by the executor crates. Keep their facade edge pointed at this checkout
+# so every test observes the one installed dispatcher.
+[patch."ssh://gitea@gitea.mermaid-gecko.ts.net/Metropolis/logwise.git"]
+logwise = { path = "." }
+
 [dependencies]
 
 [features]

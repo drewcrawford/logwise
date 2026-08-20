@@ -1,6 +1,9 @@
 [unstable]
 build-std = ["std", "panic_abort"]
 
+[net]
+git-fetch-with-cli = true
+
 [target.'cfg(target_arch="wasm32")']
 runner = "wasm_lite run"
 rustflags = ["-C", "target-feature=+atomics",

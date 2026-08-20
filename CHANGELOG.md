@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`log` and `tracing` can come in without becoming the foundation.** The optional `logwise_compat_log` logger and `logwise_compat_tracing` layer import levels, targets, messages, fields, span parents, links, and IDs into origin-marked local-only events. Both guard against bridge recursion, tracing spans carry durable logwise context tokens across thread entry, and no compatibility dependency reaches the zero-dependency facade unless an application chooses the corresponding package.
 
+- **The rewrite's promises now have one cross-package acceptance gate.** `logwise_integration_tests` drives the runtime, wasm wire, `some_executor`, and `test_executors` together while the facade's own graph stays empty. The matrix covers selective evaluation, privacy projection, task migration and restoration, expiring descendant activation, bounded loss-accounted history, hostile sinks, and wasm test/worker identity on both native and browser targets.
+
 ## [0.6.1] - 2026-08-17
 
 ### Fixed

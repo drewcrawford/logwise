@@ -18,7 +18,7 @@ logwise = { path = "..", version = "0.7.0" }
 logwise_runtime_proc = { path = "logwise_runtime_proc", version = "0.5.0" }
 # Taken from the registry, not by path, so the runtime package remains
 # independently publishable once the rewrite is ready for release.
-wasm_lite_std = "0.1.1"
+wasm_lite_std = "0.1.2"
 
 [features]
 logwise_internal = []
@@ -28,7 +28,7 @@ foreign-nightly-rust-print = []
 # Also what the tests get `#[wasm_lite_test]` from, so there is no separate
 # dev-dependency: off wasm32 the `cfg_attr` holding that attribute is false and
 # the tests are plain `#[test]`s, so nothing there needs the crate.
-wasm_lite = "0.1.1"
+wasm_lite = "0.1.2"
 
 [[test]]
 name = "wasm_stderr_logger"

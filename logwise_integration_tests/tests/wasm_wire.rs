@@ -51,6 +51,18 @@ fn versioned_wire_encoder_runs_without_host_glue() {
         u32::from_le_bytes(encoded.bytes[8..12].try_into().unwrap()) as usize,
         encoded.bytes.len()
     );
+    assert_eq!(
+        u64::from_le_bytes(encoded.bytes[36..44].try_into().unwrap()),
+        3,
+        "worker identity"
+    );
+    assert!(
+        encoded
+            .bytes
+            .windows("wire-test".len())
+            .any(|window| window == b"wire-test"),
+        "test identity must survive worker forwarding"
+    );
     assert!(
         encoded
             .bytes
@@ -63,4 +75,13 @@ fn versioned_wire_encoder_runs_without_host_glue() {
         .unwrap();
     assert_eq!(status, HostStatus::Unavailable);
     assert_eq!(transport.dropped(), 1);
+
+    let encoded_after_drop = transport
+        .encode(event, &[], Identity::default(), &mut output, &mut scratch)
+        .unwrap();
+    assert_eq!(
+        u64::from_le_bytes(encoded_after_drop.bytes[20..28].try_into().unwrap()),
+        1,
+        "the next envelope distinguishes transport loss from no events"
+    );
 }
