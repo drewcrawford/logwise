@@ -417,8 +417,8 @@ declare_logging_domain!();
 
 // Re-export core types and functions for public API
 pub use facade_runtime::{
-    ActivationResult, CompletedSpan, ContextSnapshot, Filter, Runtime, RuntimeDeliveryStats,
-    SinkId, Target, init,
+    ActivationResult, COMPLETED_SPAN_RETENTION, CompletedSpan, ContextSnapshot, Filter, Runtime,
+    RuntimeDeliveryStats, SinkId, Target, init,
 };
 pub use flight_recorder::{
     FlightCursor, FlightRead, FlightRecord, FlightRecorder, FlightRecorderStats, RecorderView,

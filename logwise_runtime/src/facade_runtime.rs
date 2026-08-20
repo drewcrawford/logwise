@@ -3,7 +3,7 @@
 //! Runtime-owned context storage and monotonic span timing for the facade.
 
 use std::cell::Cell;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -40,6 +40,11 @@ pub struct CompletedSpan {
     pub warning_threshold: Option<Duration>,
     pub threshold_exceeded: bool,
 }
+
+/// How many completed spans the runtime retains for a reader that has not
+/// arrived yet. Once full, the oldest completion is discarded and counted in
+/// [`RuntimeDeliveryStats::completed_spans_dropped`].
+pub const COMPLETED_SPAN_RETENTION: usize = 1024;
 
 /// Platform constraint for an activation request.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -113,6 +118,9 @@ pub struct SinkId(u64);
 pub struct RuntimeDeliveryStats {
     pub sink_panics: u64,
     pub reentrant_events_dropped: u64,
+    /// Completed spans discarded because nothing drained
+    /// [`Runtime::take_completed_spans`] before the retention window filled.
+    pub completed_spans_dropped: u64,
 }
 
 #[derive(Debug)]
@@ -144,7 +152,7 @@ struct SinkRegistration {
 struct State {
     contexts: HashMap<u64, ContextSnapshot>,
     active_spans: HashMap<u64, ActiveSpan>,
-    completed_spans: Vec<CompletedSpan>,
+    completed_spans: VecDeque<CompletedSpan>,
     activations: Vec<Activation>,
     sinks: Vec<SinkRegistration>,
     catalog: Vec<&'static Metadata>,
@@ -159,6 +167,7 @@ pub struct Runtime {
     next_sink: AtomicU64,
     sink_panics: AtomicU64,
     reentrant_events_dropped: AtomicU64,
+    completed_spans_dropped: AtomicU64,
     state: Spinlock<State>,
 }
 
@@ -172,6 +181,7 @@ impl Runtime {
             next_sink: AtomicU64::new(1),
             sink_panics: AtomicU64::new(0),
             reentrant_events_dropped: AtomicU64::new(0),
+            completed_spans_dropped: AtomicU64::new(0),
             state: Spinlock::new(State::default()),
         }
     }
@@ -269,6 +279,7 @@ impl Runtime {
         RuntimeDeliveryStats {
             sink_panics: self.sink_panics.load(Ordering::Relaxed),
             reentrant_events_dropped: self.reentrant_events_dropped.load(Ordering::Relaxed),
+            completed_spans_dropped: self.completed_spans_dropped.load(Ordering::Relaxed),
         }
     }
 
@@ -281,9 +292,14 @@ impl Runtime {
         self.state.with(|state| state.contexts.get(&id).cloned())
     }
 
+    /// Drains the retained completions.
+    ///
+    /// At most [`COMPLETED_SPAN_RETENTION`] are kept between calls; see
+    /// [`RuntimeDeliveryStats::completed_spans_dropped`] for what a slow or
+    /// absent reader lost.
     pub fn take_completed_spans(&self) -> Vec<CompletedSpan> {
         self.state
-            .with_mut(|state| std::mem::take(&mut state.completed_spans))
+            .with_mut(|state| Vec::from(std::mem::take(&mut state.completed_spans)))
     }
 
     fn advance_generation(&self) {
@@ -687,7 +703,15 @@ impl Dispatch for Runtime {
             .warning_threshold
             .is_some_and(|threshold| elapsed >= threshold);
         self.state.with_mut(|state| {
-            state.completed_spans.push(CompletedSpan {
+            // Nothing forces an application to drain these, and a span guard is
+            // as cheap to create as a log call, so the window is bounded the
+            // same way every other buffer in the runtime is: keep the newest,
+            // and account for what that cost.
+            if state.completed_spans.len() == COMPLETED_SPAN_RETENTION {
+                state.completed_spans.pop_front();
+                self.completed_spans_dropped.fetch_add(1, Ordering::Relaxed);
+            }
+            state.completed_spans.push_back(CompletedSpan {
                 token: span,
                 event_name: active.event_name,
                 context: captured_context,
