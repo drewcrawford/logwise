@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Logging to a stderr that cannot be written took the process down with it.** `StdErrorLogger::finish_log_record` called `.expect("Can't log to stderr")` on every part it wrote, so a closed pipe, a full disk, or a detached terminal turned an ordinary log line into a panic. stderr breaks for reasons that have nothing to do with the code being diagnosed -- `prog | head` closes the reader as soon as it has what it wants -- and this logger is called from `PerfwarnInterval`, `ProfileInterval`, and `Task` destructors, where a panic during an unwind aborts outright rather than failing a test. A record that cannot be written is now dropped at the first failed part, which is what every other sink in the crate already does with a destination that will not take a write.
+
 - **`StdErrorLogger` was documented as the logger you install, and could not be installed.** The type is `pub`, has a `pub const fn new()`, and the `Logger` docs point at `crate::StdErrorLogger` -- but `mod stderror_logger` is private and nothing re-exported it, so the name did not exist outside the crate. The practical cost is that `set_global_loggers` was a one-way door: once you replaced the default set, you could not put stderr back, or run your own logger *alongside* stderr, without having stashed the original `Vec` first. It is now exported at the crate root next to `InMemoryLogger`.
 
 ## [0.6.1] - 2026-08-17

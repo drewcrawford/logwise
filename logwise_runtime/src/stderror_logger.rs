@@ -73,11 +73,18 @@ impl Logger for StdErrorLogger {
         {
             use std::io::Write;
             let mut lock = std::io::stderr().lock();
-            for part in record.parts {
-                lock.write_all(part.as_bytes())
-                    .expect("Can't log to stderr");
-            }
-            lock.write_all(b"\n").expect("Can't log to stderr");
+            // Losing the line beats taking the process down with it. stderr
+            // breaks for reasons that have nothing to do with the code being
+            // diagnosed -- a closed pipe when the reader exits first, a full
+            // disk, a detached terminal -- and records reach this logger from
+            // interval and task destructors, where a panic during an unwind
+            // aborts. Stop at the first failed part so a partial line is not
+            // followed by the rest of the record.
+            let _ = record
+                .parts
+                .iter()
+                .try_for_each(|part| lock.write_all(part.as_bytes()))
+                .and_then(|()| lock.write_all(b"\n"));
         }
         #[cfg(target_arch = "wasm32")]
         {

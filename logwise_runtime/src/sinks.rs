@@ -609,7 +609,23 @@ fn worker_loop<W: OwnedEventWriter>(shared: Arc<AsyncShared>, mut writer: W) {
 }
 
 fn notify_progress(shared: &AsyncShared) {
-    shared.progress.notify_all();
+    {
+        // `FlushBarrier::wait` evaluates its predicate while holding this lock and
+        // then blocks on the condvar, which releases it. Taking the lock here is
+        // what makes that sequence indivisible from the worker's point of view: a
+        // barrier that has already read a stale `flushed_sequence` still holds the
+        // lock, so this thread cannot signal into the gap before the barrier is
+        // parked. Every caller publishes its state change before calling here, so
+        // acquiring the lock afterwards is enough — the state is never read under
+        // it by this thread.
+        let _parked = shared.progress_lock.lock().unwrap_or_else(|error| {
+            // A panicking waiter poisons the lock, but the waiter observes state
+            // through atomics rather than the guarded value, so there is nothing
+            // to distrust here. Failing to notify would hang every other barrier.
+            error.into_inner()
+        });
+        shared.progress.notify_all();
+    }
     let wakers = std::mem::take(&mut *shared.wakers.lock().unwrap());
     for waker in wakers {
         waker.wake();
