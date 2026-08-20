@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **A call site's cached interest could be paired with the wrong generation.** The generation-keyed cache is two words, and a call site is filled by whichever thread misses it first. Two threads missing at different generations interleave four stores, and one of those interleavings leaves the newer generation sitting next to the older mask -- a stale interest that then looks current, and stays that way until the generation moves again. Depending on which way it went, the call site either evaluated fields no view had asked for or stopped materializing fields a view was waiting on; the runtime's per-sink projection still applied, so nothing crossed a privacy boundary. The cached mask now carries the generation it was computed for in its upper bits, so a mismatched pair is detectable and simply recomputes. The window is a few instructions wide and cannot be forced from a test, so this one is fixed by construction rather than by regression test.
 
+- **CI never ran the facade boundary gate.** `AGENTS.md` says the root facade's zero-dependency, no-alloc boundary is enforced by `scripts/facade_boundary`, and `scripts/check_all` does run it -- but the workflow calls the individual `scripts/<target>/*` wrappers, so nothing in CI ever did. A pull request that gave the facade a dependency, or that made an ordinary optimized build strip its instrumentation, would have gone green. The workflow now runs the gate on the native leg, and the gate itself uses `grep` instead of `rg` so it cannot quietly fail for want of a tool on a bare runner.
+
 ## [0.6.1] - 2026-08-17
 
 ### Fixed

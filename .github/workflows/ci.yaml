@@ -83,6 +83,14 @@ jobs:
           fi
           scripts/${{ matrix.target }}/check
 
+      # Project step: the 0.7 split rests on the root facade having no
+      # dependencies and no allocation by default, and nothing else in this
+      # job checks it -- `scripts/check_all` runs it, but CI calls the
+      # individual wrappers. Native only; it inspects host objects.
+      - name: facade boundary
+        if: matrix.target == 'native'
+        run: scripts/facade_boundary
+
       - name: clippy
         run: scripts/${{ matrix.target }}/clippy
 

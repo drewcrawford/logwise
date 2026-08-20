@@ -15,12 +15,14 @@ export CARGO_TARGET_DIR="$boundary_target"
 cargo check --manifest-path fixtures/no_std_no_alloc/Cargo.toml
 cargo rustc --release --manifest-path fixtures/no_std_no_alloc/Cargo.toml -- --emit=obj
 
-if rg -a -l "LOGWISE_STATICALLY_EXCLUDED_SENTINEL_3FC0A730" "$boundary_target/release"; then
+# grep rather than rg: this gate has to run on a bare CI runner, and the one
+# thing it must never do is skip because a tool was missing.
+if grep -a -r -l "LOGWISE_STATICALLY_EXCLUDED_SENTINEL_3FC0A730" "$boundary_target/release"; then
     echo "statically excluded logwise metadata was retained in an object" >&2
     exit 1
 fi
 
-if ! rg -a -q "answer=" "$boundary_target/release"; then
+if ! grep -a -r -q "answer=" "$boundary_target/release"; then
     echo "ordinary optimized builds stripped ad-hoc logwise instrumentation" >&2
     exit 1
 fi
