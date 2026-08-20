@@ -23,17 +23,29 @@ use crate::{ContextToken, Detail, EventRef, Metadata, Privacy, SpanGuard, SpanRe
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 /// The field groups requested by currently active views.
+///
+/// `Hash` is deliberately not implemented. An interest is a transient answer
+/// to "what does anyone want from this call site right now", not an identity;
+/// keying a map by one would be keying it by a value that changes whenever a
+/// view is added or removed.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Interest(usize);
 
 impl Interest {
+    /// Nothing is wanted. The call site evaluates no field expressions.
     pub const NONE: Self = Self(0);
 
+    /// Some view wants core support-safe fields.
     pub const CORE_SUPPORT: Self = Self(1 << 0);
+    /// Some view wants core local-only fields.
     pub const CORE_LOCAL: Self = Self(1 << 1);
+    /// Some trusted view wants core secret fields.
     pub const CORE_SECRET: Self = Self(1 << 2);
+    /// Some view wants deferred support-safe detail.
     pub const DETAIL_SUPPORT: Self = Self(1 << 3);
+    /// Some view wants deferred local-only detail.
     pub const DETAIL_LOCAL: Self = Self(1 << 4);
+    /// Some trusted view wants deferred secret detail.
     pub const DETAIL_SECRET: Self = Self(1 << 5);
     /// The runtime must refine this call site's interest against the current
     /// context before any fields are evaluated.
@@ -41,30 +53,44 @@ impl Interest {
 
     const ALL_BITS: usize = (1 << 7) - 1;
 
+    /// Reconstructs an interest from its bit representation, discarding any
+    /// bit this version of the facade does not define.
     pub const fn from_bits(bits: usize) -> Self {
         Self(bits & Self::ALL_BITS)
     }
 
+    /// The bit representation, for a runtime that stores or transmits it.
     pub const fn bits(self) -> usize {
         self.0
     }
 
+    /// Whether any view wants anything from this call site.
     pub const fn any(self) -> bool {
         self.0 != 0
     }
 
+    /// The interest satisfying both, for a runtime combining several views.
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
 
+    /// Whether the runtime must refine this against the current context
+    /// before the call site evaluates anything.
     pub const fn is_contextual(self) -> bool {
         self.0 & Self::CONTEXTUAL.0 != 0
     }
 
+    /// This interest with the contextual-refinement request cleared, leaving
+    /// only the field groups themselves.
     pub const fn without_contextual(self) -> Self {
         Self(self.0 & !Self::CONTEXTUAL.0)
     }
 
+    /// Whether a field with this privacy and detail should be evaluated.
+    ///
+    /// This is the check a call site makes before running a field expression,
+    /// and the reason unwanted work is never done rather than done and thrown
+    /// away.
     pub const fn wants(self, privacy: Privacy, detail: Detail) -> bool {
         let bit = match (detail, privacy) {
             (Detail::Core, Privacy::SupportSafe) => Self::CORE_SUPPORT.0,
@@ -118,15 +144,36 @@ pub trait Dispatch: Sync + 'static {
 }
 
 /// Failure to install the process dispatcher.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+///
+/// The variants are exhaustive on purpose: installation has exactly these two
+/// outcomes, and a caller matching on them should get a compile error rather
+/// than a silent fallthrough if that ever changes.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum InstallError {
+    /// A dispatcher is already installed. Installation is once per process,
+    /// so that every call site in the program observes the same one.
     AlreadyInstalled,
     /// This target cannot safely install a process-global dispatcher because it
     /// lacks pointer-width atomics. The facade remains a no-op on such targets.
     UnsupportedTarget,
 }
 
+impl core::fmt::Display for InstallError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let message = match self {
+            Self::AlreadyInstalled => "a logwise dispatcher is already installed",
+            Self::UnsupportedTarget => {
+                "this target lacks pointer-width atomics, so no dispatcher can be installed"
+            }
+        };
+        formatter.write_str(message)
+    }
+}
+
+impl core::error::Error for InstallError {}
+
 #[cfg(target_has_atomic = "ptr")]
+#[derive(Debug)]
 struct Cache {
     generation: AtomicUsize,
     /// The cached mask, carrying the generation it was computed for in its
@@ -170,6 +217,7 @@ impl Cache {
 const INTEREST_WIDTH: u32 = usize::BITS - Interest::ALL_BITS.leading_zeros();
 
 #[cfg(not(target_has_atomic = "ptr"))]
+#[derive(Debug)]
 struct Cache;
 
 #[cfg(not(target_has_atomic = "ptr"))]
@@ -180,12 +228,17 @@ impl Cache {
 }
 
 /// A static call site with a generation-keyed interest cache.
+#[derive(Debug)]
 pub struct Callsite {
     metadata: &'static Metadata,
     cache: Cache,
 }
 
 impl Callsite {
+    /// Creates the call site for one piece of static metadata.
+    ///
+    /// This is `const` so a call site can live in a static and pay nothing to
+    /// come into existence.
     pub const fn new(metadata: &'static Metadata) -> Self {
         Self {
             metadata,
@@ -193,6 +246,7 @@ impl Callsite {
         }
     }
 
+    /// The static metadata this call site was built from.
     pub const fn metadata(&self) -> &'static Metadata {
         self.metadata
     }

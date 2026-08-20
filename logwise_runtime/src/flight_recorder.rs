@@ -13,7 +13,7 @@ use logwise::Privacy;
 use crate::{EventSink, OwnedProjectedEvent, ProjectedEvent};
 
 /// The privacy projection applied while querying retained history.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum RecorderView {
     /// A trusted local view containing support-safe and local-only fields.
     #[default]
@@ -23,7 +23,7 @@ pub enum RecorderView {
 }
 
 /// A monotonically increasing position in the recorder stream.
-#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct FlightCursor(pub u64);
 
 /// One retained structured event. Formatting is deferred until this value is
@@ -59,7 +59,7 @@ impl fmt::Display for FlightRecord {
 
 /// Cumulative recorder accounting. Drops and overwrites are kept separate so
 /// a query can distinguish lock contention from bounded-retention loss.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub struct FlightRecorderStats {
     pub accepted: u64,
     pub dropped: u64,
@@ -127,6 +127,25 @@ pub struct FlightRecorder {
     next_sequence: AtomicU64,
     shards: Vec<Mutex<Shard>>,
     stats: Stats,
+}
+
+impl std::fmt::Debug for FlightRecorder {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The shards are not locked here: a `Debug` that can block is a
+        // liability in a recorder whose whole purpose is being readable when
+        // the program is misbehaving.
+        formatter
+            .debug_struct("FlightRecorder")
+            .field("shards", &self.shards.len())
+            .field("max_string_bytes", &self.max_string_bytes)
+            .field(
+                "next_sequence",
+                &self
+                    .next_sequence
+                    .load(std::sync::atomic::Ordering::Relaxed),
+            )
+            .finish_non_exhaustive()
+    }
 }
 
 impl FlightRecorder {

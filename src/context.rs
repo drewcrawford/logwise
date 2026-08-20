@@ -81,6 +81,7 @@ pub fn enter(context: ContextToken) -> ContextGuard {
 
 /// Restores the previously entered context on drop.
 #[must_use]
+#[derive(Debug)]
 pub struct ContextGuard {
     previous: ContextToken,
     active: bool,

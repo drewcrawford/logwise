@@ -22,7 +22,7 @@ std::thread_local! {
     static IN_DISPATCH: Cell<bool> = const { Cell::new(false) };
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ContextSnapshot {
     pub token: ContextToken,
     pub name: &'static str,
@@ -47,14 +47,14 @@ pub struct CompletedSpan {
 pub const COMPLETED_SPAN_RETENTION: usize = 1024;
 
 /// Platform constraint for an activation request.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Target {
     Native,
     Wasm,
 }
 
 /// Runtime selector over static metadata and causal context.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Filter {
     domain: Option<String>,
     event_name: Option<String>,
@@ -103,7 +103,7 @@ impl Filter {
 }
 
 /// Result of asking the runtime to activate an observed selector.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ActivationResult {
     Enabled,
     UnavailableTarget,
@@ -114,7 +114,7 @@ pub enum ActivationResult {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct SinkId(u64);
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub struct RuntimeDeliveryStats {
     pub sink_panics: u64,
     pub reentrant_events_dropped: u64,
@@ -169,6 +169,31 @@ pub struct Runtime {
     reentrant_events_dropped: AtomicU64,
     completed_spans_dropped: AtomicU64,
     state: Spinlock<State>,
+}
+
+impl std::fmt::Debug for Runtime {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Deliberately does not take `state`. Formatting a value must not be
+        // able to block, and least of all in the crate an application reaches
+        // for when it is trying to find out why something is stuck.
+        formatter
+            .debug_struct("Runtime")
+            .field("generation", &self.generation.load(Ordering::Relaxed))
+            .field(
+                "baseline_interest",
+                &self.baseline_interest.load(Ordering::Relaxed),
+            )
+            .field("sink_panics", &self.sink_panics.load(Ordering::Relaxed))
+            .field(
+                "reentrant_events_dropped",
+                &self.reentrant_events_dropped.load(Ordering::Relaxed),
+            )
+            .field(
+                "completed_spans_dropped",
+                &self.completed_spans_dropped.load(Ordering::Relaxed),
+            )
+            .finish_non_exhaustive()
+    }
 }
 
 impl Runtime {

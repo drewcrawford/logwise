@@ -56,6 +56,17 @@ use super::context_impl::Context;
 /// of which thread or executor polls it.
 pub struct ApplyContext<F>(Context, F);
 
+impl<F> std::fmt::Debug for ApplyContext<F> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The wrapped future is not required to be `Debug`, and the context is
+        // the part a reader is actually asking about here.
+        formatter
+            .debug_struct("ApplyContext")
+            .field("context", &self.0)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<F> ApplyContext<F> {
     /// Creates a new `ApplyContext` wrapper.
     ///

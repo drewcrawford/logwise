@@ -27,6 +27,7 @@ pub struct SpanToken {
 }
 
 impl SpanToken {
+    /// The no-runtime value, identifying no span.
     pub const NONE: Self = Self { id: 0, flags: 0 };
 
     #[doc(hidden)]
@@ -39,12 +40,17 @@ impl SpanToken {
         (self.id, self.flags)
     }
 
+    /// Whether this token identifies no span.
     pub const fn is_none(self) -> bool {
         self.id == 0
     }
 }
 
 /// The distinct timing question answered by a span.
+///
+/// Exhaustive for the same reason as [`Class`](crate::Class) and
+/// [`Privacy`](crate::Privacy): a runtime that cannot answer one of these
+/// questions should fail to compile, not report the wrong duration.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[repr(u8)]
 pub enum SpanTiming {
@@ -57,10 +63,14 @@ pub enum SpanTiming {
 }
 
 /// Borrowed span start delivered synchronously to the runtime.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct SpanRef<'a> {
+    /// The opening event: schema, context and fields.
     pub event: EventRef<'a>,
+    /// Which timing question this span answers.
     pub timing: SpanTiming,
+    /// A duration past which the runtime should report the span as a
+    /// performance warning when it closes.
     pub warning_threshold: Option<Duration>,
 }
 
@@ -69,6 +79,7 @@ pub struct SpanRef<'a> {
 /// The active context is captured at construction, so completion remains
 /// attached to the originating task even if another context is active later.
 #[must_use = "dropping the guard ends the span"]
+#[derive(Debug)]
 pub struct SpanGuard {
     token: SpanToken,
     context: ContextToken,
@@ -96,6 +107,7 @@ impl SpanGuard {
         }
     }
 
+    /// The runtime-owned identity of the span this guard will close.
     pub const fn token(&self) -> SpanToken {
         self.token
     }

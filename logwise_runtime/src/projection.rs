@@ -29,6 +29,7 @@ pub struct ProjectedField<'a> {
 ///
 /// The trusted runtime constructs this after privacy projection. Sink APIs do
 /// not receive the raw facade `EventRef`.
+#[derive(Debug)]
 pub struct ProjectedEvent<'a> {
     pub metadata: &'static Metadata,
     pub context: ContextToken,
@@ -43,7 +44,7 @@ pub trait EventSink: Send + Sync + 'static {
 }
 
 /// Whether a view asks call sites to evaluate expensive detail fields.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum DetailLevel {
     #[default]
     Core,

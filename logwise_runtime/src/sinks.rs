@@ -4,7 +4,7 @@
 //!
 //! Console, bounded in-memory, structured-writer and queued async sinks all
 //! sit behind the runtime dispatcher and receive
-//! [`ProjectedEvent`](crate::ProjectedEvent), never raw facade values. Every
+//! [`ProjectedEvent`], never raw facade values. Every
 //! buffer here is bounded, and every one accounts for what it lost: accepted,
 //! dropped, overwritten, truncated and failed records are counted rather than
 //! silently discarded, because a sink that quietly drops is indistinguishable
@@ -113,14 +113,14 @@ fn truncate(mut value: String, max: usize, truncated: &mut usize) -> String {
     value
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum OverflowPolicy {
     #[default]
     DropNewest,
     OverwriteOldest,
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub struct SinkStats {
     pub accepted: u64,
     pub dropped: u64,
@@ -156,6 +156,20 @@ pub struct InMemorySink {
     overflow: OverflowPolicy,
     records: Mutex<VecDeque<OwnedProjectedEvent>>,
     stats: Stats,
+}
+
+impl fmt::Debug for InMemorySink {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // `records` is deliberately not locked: formatting must not be able to
+        // block, and `stats` answers the question a reader actually has.
+        formatter
+            .debug_struct("InMemorySink")
+            .field("capacity", &self.capacity)
+            .field("max_string_bytes", &self.max_string_bytes)
+            .field("overflow", &self.overflow)
+            .field("stats", &self.stats.snapshot())
+            .finish_non_exhaustive()
+    }
 }
 
 impl InMemorySink {
@@ -209,7 +223,7 @@ impl EventSink for InMemorySink {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ConsoleSink;
 
 impl EventSink for ConsoleSink {
@@ -252,6 +266,15 @@ pub trait OwnedEventWriter: Send + 'static {
 
 pub struct StructuredWriter<W> {
     writer: W,
+}
+
+impl<W> fmt::Debug for StructuredWriter<W> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // `W` is an arbitrary writer and is not required to be `Debug`.
+        formatter
+            .debug_struct("StructuredWriter")
+            .finish_non_exhaustive()
+    }
 }
 
 impl<W> StructuredWriter<W> {
@@ -322,6 +345,24 @@ pub struct AsyncSink {
 struct AsyncInner {
     shared: Arc<AsyncShared>,
     worker: Mutex<Option<wasm_lite_std::JoinHandle<()>>>,
+}
+
+impl fmt::Debug for AsyncSink {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Never touches `worker`: that mutex is held across the worker's own
+        // shutdown, so formatting under it could park the caller.
+        formatter
+            .debug_struct("AsyncSink")
+            .field(
+                "stopped",
+                &self.inner.shared.stopped.load(Ordering::Acquire),
+            )
+            .field(
+                "flushed_sequence",
+                &self.inner.shared.flushed_sequence.load(Ordering::Acquire),
+            )
+            .finish_non_exhaustive()
+    }
 }
 
 impl AsyncSink {
@@ -480,7 +521,7 @@ impl Drop for AsyncInner {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct FlushError {
     pub kind: io::ErrorKind,
     pub message: String,
@@ -506,6 +547,19 @@ impl std::error::Error for FlushError {}
 pub struct FlushBarrier {
     shared: Arc<AsyncShared>,
     target: u64,
+}
+
+impl fmt::Debug for FlushBarrier {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("FlushBarrier")
+            .field("target", &self.target)
+            .field(
+                "flushed_sequence",
+                &self.shared.flushed_sequence.load(Ordering::Acquire),
+            )
+            .finish_non_exhaustive()
+    }
 }
 
 impl FlushBarrier {

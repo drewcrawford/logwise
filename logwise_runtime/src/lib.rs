@@ -18,6 +18,18 @@ and hierarchical task-based context management.
 
 logwise is experimental and the API may change.
 
+# On exhaustive enums
+
+None of this crate's public enums is `#[non_exhaustive]`, and that is a
+decision rather than an oversight. They describe a fixed set of outcomes a
+caller has to handle to be correct — which privacy tier a value carries, what a
+sink did with a record it could not keep, whether an activation found its
+target. Adding a variant to any of them really is a breaking change, and the
+useful failure mode is a `match` that stops compiling, not one that quietly
+routes a new case into a wildcard arm. The facade's [`Privacy`](logwise::Privacy)
+and [`Class`](logwise::Class) are exhaustive for the same reason, and the
+runtime's own enums mirror them.
+
 # The Problem
 
 Traditional logging crates like [`log`](https://crates.io/crates/log) offer generic log levels

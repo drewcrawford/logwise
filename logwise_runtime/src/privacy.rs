@@ -551,6 +551,12 @@ impl<T: Loggable> Loggable for Option<T> {
 /// ```
 pub struct LogIt<T>(pub T);
 
+impl<T: Debug> Debug for LogIt<T> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.debug_tuple("LogIt").field(&self.0).finish()
+    }
+}
+
 impl<T: Debug> Loggable for LogIt<T> {
     #[inline]
     fn log_redacting_private_info(&self, record: &mut LogRecord) {
@@ -635,6 +641,17 @@ impl<T: Debug> Loggable for LogIt<T> {
 /// # }
 /// ```
 pub struct IPromiseItsNotPrivate<T>(pub T);
+
+impl<T: Debug> Debug for IPromiseItsNotPrivate<T> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The whole meaning of this wrapper is that the caller has asserted
+        // the value is not private, so showing it is consistent.
+        formatter
+            .debug_tuple("IPromiseItsNotPrivate")
+            .field(&self.0)
+            .finish()
+    }
+}
 
 impl<T: Debug> Loggable for IPromiseItsNotPrivate<T> {
     #[inline]

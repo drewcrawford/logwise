@@ -11,7 +11,7 @@ use std::panic;
 use std::sync::Arc;
 
 /// The producer of an opaque foreign text record.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ForeignOrigin {
     RustStdout,
     RustStderr,
@@ -65,6 +65,15 @@ type PanicHook = Box<dyn Fn(&panic::PanicHookInfo<'_>) + Send + Sync + 'static>;
 /// in the meantime; applications must coordinate hook ownership.
 pub struct PanicHookRegistration {
     previous: Option<PanicHook>,
+}
+
+impl std::fmt::Debug for PanicHookRegistration {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PanicHookRegistration")
+            .field("has_previous", &self.previous.is_some())
+            .finish()
+    }
 }
 
 impl PanicHookRegistration {
@@ -134,7 +143,7 @@ mod native_fd {
     }
 
     /// A process-global native file descriptor accepted by the capture adapter.
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
     pub enum NativeFd {
         Stdout,
         Stderr,
@@ -173,6 +182,16 @@ mod native_fd {
         target: NativeFd,
         saved: Option<File>,
         reader: Option<JoinHandle<io::Result<Vec<u8>>>>,
+    }
+
+    impl std::fmt::Debug for NativeFdCapture {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter
+                .debug_struct("NativeFdCapture")
+                .field("target", &self.target)
+                .field("active", &self.reader.is_some())
+                .finish_non_exhaustive()
+        }
     }
 
     impl NativeFdCapture {
